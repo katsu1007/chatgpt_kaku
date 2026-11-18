@@ -1,0 +1,117 @@
+/* シンボル辞書のテスト。実行：node --test tests/
+ * 期待値は実測した図形の特徴（CC0の小便器・実図面で同定したロッカー等）から決めた。 */
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { classifySymbol, SYM_THRESHOLD } from '../js/symdict.js';
+
+test('しきい値は 0.90', () => { assert.equal(SYM_THRESHOLD, 0.90); });
+
+test('CC0小便器の実測特徴（450×500・円弧0.67）は小便器', () => {
+  const r = classifySymbol({ short: 450, long: 500, arcShare: 0.67, closed: true, innerClosed: false, dividers: null });
+  assert.equal(r.result, '小便器');
+  assert.ok(r.score >= 0.9);
+});
+
+test('ロッカー2連（565×900・直線のみ・分割線あり）はロッカー', () => {
+  const r = classifySymbol({ short: 565, long: 900, arcShare: 0.0, closed: true, innerClosed: false, dividers: 3 });
+  assert.equal(r.result, 'ロッカー');
+});
+
+test('壁掛け大便器（398×497・円弧主体・内側の閉曲線あり）は形だけでは洗面器と分かれず「要確認」', () => {
+  // 平面の形は洗面器とほぼ同じ。切り分けにはレイヤーや部屋などの文脈が要るので、確定しないのが正しい
+  const r = classifySymbol({ short: 398, long: 497, arcShare: 0.8, closed: true, innerClosed: true, dividers: null });
+  assert.equal(r.result, '要確認');
+});
+
+test('幅の広い洗面器（500×600）は便器の範囲を外れるので洗面器', () => {
+  const r = classifySymbol({ short: 500, long: 600, arcShare: 0.5, closed: true, innerClosed: true, dividers: null });
+  assert.equal(r.result, '洗面器');
+});
+
+test('椅子（545×571・円弧主体）は椅子', () => {
+  const r = classifySymbol({ short: 545, long: 571, arcShare: 0.85, closed: true, innerClosed: false, dividers: null });
+  assert.equal(r.result, '椅子');
+});
+
+test('便器と洗面器の両方に合う形は確定せず「要確認」', () => {
+  const r = classifySymbol({ short: 440, long: 560, arcShare: 0.5, closed: true, innerClosed: true, dividers: null });
+  assert.equal(r.result, '要確認');
+});
+
+test('どれにも合わない形は「不明」', () => {
+  const r = classifySymbol({ short: 1200, long: 1250, arcShare: 0.5, closed: true, innerClosed: false, dividers: null });
+  assert.equal(r.result, '不明');
+});
+
+import { classifyBox, SYM_VERDICTS } from '../js/symdict.js';
+
+test('外形だけの判定：小便器 370×420mm は検出（小便器）', () => {
+  const r = classifyBox([0, 0, 0.37, 0.42]);
+  assert.equal(r.verdict, 'hit');
+  assert.equal(r.category, '小便器');
+});
+
+test('外形だけの判定：ロッカー 900×565mm は検出（ロッカー）', () => {
+  const r = classifyBox([0, 0, 0.9, 0.565]);
+  assert.equal(r.verdict, 'hit');
+  assert.equal(r.category, 'ロッカー');
+});
+
+test('外形だけの判定：大便器 398×497mm は洗面器などと分かれず類似（確定しない）', () => {
+  const r = classifyBox([0, 0, 0.398, 0.497]);
+  assert.equal(r.verdict, 'near');
+});
+
+test('外形だけの判定：辞書に無い大きさ（2000×900mm）は不明', () => {
+  const r = classifyBox([0, 0, 2.0, 0.9]);
+  assert.equal(r.verdict, 'unknown');
+  assert.equal(r.category, null);
+});
+
+test('外形だけの判定：外形が無い・壊れている時は不明', () => {
+  assert.equal(classifyBox(null).verdict, 'unknown');
+  assert.equal(classifyBox([0, 0]).verdict, 'unknown');
+});
+
+test('3区分の色は互いに違う', () => {
+  const cs = [SYM_VERDICTS.hit.color, SYM_VERDICTS.near.color, SYM_VERDICTS.unknown.color];
+  assert.equal(new Set(cs).size, 3);
+});
+
+test('自分の辞書：登録した寸法と名前が最優先で検出になる（辞書に無い大きさでも）', () => {
+  const mine = [{ id: 'u1', name: '作業台', short: 900, long: 2000 }];
+  const r = classifyBox([0, 0, 2.0, 0.9], mine);
+  assert.equal(r.verdict, 'hit');
+  assert.equal(r.category, '作業台');
+  assert.equal(r.mine, true);
+});
+
+test('自分の辞書：寸法が許容（±5%）の内なら少し違っても検出、外なら通常の判定に戻る', () => {
+  const mine = [{ id: 'u1', name: '大便器', short: 398, long: 497 }];
+  assert.equal(classifyBox([0, 0, 0.41, 0.51], mine).category, '大便器');
+  const r = classifyBox([0, 0, 0.6, 0.9], mine);
+  assert.notEqual(r.category, '大便器');
+});
+
+test('自分の辞書：壊れた登録は無視する', () => {
+  const mine = [{ id: 'u2', name: '', short: 0, long: 0 }, null, { name: 'x' }];
+  const r = classifyBox([0, 0, 0.37, 0.42], mine);
+  assert.equal(r.category, '小便器');
+  assert.equal(r.mine, undefined);
+});
+
+test('CC0実測：浴槽（750×1700・円弧0.25・内側の閉曲線あり）は浴槽', () => {
+  const r = classifySymbol({ short: 750, long: 1700, arcShare: 0.25, closed: true, innerClosed: true, dividers: null });
+  assert.equal(r.result, '浴槽');
+});
+
+test('CC0実測：シャワートレー（900×900）は外形だけでも検出', () => {
+  const r = classifyBox([0, 0, 0.9, 0.9]);
+  assert.equal(r.verdict, 'hit');
+  assert.equal(r.category, 'シャワー');
+});
+
+test('同寸法が複数カテゴリにある形（550×600）は確定せず類似', () => {
+  const r = classifyBox([0, 0, 0.55, 0.6]);
+  assert.equal(r.verdict, 'near');
+});
