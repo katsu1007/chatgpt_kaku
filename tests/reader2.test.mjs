@@ -77,7 +77,7 @@ test('寸法線・図枠線・細線のまとまりを役割候補として分�
     groups:[{on:true},{on:true},{on:true},{on:true}],
     segs:[
       ...Array.from({length:220},(_,i)=>[i*0.01,0,i*0.01+0.01,0,0]),
-      ...Array.from({length:12},(_,i)=>[0,i,10,i,1]),
+      ...Array.from({length:12},(_,i)=>[0,0,10,0,1]),
       ...Array.from({length:12},(_,i)=>[0,i,10,i,2]),
       ...Array.from({length:12},(_,i)=>[0,i,10,i,3])
     ],
