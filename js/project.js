@@ -377,9 +377,14 @@ function fixSummary(d) {
   const fx = d.fixtures || [];
   if (!fx.length) return d.fixtures ? '<div class="small muted" style="margin-top:8px">器具は見つかりませんでした。</div>' : '';
   const c = {}; fx.forEach(x => { c[x.t] = (c[x.t] || 0) + 1; });
+  const candidates = {};
+  fx.forEach(x => { const m = x.symbolMatch; if (m && m.verdict !== 'unknown' && m.category) candidates[m.category] = (candidates[m.category] || 0) + 1; });
+  const candidateText = Object.entries(candidates).map(([name, n]) => `${name} ${n}`).join('・');
   return `<div class="row" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line)"><b class="small">図面の器具</b>
     ${Object.entries(c).map(([t, n]) => `<span class="pill ${t === 'unknown' ? 'warn' : t === 'other' ? '' : 'info'}">${esc(FIX_NAMES[t] || t)} ${n}</span>`).join('')}
-    <span class="spacer"></span><button class="btn sm primary" data-act="fixLines">${icon('list')}器具を明細に入れる</button></div>`;
+    <span class="spacer"></span><button class="btn sm primary" data-act="fixLines">${icon('list')}器具を明細に入れる</button>
+    ${candidateText ? `<div class="small muted" style="flex-basis:100%">シンボル辞書の参考候補：${esc(candidateText)}（寸法照合のみ・自動確定や数量変更はしません）</div>` : ''}
+  </div>`;
 }
 
 function fixLinesDialog(p, after) {
