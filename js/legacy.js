@@ -3,6 +3,8 @@
  * 読み取りの精度を変えないため、前のKAKUのコードには手を入れない（テスト図面22枚と実図面で同じ結果になることを確かめてある）。
  * 前のKAKUの保存場所には、作業用の案件と図面を残さない（読み終わったら消す）。 */
 
+import { classifyBox } from './symdict.js';
+
 let readerPromise = null;
 export function getReader() {
   if (readerPromise) return readerPromise;
@@ -60,6 +62,8 @@ export async function readWithFixtures(file, opt = {}) {
         Object.keys(O).forEach(k=>{open[k]=O[k].map(r=>({ty:r.ty,len:Math.round(r.len*100)/100,a:r.a.map(q),b:r.b.map(q),n:r.n.map(q)}))})}
       return JSON.stringify({plan,fixtures,open,doors:F&&F.doors?F.doors.length:0,doorList:(F&&F.doors||[]).filter(d=>d&&d.c).map(d=>({c:d.c.map(q),m:(d.m||d.c).map(q),r:+d.r||0.8})),fixG:F&&F.g||'',fixGd:F&&F.gd||''})})()`);
     const out = JSON.parse(R);
+    /* 実測シンボル辞書との照合は「参考候補」として付与するだけ。既存の器具判定・数量は変更しない */
+    out.fixtures = (out.fixtures || []).map(x => ({ ...x, symbolMatch: classifyBox(x.b) }));
     /* 画面に出す線：読み取りの部品は線が9,000本を超えると「何本かおきに1本」に間引いて渡してくる（壁が途切れて見える・タップできない）。
      * 読み取りに使った線を全部もらって入れ替える。開口（扉の無い開口）の計算は前のKAKUの中で今まで通り間引いた線のまま行うので、数字は変わらない */
     try {
