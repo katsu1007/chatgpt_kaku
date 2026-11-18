@@ -1,6 +1,6 @@
 /* KAKU Service Worker — オフライン対応とキャッシュ管理
  * アプリを更新したら VERSION の数字を上げてください（古いキャッシュが自動で消えます）。 */
-const VERSION = "2026-11-18.16";
+const VERSION = "2026-11-18.17";
 const CACHE = "kaku-generation-" + VERSION;
 
 /* 最初に必ず保存するもの（これが揃えばオフラインで起動できる） */
@@ -42,7 +42,6 @@ const CORE = [
   "./js/sync.js",
   "./js/syncplan.js",
   "./js/kaku-engine.html",
-  "./old/index.html",
   "./manifest.json",
   "./icon-192.png",
   "./icon-512.png",
@@ -50,7 +49,6 @@ const CORE = [
   "./vendor/pdfjs/pdf.worker.min.mjs",
   "./vendor/three/three.module.min.js",
   "./vendor/pdfjs/LICENSE",
-  "./vendor/three/LICENSE"
 ];
 
 /* PDF図面の日本語文字の読み込み用。インストール時にまとめて保存（失敗しても起動には影響しない） */
