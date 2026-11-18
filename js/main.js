@@ -19,7 +19,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
     document.body.appendChild(b);
   });
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').then(r => { try { r.update(); } catch (e) { /* 確かめられなくても続ける */ } })
+    navigator.serviceWorker.register('./sw.js')
       .catch(e => console.warn('オフライン用の登録に失敗しました', e));
   });
   /* 今動いている版（オフライン用の保管の名前の後ろ）を左下と設定に出す */
