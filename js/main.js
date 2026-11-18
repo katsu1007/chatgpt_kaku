@@ -6,31 +6,27 @@ import './pages.js';
 
 boot();
 
+/*
+ * Service Worker は現在のブラウザ環境で registration.update() 系の例外を
+ * 発生させているため、ブラウザ版の安定動作を優先して一旦停止する。
+ * KAKU は通常の HTTPS ページとしてオンライン利用できる。
+ * このアプリの GitHub Pages 配下にある登録だけを解除し、他サイトの登録には触れない。
+ */
 if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
-  /* 新しい版が届いた時：裏では入れ替わるが、今の画面は古い版のまま動くので、「更新する」を出す（押すと読み直す） */
-  const hadController = !!navigator.serviceWorker.controller;
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (!hadController || document.getElementById('kUpd')) return;
-    const b = document.createElement('div');
-    b.id = 'kUpd';
-    b.style.cssText = 'position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:9999;background:var(--accent,#e8833a);color:#fff;padding:10px 14px;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,.35);display:flex;gap:12px;align-items:center;font-size:14px';
-    b.innerHTML = '<span>新しい版があります</span><button style="background:#fff;color:#222;border:0;border-radius:8px;padding:6px 12px;font-weight:600;font-size:14px">更新する</button>';
-    b.querySelector('button').onclick = () => location.reload();
-    document.body.appendChild(b);
-  });
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js')
-      .catch(e => console.warn('オフライン用の登録に失敗しました', e));
-  });
-  /* 今動いている版（オフライン用の保管の名前の後ろ）を左下と設定に出す */
-  const showBuild = async () => {
+  window.addEventListener('load', async () => {
     try {
-      const k = (await caches.keys()).filter(x => x.startsWith('kaku-generation-')).sort((a, b) => a.localeCompare(b, 'ja', { numeric: true })).pop();
-      if (!k) return;
-      const v = k.replace('kaku-generation-', '');
-      document.querySelectorAll('.foot, [data-build]').forEach(el => { if (!el.dataset.b) { el.dataset.b = 1; el.insertAdjacentHTML('beforeend', `<br><span class="muted" style="font-size:11px">版 ${v}</span>`); } });
-    } catch (e) { /* 出せなくても続ける */ }
-  };
-  window.addEventListener('load', () => setTimeout(showBuild, 800));
-  window.addEventListener('hashchange', () => setTimeout(showBuild, 300));
+      const regs = await navigator.serviceWorker.getRegistrations();
+      const basePath = new URL('./', location.href).pathname;
+      await Promise.all(regs
+        .filter(reg => new URL(reg.scope).pathname === basePath)
+        .map(reg => reg.unregister()));
+      const keys = await caches.keys();
+      await Promise.all(keys
+        .filter(key => key.startsWith('kaku-generation-'))
+        .map(key => caches.delete(key)));
+      console.info('KAKU: Service Worker を停止しました（オンライン動作）');
+    } catch (e) {
+      console.warn('KAKU: Service Worker の解除をスキップしました', e);
+    }
+  });
 }
