@@ -19,6 +19,16 @@ test("outer boundary becomes one parent and internal partitions become four chil
   assert.equal(result.rooms.length,4);
   assert.equal(result.diagnostics.supplementalLayers,1);
 });
+test("selecting only interior partition layers still prefers a known exterior boundary",()=>{
+  const input={...fixture(),selectedLayers:["間仕切壁"]};
+  const result=extractRoomHierarchy(input);
+  assert.equal(result.parents.length,1);
+  assert.equal(result.parents[0].children.length,4);
+  assert.equal(result.rooms.length,4);
+  assert.deepEqual(result.diagnostics.parentLayerNames,["外壁"]);
+  assert.equal(result.diagnostics.fallbackUsed,false);
+});
+
 test("hidden partition layer is excluded and parent region remains",()=>{
   const input={...fixture(),hiddenLayers:["間仕切壁"]};
   const result=extractRoomHierarchy(input);
