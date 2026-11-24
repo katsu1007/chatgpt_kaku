@@ -172,7 +172,7 @@ test("toilet cubicles with door openings are extracted as separate compartments"
 
 test("wall layer suggestions exclude dimensions, furniture, equipment and annotations",()=>{
   assert.deepEqual(
-    suggestWallLayers(["外壁","間仕切壁","A-WALL","建築寸法","壁注記","設備","FURNITURE","DIM"]),
+    suggestWallLayers(["外壁","間仕切壁","A-WALL","建築寸法","壁注記","設備","FURNITURE","DIM","HATCH","A-WALL-HATCH"]),
     ["外壁","間仕切壁","A-WALL"]
   );
 });

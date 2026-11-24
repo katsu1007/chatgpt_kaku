@@ -3,7 +3,7 @@
 // never interpreted as real-world m² without scale conversion.
 const OUTER_WALL_NAME=/(外壁|躯体|外周|建物外形|外形壁|exterior|outer.?wall)/i;
 const WALL_NAME=/(壁|間仕切|躯体|外壁|内壁|壁芯|(?:^|[-_ ])(?:a-)?wall(?:$|[-_ ])|wall|partition)/i;
-const NON_WALL_NAME=/(寸法|寸法線|寸法補助|寸法記入|寸法記号|引出線|引出|補助線|中心線|通り芯|グリッド|文字|注記|注釈|家具|什器|設備|器具|照明|電気|コンセント|記号|ハッチ|dimension|\bdim\b|measure|annotation|leader|extension|center.?line|grid|axis|furniture|fixture|text|symbol)/i;
+const NON_WALL_NAME=/(寸法|寸法線|寸法補助|寸法記入|寸法記号|引出線|引出|補助線|中心線|通り芯|グリッド|文字|注記|注釈|家具|什器|設備|器具|照明|電気|コンセント|記号|ハッチ|dimension|\bdim\b|measure|annotation|leader|extension|center.?line|grid|axis|furniture|fixture|text|symbol|hatch(?:ing)?)/i;
 // Numeric dimension labels help identify dimension strokes even when they share a wall layer.
 const DIMENSION_LABEL=/^\s*[+-]?\d[\d,]*(?:\.\d+)?\s*(?:mm|ｍｍ|m|ｍ|cm|㎜|㎝|φ|ø)?\s*$/i;
 function dimensionTextAnchors(items){
