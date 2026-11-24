@@ -58,7 +58,9 @@ function detectRooms(){
  }
  const inside=regions.filter(r=>!r.touchesEdge).sort((a,b)=>b.area-a.area);
  // 旧条件の「0.25m²」は縮尺図面に対して不適切。格子セル数で小さなノイズだけを除外する。
- const largest=inside[0]?.area||0;\n const minRegionCells=Math.max(100,Math.floor(largest*.01));\n const viable=inside.filter(r=>r.area>=minRegionCells&&r.area<=N*.8).slice(0,30);
+ const largest=inside[0]?.area||0;
+ const minRegionCells=Math.max(100,Math.floor(largest*.01));
+ const viable=inside.filter(r=>r.area>=minRegionCells&&r.area<=N*.8).slice(0,30);
  state.rooms=viable.map((r,i)=>({...r,name:"区画 "+(i+1),drawingAreaCm2:r.area*cw*ch/100}));
  state.roomGrid={ids:null,nx,ny,cw,ch,regions:viable.map(r=>r.id),regionMap:null};
  // region IDs are kept in a compact grid for rendering; rerun flood-fill IDs in one pass.
