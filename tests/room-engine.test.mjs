@@ -29,3 +29,21 @@ test("hidden partition layer is excluded and parent region remains",()=>{
 test("empty boundary selection fails with actionable message",()=>{
   assert.throws(()=>extractRoomHierarchy({...fixture(),selectedLayers:[]}),/境界レイヤー/);
 });
+
+test("separate parent spaces keep their own child-room ownership and label points",()=>{
+  const items=[
+    line("外壁",100,100,400,100),line("外壁",400,100,400,900),
+    line("外壁",400,900,100,900),line("外壁",100,900,100,100),
+    line("外壁",600,100,900,100),line("外壁",900,100,900,900),
+    line("外壁",900,900,600,900),line("外壁",600,900,600,100),
+    line("間仕切壁",250,100,250,900),line("間仕切壁",750,100,750,900)
+  ];
+  const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
+  assert.equal(result.parents.length,2);
+  assert.deepEqual(result.parents.map(p=>p.children.length),[2,2]);
+  assert.equal(result.rooms.length,4);
+  for(const room of result.rooms){
+    const cellX=Math.round(room.labelX),cellY=Math.round(room.labelY);
+    assert.equal(result.grid.ids[cellY*result.grid.nx+cellX],room.id);
+  }
+});
