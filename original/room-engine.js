@@ -110,10 +110,10 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
   // If semantic wall-layer selection misses the building perimeter, retry with
   // every geometric layer except clearly non-architectural annotation/furniture.
   // This fallback is automatic and is used only when the first pass finds no room.
-  if(!parents.kept.length&&geometryNames.size>allNames.size){
+  if(!parents.kept.length&&(selected.size<allNames.size||geometryNames.size>allNames.size)){
     fallbackUsed=true;
-    selected=geometryNames;
-    allNames=geometryNames;
+    selected=new Set([...allNames,...geometryNames]);
+    allNames=new Set([...allNames,...geometryNames]);
     parentTrace=traceItems(items,selected,hidden,width,height,nx,ny,cw,ch);
     childTrace=parentTrace;
     parentFlood=floodRegions(parentTrace.wall,nx,ny);
