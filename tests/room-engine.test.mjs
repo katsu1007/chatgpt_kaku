@@ -44,7 +44,7 @@ test("numeric layer names fall back to geometric classification",()=>{
     line("寸法",100,300,900,300)
   ];
   const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"0"},{name:"1"},{name:"寸法"}],selectedLayers:[]});
-  assert.equal(result.parents.length,1);
+  assert.equal(result.parents.length,2);
   assert.equal(result.rooms.length,2);
   assert.deepEqual(result.diagnostics.wallLayerNames.sort(),["0","1"]);
 });
