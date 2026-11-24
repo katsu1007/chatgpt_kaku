@@ -32,6 +32,45 @@ function classifyLayers(layers,items,hidden){
   const parent=outer.length?outer:candidates;
   return {parent:new Set(parent.map(l=>l.name)),all:new Set(candidates.map(l=>l.name)),mode:namedWalls.length?(outer.length?"外周レイヤー＋壁レイヤー":"壁候補レイヤー"):"図形レイヤー自動判定"};
 }
+function findBoothFrontClosures(items,names,hidden){
+  // Detect repeated U-shaped toilet cubicles: two parallel side partitions meet a
+  // common rear wall, while their free ends face the same open corridor.
+  // Close only the open front between those side partitions; ordinary door gaps
+  // are collinear with their wall and therefore do not satisfy this geometry.
+  const segs=[];
+  for(const it of items){
+    if(it.kind!=="line"||!names.has(it.layer)||hidden.has(it.layer)||!Array.isArray(it.pts))continue;
+    for(let k=0;k+3<it.pts.length;k+=2){
+      const x1=it.pts[k],y1=it.pts[k+1],x2=it.pts[k+2],y2=it.pts[k+3],dx=x2-x1,dy=y2-y1,len=Math.hypot(dx,dy);
+      if(len>=350)segs.push({it,x1,y1,x2,y2,dx:dx/len,dy:dy/len,len});
+    }
+  }
+  const pointLineDistance=(p,s)=>{
+    const vx=s.x2-s.x1,vy=s.y2-s.y1,l2=vx*vx+vy*vy;
+    const t=Math.max(0,Math.min(1,((p.x-s.x1)*vx+(p.y-s.y1)*vy)/l2));
+    return Math.hypot(p.x-(s.x1+t*vx),p.y-(s.y1+t*vy));
+  };
+  const closures=[];
+  for(let i=0;i<segs.length;i++)for(let j=i+1;j<segs.length;j++){
+    const a=segs[i],b=segs[j];
+    if(Math.abs(a.dx*b.dx+a.dy*b.dy)<.97)continue;
+    const endsA=[{x:a.x1,y:a.y1,back:{x:a.x2,y:a.y2}},{x:a.x2,y:a.y2,back:{x:a.x1,y:a.y1}}];
+    const endsB=[{x:b.x1,y:b.y1,back:{x:b.x2,y:b.y2}},{x:b.x2,y:b.y2,back:{x:b.x1,y:b.y1}}];
+    let found=null;
+    for(const ea of endsA)for(const eb of endsB){
+      const gx=eb.x-ea.x,gy=eb.y-ea.y,gap=Math.hypot(gx,gy);if(gap<450||gap>1100)continue;
+      const ux=gx/gap,uy=gy/gap;
+      if(Math.abs(ux*a.dx+uy*a.dy)>.22||Math.abs(ux*b.dx+uy*b.dy)>.22)continue;
+      // Both opposite ends must land on the same cross-wall, confirming a U shape.
+      const ba=ea.back,bb=eb.back;
+      const rear=segs.some((s,k)=>k!==i&&k!==j&&s.len>gap*.8&&
+        Math.abs(s.dx*ux+s.dy*uy)>.92&&pointLineDistance(ba,s)<80&&pointLineDistance(bb,s)<80);
+      if(rear){found={x1:ea.x,y1:ea.y,x2:eb.x,y2:eb.y,layer:a.it.layer};break;}
+    }
+    if(found&&!closures.some(c=>Math.hypot(c.x1-found.x1,c.y1-found.y1)<80&&Math.hypot(c.x2-found.x2,c.y2-found.y2)<80))closures.push(found);
+  }
+  return closures.map((c,i)=>({kind:"line",layer:c.layer,pts:[c.x1,c.y1,c.x2,c.y2],virtualBoothClosure:true,virtualId:i}));
+}
 function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
   const wall=new Uint8Array(nx*ny); let usedItems=0,usedSegments=0,skippedHidden=0,skippedDimensionSegments=0; const endpoints=[]; const doorEndpoints=[]; const dimAnchors=dimensionTextAnchors(items);
   const mark=(x,y)=>{
@@ -55,7 +94,7 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
     if(!names.has(it.layer))continue;
     if(hidden.has(it.layer)){skippedHidden++;continue;}
     if(it.kind==="line"&&Array.isArray(it.pts)&&it.pts.length>=4){
-      usedItems++;for(let k=0;k+3<it.pts.length;k+=2)line(it.pts[k],it.pts[k+1],it.pts[k+2],it.pts[k+3],true);
+      usedItems++;for(let k=0;k+3<it.pts.length;k+=2)line(it.pts[k],it.pts[k+1],it.pts[k+2],it.pts[k+3],!it.virtualBoothClosure);
     }else if(it.kind==="arc"&&Number.isFinite(it.r)&&it.r>0){
       usedItems++;const sweep=it.a1-it.a0,n=Math.max(16,Math.ceil(Math.abs(sweep)*it.r/Math.min(cw,ch)*2));
       let px=it.cx+it.r*Math.cos(it.a0),py=it.cy+it.r*Math.sin(it.a0);rememberEndpoint(px,py);rememberEndpoint(it.cx+it.r*Math.cos(it.a1),it.cy+it.r*Math.sin(it.a1));
@@ -220,6 +259,6 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
     rooms:displayRooms.map((r,i)=>({...r,id:i,drawingAreaCm2:r.area*cw*ch/100})),
     parents:parentRooms.map(p=>({...p,children:p.children.map(c=>c.name)})),
     grid:{ids,nx,ny,cw,ch},
-    diagnostics:{selectedLayers:selected.size,supplementalLayers:supplemental.size,autoMode:classified.mode+(fallbackUsed?" → 全図形レイヤー再判定":""),fallbackUsed,parentLayerNames:[...selected],wallLayerNames:[...allNames],parentRegions:parents.inner.length,childRegions:children.inner.length,parentsKept:parentRooms.length,childrenKept:childRooms.length,unassignedChildren,minParentCells:parents.minCells,minChildCells:children.minCells,usedItems:childTrace.usedItems,usedSegments:childTrace.usedSegments,skippedHidden:childTrace.skippedHidden,skippedDimensionSegments:childTrace.skippedDimensionSegments,bridgedDoorGaps:childTrace.bridgedDoorGaps,endpointCount:childTrace.endpointCount}
+    diagnostics:{selectedLayers:selected.size,supplementalLayers:supplemental.size,autoMode:classified.mode+(fallbackUsed?" → 全図形レイヤー再判定":""),fallbackUsed,parentLayerNames:[...selected],wallLayerNames:[...allNames],parentRegions:parents.inner.length,childRegions:children.inner.length,parentsKept:parentRooms.length,childrenKept:childRooms.length,unassignedChildren,minParentCells:parents.minCells,minChildCells:children.minCells,usedItems:childTrace.usedItems,usedSegments:childTrace.usedSegments,skippedHidden:childTrace.skippedHidden,skippedDimensionSegments:childTrace.skippedDimensionSegments,bridgedDoorGaps:childTrace.bridgedDoorGaps,virtualBoothClosures:boothClosures.length,endpointCount:childTrace.endpointCount}
   };
 }
