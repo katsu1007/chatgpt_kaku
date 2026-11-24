@@ -28,7 +28,7 @@ function activateChoice(index){
 }
 
 
-function renderLayers(){const host=$("layerList");host.replaceChildren();if(!state.layers.length){host.innerHTML='<div class="empty">レイヤー情報がありません。</div>';return;}state.layers.forEach((layer,index)=>{const row=document.createElement("label");row.className="layer-row";const check=document.createElement("input");check.type="checkbox";check.checked=!state.hidden[index];check.addEventListener("change",()=>{state.hidden[index]=check.checked?0:1;renderDrawing();});const name=document.createElement("span");name.className="layer-name";name.textContent=layer.name;const sub=document.createElement("small");sub.className="layer-sub";sub.textContent=(layer.visible?"読込時：表示":"読込時：非表示")+(layer.scale?" · 縮尺 1:"+layer.scale:"");name.append(sub);const count=document.createElement("span");count.className="layer-count";count.textContent=Number(layer.actualItems??layer.items??0).toLocaleString();row.append(check,name,count);host.append(row);});$("allOn").disabled=false;$("allOff").disabled=false;}
+function renderLayers(){const host=$("layerList");host.replaceChildren();if(!state.layers.length){host.innerHTML='<div class="empty">レイヤー情報がありません。</div>';return;}state.layers.forEach((layer,index)=>{const row=document.createElement("label");row.className="layer-row";const check=document.createElement("input");check.type="checkbox";check.checked=!state.hidden[index];check.addEventListener("change",()=>{state.hidden[index]=check.checked?0:1;renderDrawing();detectRooms();});const name=document.createElement("span");name.className="layer-name";name.textContent=layer.name;const sub=document.createElement("small");sub.className="layer-sub";sub.textContent=(layer.visible?"読込時：表示":"読込時：非表示")+(layer.scale?" · 縮尺 1:"+layer.scale:"");name.append(sub);const count=document.createElement("span");count.className="layer-count";count.textContent=Number(layer.actualItems??layer.items??0).toLocaleString();row.append(check,name,count);host.append(row);});$("allOn").disabled=false;$("allOff").disabled=false;}
 function renderBoundaryLayers(){
  const host=$("boundaryLayerList");if(!host)return;host.replaceChildren();
  const q=($("boundarySearch")?.value||"").trim().toLowerCase();
@@ -37,7 +37,7 @@ function renderBoundaryLayers(){
  for(const layer of filtered){
   const row=document.createElement("label");row.className="boundary-row";
   const cb=document.createElement("input");cb.type="checkbox";cb.checked=state.boundaryLayers.has(layer.name);
-  cb.addEventListener("change",()=>{if(cb.checked)state.boundaryLayers.add(layer.name);else state.boundaryLayers.delete(layer.name);updateBoundarySummary();});
+  cb.addEventListener("change",()=>{if(cb.checked)state.boundaryLayers.add(layer.name);else state.boundaryLayers.delete(layer.name);updateBoundarySummary();detectRooms();});
   const name=document.createElement("span");name.textContent=layer.name;
   const count=document.createElement("small");count.textContent=Number(layer.actualItems||0).toLocaleString()+"要素";
   row.append(cb,name,count);host.append(row);
@@ -63,6 +63,7 @@ function detectRooms(){
   const result=extractRoomHierarchy({
    items:state.sheet.items,width:state.sheet.size.w,height:state.sheet.size.h,
    layers:state.layers,
+   selectedLayers:state.boundaryLayers.size?[...state.boundaryLayers]:undefined,
    hiddenLayers:state.layers.filter((layer,index)=>state.hidden[index]===1).map(layer=>layer.name)
   });
   state.rooms=result.rooms;
@@ -94,6 +95,6 @@ async function load(file){if(!file||state.busy)return;state.busy=true;state.boun
 $("detectRooms").addEventListener("click",detectRooms);$("frameSelect")?.addEventListener("change",e=>activateChoice(Number(e.target.value)));
 $("suggestBoundary").addEventListener("click",suggestBoundaryLayers);
 $("clearBoundary").addEventListener("click",()=>{state.boundaryLayers.clear();renderBoundaryLayers();});
-$("boundarySearch").addEventListener("input",renderBoundaryLayers);$("toggleRooms").addEventListener("click",()=>{const g=$("canvas").querySelector("#roomOverlay");if(g){g.remove();$("canvas").querySelector("#roomLabels")?.remove();$("toggleRooms").textContent="区画表示";}else renderRooms();});$("file").addEventListener("change",e=>{const file=e.target.files?.[0];if(!file){status("ファイル未選択");return;}status("選択検知："+file.name);$("fileHint").textContent="選択検知："+file.name+" / "+file.size+" bytes";load(file);});$("allOn").addEventListener("click",()=>{state.hidden.fill(0);renderLayers();renderDrawing();});$("allOff").addEventListener("click",()=>{state.hidden.fill(1);renderLayers();renderDrawing();});$("fit").addEventListener("click",renderDrawing);
+$("boundarySearch").addEventListener("input",renderBoundaryLayers);$("toggleRooms").addEventListener("click",()=>{const g=$("canvas").querySelector("#roomOverlay");if(g){g.remove();$("canvas").querySelector("#roomLabels")?.remove();$("toggleRooms").textContent="区画表示";}else renderRooms();});$("file").addEventListener("change",e=>{const file=e.target.files?.[0];if(!file){status("ファイル未選択");return;}status("選択検知："+file.name);$("fileHint").textContent="選択検知："+file.name+" / "+file.size+" bytes";load(file);});$("allOn").addEventListener("click",()=>{state.hidden.fill(0);renderLayers();renderDrawing();detectRooms();});$("allOff").addEventListener("click",()=>{state.hidden.fill(1);renderLayers();renderDrawing();detectRooms();});$("fit").addEventListener("click",renderDrawing);
 
 window.__kakuReady=true;status("起動完了：ファイル選択待ち");
