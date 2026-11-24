@@ -90,7 +90,7 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
         // and lie on the same projected wall axis.
         if(a.ux*ux+a.uy*uy>-.96||b.ux*ux+b.uy*uy<.96)continue;
         if(Math.abs(a.ux*uy-a.uy*ux)*dist>35||Math.abs(b.ux*uy-b.uy*ux)*dist>35)continue;
-        const score=dist+35*(2+a.ux*ux+a.uy*uy+b.ux*ux+b.uy*uy);
+        const score=dist;
         if(score<bestScore){bestScore=score;bestIndex=j;}
       }
     }
