@@ -107,3 +107,16 @@ test("tiny drafting endpoint gap is healed without changing normal room topology
   assert.equal(result.rooms.length,1);
   assert.ok(result.diagnostics.endpointCount>=10);
 });
+
+test("dimension line on the same layer is ignored when a numeric dimension label sits on it",()=>{
+  const items=[
+    line("壁",100,100,900,100),line("壁",900,100,900,900),
+    line("壁",900,900,100,900),line("壁",100,900,100,100),
+    // A dimension stroke shares the wall layer but carries a numeric dimension label.
+    line("壁",100,300,900,300),
+    {kind:"text",layer:"文字",x:455,y:310,size:20,text:"8000",rot:0}
+  ];
+  const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"壁"},{name:"文字"}],selectedLayers:[]});
+  assert.equal(result.rooms.length,1);
+  assert.ok(result.diagnostics.skippedDimensionSegments>0);
+});
