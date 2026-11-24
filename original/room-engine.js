@@ -341,7 +341,10 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
   const ny=Math.max(320,Math.min(1500,Math.round(target/Math.sqrt(aspect))));
   const cw=width/nx,ch=height/ny,N=nx*ny;
   let parentTrace=traceItems(items,selected,hidden,width,height,nx,ny,cw,ch);
-  let boothClosures=findBoothFrontClosures(items,allNames,hidden);
+  // Exterior perimeter edges must not be interpreted as cubicle partitions.
+  // Keep generic wall layers eligible, but exclude explicitly named outer-wall layers.
+  const boothPartitionNames=new Set([...allNames].filter(name=>!OUTER_WALL_NAME.test(String(name))));
+  let boothClosures=findBoothFrontClosures(items,boothPartitionNames,hidden);
   let childItems=boothClosures.length?[...items,...boothClosures]:items;
   let childTrace=traceItems(childItems,allNames,hidden,width,height,nx,ny,cw,ch);
   let parentFlood=floodRegions(parentTrace.wall,nx,ny);
