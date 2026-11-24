@@ -33,7 +33,7 @@ function classifyLayers(layers,items,hidden){
   return {parent:new Set(parent.map(l=>l.name)),all:new Set(candidates.map(l=>l.name)),mode:namedWalls.length?(outer.length?"外周レイヤー＋壁レイヤー":"壁候補レイヤー"):"図形レイヤー自動判定"};
 }
 function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
-  const wall=new Uint8Array(nx*ny); let usedItems=0,usedSegments=0,skippedHidden=0,skippedDimensionSegments=0; const endpoints=[]; const wallSegments=[]; const dimAnchors=dimensionTextAnchors(items);
+  const wall=new Uint8Array(nx*ny); let usedItems=0,usedSegments=0,skippedHidden=0,skippedDimensionSegments=0; const endpoints=[]; const doorEndpoints=[]; const dimAnchors=dimensionTextAnchors(items);
   const mark=(x,y)=>{
     const ix=Math.round(x/cw),iy=Math.round(y/ch);
     // 8-neighbour raster stroke reduces diagonal leaks.
@@ -45,7 +45,7 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
   const line=(x1,y1,x2,y2,bridgeEligible=false)=>{
     if(![x1,y1,x2,y2].every(Number.isFinite))return false;
     if(isDimensionSegment(x1,y1,x2,y2,dimAnchors)){skippedDimensionSegments++;return false;}
-    if(bridgeEligible){const len=Math.hypot(x2-x1,y2-y1);if(len>0){const ux=(x2-x1)/len,uy=(y2-y1)/len;wallSegments.push({x1,y1,x2,y2,ux,uy});endpoints.push({x:x1,y:y1,ux,uy});endpoints.push({x:x2,y:y2,ux:-ux,uy:-uy});}}
+    if(bridgeEligible){const len=Math.hypot(x2-x1,y2-y1);if(len>0){const ux=(x2-x1)/len,uy=(y2-y1)/len;doorEndpoints.push({x:x1,y:y1,ux,uy});doorEndpoints.push({x:x2,y:y2,ux:-ux,uy:-uy});endpoints.push([Math.round(x1/cw),Math.round(y1/ch)],[Math.round(x2/cw),Math.round(y2/ch)]);}}
     const steps=Math.max(1,Math.ceil(Math.hypot((x2-x1)/cw,(y2-y1)/ch)*2));
     for(let k=0;k<=steps;k++){const t=k/steps;mark(x1+(x2-x1)*t,y1+(y2-y1)*t);}
     usedSegments++;return true;
