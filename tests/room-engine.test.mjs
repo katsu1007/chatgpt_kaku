@@ -148,3 +148,26 @@ test("toilet cubicles with door openings are extracted as separate compartments"
   assert.equal(result.rooms.length,3);
   assert.equal(result.diagnostics.bridgedDoorGaps,2);
 });
+
+test("A-WALL is recognised and DIM layer is excluded from automatic wall candidates",()=>{
+  const items=[
+    line("A-WALL",100,100,900,100),line("A-WALL",900,100,900,900),
+    line("A-WALL",900,900,100,900),line("A-WALL",100,900,100,100),
+    line("DIM",100,300,900,300),line("FURNITURE",200,200,300,300)
+  ];
+  const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"A-WALL"},{name:"DIM"},{name:"FURNITURE"}],selectedLayers:[]});
+  assert.equal(result.parents.length,1);
+  assert.deepEqual(result.diagnostics.wallLayerNames,["A-WALL"]);
+});
+test("small closed title-block cells are filtered while real rooms remain",()=>{
+  const items=[
+    line("外壁",100,100,900,100),line("外壁",900,100,900,900),
+    line("外壁",900,900,100,900),line("外壁",100,900,100,100),
+    line("間仕切壁",500,100,500,900),
+    // Tiny enclosed drafting box, far smaller than a usable room.
+    line("間仕切壁",120,120,145,120),line("間仕切壁",145,120,145,145),
+    line("間仕切壁",145,145,120,145),line("間仕切壁",120,145,120,120)
+  ];
+  const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
+  assert.equal(result.rooms.length,2);
+});
