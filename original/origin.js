@@ -1,4 +1,4 @@
-import { extractRoomHierarchy } from "./room-engine.js?v=20261124-debug1";
+import { extractRoomHierarchy } from "./room-engine.js?v=20261124-recovery2";
 let openCad,prepare,toSvg;
 let cadImportPromise;
 async function ensureCadLibrary(){if(openCad&&prepare&&toSvg)return;if(!cadImportPromise)cadImportPromise=import("https://cdn.jsdelivr.net/npm/ezpzfile-cad@0.1.0/dist/index.js").then(m=>{openCad=m.openCad;prepare=m.prepare;toSvg=m.toSvg;}).catch(e=>{cadImportPromise=null;throw new Error("CAD読込ライブラリを取得できません。通信状態を確認して再読み込みしてください。詳細: "+(e?.message||e));});await cadImportPromise;}
@@ -49,10 +49,10 @@ function detectRooms(){
   renderRooms();
   const d=result.diagnostics;
   status("自動区画抽出："+state.rooms.length+"区画");
-  if(!state.rooms.length){$("fileHint").textContent="区画を検出できませんでした。診断欄の壁候補・線分数を確認してください。";$("canvas").insertAdjacentHTML("beforeend","<div id=\"roomNotice\" style=\"position:absolute;z-index:5;top:12px;left:12px;right:12px;background:#5b2020;color:white;padding:10px;border-radius:8px\">区画を検出できませんでした。診断情報を確認してください。</div>");}
+  if(!state.rooms.length){$("fileHint").textContent="自動判定を実行しましたが、閉じた区画を検出できませんでした。";$("canvas").insertAdjacentHTML("beforeend","<div id=\"roomNotice\" style=\"position:absolute;z-index:5;top:12px;left:12px;right:12px;background:#5b2020;color:white;padding:10px;border-radius:8px\">区画を検出できませんでした。診断情報を確認してください。</div>");}
   const parentText=result.parents.map(p=>p.name+"："+p.children.length+"区画").join(" / ")||"親区画を検出できません";
   const list=state.rooms.map(r=>"<li>"+esc(r.name)+"："+r.drawingAreaCm2.toFixed(1)+" cm²（図面上）</li>").join("");
-  $("inspection").insertAdjacentHTML("beforeend","<p><strong>自動区画抽出："+state.rooms.length+"件</strong></p><p>親区画："+esc(parentText)+"</p>"+(list?"<ol>"+list+"</ol>":"")+"<p>自動判定："+esc(d.autoMode)+"／壁候補レイヤー "+d.wallLayerNames.length+"件／親領域 "+d.parentRegions+"件／内部壁込み領域 "+d.childRegions+"件／線分 "+d.usedSegments.toLocaleString()+"本。</p>");
+  $("inspection").insertAdjacentHTML("beforeend","<p><strong>自動区画抽出："+state.rooms.length+"件</strong></p><p>親区画："+esc(parentText)+"</p>"+(list?"<ol>"+list+"</ol>":"")+"<p>自動判定："+esc(d.autoMode)+"／壁候補レイヤー "+d.wallLayerNames.length+"件／親領域 "+d.parentRegions+"件／内部壁込み領域 "+d.childRegions+"件／線分 "+d.usedSegments.toLocaleString()+"本／端点 "+d.endpointCount.toLocaleString()+"点／広域再判定 "+(d.fallbackUsed?"実行":"未実行")+"。</p>");
  }catch(error){
   state.rooms=[];state.roomGrid=null;status("区画抽出エラー");
   $("fileHint").textContent="区画抽出エラー："+(error?.message||error);
