@@ -414,10 +414,10 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
     fallbackUsed=true;
     selected=new Set([...allNames,...geometryNames]);
     allNames=new Set([...allNames,...geometryNames]);
-    parentTrace=traceItems(items,selected,hidden,width,height,nx,ny,cw,ch);
+    parentTrace=traceItems(items,selected,hidden,width,height,nx,ny,cw,ch,layerMetadata);
     boothClosures=findBoothFrontClosures(items,new Set([...allNames].filter(name=>!OUTER_WALL_NAME.test(String(name)))),hidden,layerMetadata);
     childItems=boothClosures.length?[...items,...boothClosures]:items;
-    childTrace=traceItems(childItems,allNames,hidden,width,height,nx,ny,cw,ch);
+    childTrace=traceItems(childItems,allNames,hidden,width,height,nx,ny,cw,ch,layerMetadata);
     parentFlood=floodRegions(parentTrace.wall,nx,ny);
     // Keep the child topology independent: virtual cubicle-front closures are
     // intentionally present only in childTrace. Reusing parentFlood here silently
