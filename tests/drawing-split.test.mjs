@@ -28,8 +28,9 @@ test("frame crop clips crossing lines, removes the frame border and excludes unr
  ]);
  const cropped=sliceSheetForFrame(source,[0,0,1000,1000]);
  assert.equal(cropped.size.w,1000);
- assert.equal(cropped.items.filter(i=>i.kind==="line").length,1);
- assert.deepEqual(cropped.items.find(i=>i.kind==="line").pts,[0,500,500,500,1000,500].slice(0,4));
+ const clippedLines=cropped.items.filter(i=>i.kind==="line");
+ assert.equal(clippedLines.length,2);
+ assert.deepEqual(clippedLines.map(i=>i.pts),[[0,500,500,500],[500,500,1000,500]]);
  assert.equal(cropped.items.some(i=>i.kind==="text"&&i.text==="別図面"),false);
  assert.equal(cropped.items.some(i=>i.kind==="text"&&i.text==="教室"),true);
  assert.equal(cropped.items.some(i=>i.kind==="arc"),true);
