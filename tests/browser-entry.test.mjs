@@ -42,7 +42,7 @@ test('main.js から辿れる静的・動的ローカルimportがすべて存在
 });
 
 test('図面読込エンジンと単価マスターがHTML版に含まれている', async () => {
-  for (const rel of ['js/kaku-engine.html', 'js/master-data.js', 'vendor/pdfjs/pdf.min.mjs', 'vendor/three/build/three.module.js']) {
+  for (const rel of ['js/kaku-engine.html', 'js/master-data.js', 'vendor/pdfjs/pdf.min.mjs', 'vendor/three/three.module.min.js']) {
     assert.equal(await exists(resolve(root, rel)), true, `必要な部品がありません: ${rel}`);
   }
 });
