@@ -301,11 +301,17 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
   // extraction; it must not promote every interior partition to an outer boundary.
   // Prefer semantically named exterior layers for the parent pass, while all
   // selected wall candidates remain available to the child-room pass.
-  let allNames=selectedLayers?.length
+  const requested=selectedLayers?.length
     ?new Set(selectedLayers.filter(name=>!NON_WALL_NAME.test(String(name))))
+    :null;
+  // Explicit selection controls the parent-boundary preference, not the
+  // supplemental child-wall set. Keep automatically classified wall layers
+  // available so choosing only the exterior layer does not erase partitions.
+  let allNames=requested
+    ?new Set([...requested,...classified.all])
     :new Set(classified.all);
-  let selected=selectedLayers?.length
-    ?(()=>{const outer=[...allNames].filter(name=>OUTER_WALL_NAME.test(String(name)));return new Set(outer.length?outer:allNames);})()
+  let selected=requested
+    ?(()=>{const outer=[...requested].filter(name=>OUTER_WALL_NAME.test(String(name)));return new Set(outer.length?outer:requested);})()
     :new Set(classified.parent);
   if(!allNames.size)throw new Error("壁・図形候補レイヤーを自動判定できませんでした。図面の線分レイヤーを確認してください。");
   const geometryNames=new Set(items.filter(it=>it.layer!=null&&["line","arc","fill"].includes(it.kind)&&!NON_WALL_NAME.test(String(it.layer))).map(it=>it.layer));
