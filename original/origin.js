@@ -1,4 +1,4 @@
-import { extractRoomHierarchy } from "./room-engine.js?v=20261124-booth-u1";
+import { extractRoomHierarchy } from "./room-engine.js?v=20261124-parentarea2";
 import { makeDrawingChoices, sliceSheetForFrame } from "./drawing-split.js?v=20261124-split2";
 let openCad,prepare,toSvg,findFrames;
 let cadImportPromise;
