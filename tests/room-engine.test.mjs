@@ -355,7 +355,8 @@ test("Japanese toilet-booth layers are automatically recognized as wall candidat
   assert.equal(result.diagnostics.virtualBoothClosures,6);
 });
 
-\ntest("near-miss partition endpoint snaps to the receiving wall without closing a real doorway",()=>{
+
+test("near-miss partition endpoint snaps to the receiving wall without closing a real doorway",()=>{
   const items=[
     line("外壁",100,100,900,100),line("外壁",900,100,900,900),
     line("外壁",900,900,100,900),line("外壁",100,900,100,100),
