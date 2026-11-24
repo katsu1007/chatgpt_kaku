@@ -192,8 +192,8 @@ test("long thin filled wall bands remain usable as partition boundaries",()=>{
 
 test("wall layer suggestions exclude dimensions, furniture, equipment and annotations",()=>{
   assert.deepEqual(
-    suggestWallLayers(["外壁","間仕切壁","A-WALL","建築寸法","壁注記","設備","FURNITURE","DIM","HATCH","A-WALL-HATCH"]),
-    ["外壁","間仕切壁","A-WALL"]
+    suggestWallLayers(["外壁","間仕切壁","トイレブース","A-WALL","建築寸法","壁注記","設備","FURNITURE","DIM","HATCH","A-WALL-HATCH"]),
+    ["外壁","間仕切壁","トイレブース","A-WALL"]
   );
 });
 
@@ -332,3 +332,20 @@ test("room extraction retains more than 160 valid rooms in a large floor plan",(
   result.rooms.forEach((room,index)=>assert.equal(pixelCounts[index],room.area));
 });
 
+
+test("Japanese toilet-booth layers are automatically recognized as wall candidates",()=>{
+  const items=[
+    line("外壁",100,100,6200,100),line("外壁",6200,100,6200,2400),
+    line("外壁",6200,2400,100,2400),line("外壁",100,2400,100,100),
+    line("トイレブース",300,2000,5700,2000),
+    ...Array.from({length:7},(_,i)=>line("トイレブース",300+i*900,500,300+i*900,2000))
+  ];
+  const result=extractRoomHierarchy({
+    items,width:6300,height:2500,
+    layers:[{name:"外壁"},{name:"トイレブース"}],
+    selectedLayers:[]
+  });
+  assert.deepEqual(result.diagnostics.wallLayerNames.sort(),["トイレブース","外壁"]);
+  assert.equal(result.parents.length,1);
+  assert.equal(result.diagnostics.virtualBoothClosures,6);
+});
