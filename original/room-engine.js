@@ -283,7 +283,7 @@ function chooseRegions(regions,N,maxRatio=.82){
     // Reject drafting islands, thin annotation strips and tiny title-block cells.
     // Keep large halls: a high area alone is not enough to discard a real room.
     return r.area>=minCells&&ratio<=maxRatio&&fill>=.10&&aspect<=24;
-  }).slice(0,160);
+  }).slice(0,500);
   return {inner,minCells,kept};
 }
 export function extractRoomHierarchy({items,width,height,layers,selectedLayers,hiddenLayers=[]}){

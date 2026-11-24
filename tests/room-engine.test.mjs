@@ -260,3 +260,18 @@ test("six-booth detection stays correct with many unrelated distant CAD segments
   const result=extractRoomHierarchy({items,width:6300,height:2500,layers:[{name:"外壁"},{name:"間仕切壁"},{name:"雑線"}],selectedLayers:["外壁"]});
   assert.equal(result.diagnostics.virtualBoothClosures,6);
 });
+
+
+test("room extraction retains more than 160 valid rooms in a large floor plan",()=>{
+  const width=20000,height=1200,items=[
+    line("外壁",100,100,width-100,100),
+    line("外壁",width-100,100,width-100,height-100),
+    line("外壁",width-100,height-100,100,height-100),
+    line("外壁",100,height-100,100,100),
+    ...Array.from({length:179},(_,i)=>line("間仕切壁",100+(i+1)*((width-200)/180),100,100+(i+1)*((width-200)/180),height-100))
+  ];
+  const result=extractRoomHierarchy({items,width,height,layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
+  assert.equal(result.parents.length,1);
+  assert.equal(result.rooms.length,180);
+  assert.equal(result.diagnostics.childrenKept,180);
+});
