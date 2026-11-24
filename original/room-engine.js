@@ -46,7 +46,11 @@ function floodRegions(wall,nx,ny){
       const ns=[x?q-1:-1,x<nx-1?q+1:-1,y?q-nx:-1,y<ny-1?q+nx:-1];
       for(const z of ns)if(z>=0&&!wall[z]&&!seen[z]){seen[z]=1;regionAt[z]=regionId;queue[tail++]=z;}
     }
-    regions.push({id:regionId,seed:p,area,cx:sx/area,cy:sy/area,minx,miny,maxx,maxy,touchesEdge:minx===0||miny===0||maxx===nx-1||maxy===ny-1});
+    // Place labels on an actual cell inside the component. The geometric centroid
+    // can fall outside concave/L-shaped rooms, so choose the component cell nearest it.
+    let labelSeed=p,best=Infinity;
+    for(let k=0;k<tail;k++){const z=queue[k],x=z%nx,y=(z/nx)|0,d=(x-sx/area)**2+(y-sy/area)**2;if(d<best){best=d;labelSeed=z;}}
+    regions.push({id:regionId,seed:p,area,cx:sx/area,cy:sy/area,labelX:labelSeed%nx,labelY:(labelSeed/nx)|0,minx,miny,maxx,maxy,touchesEdge:minx===0||miny===0||maxx===nx-1||maxy===ny-1});
   }
   return {regions,regionAt};
 }
