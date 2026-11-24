@@ -26,8 +26,27 @@ test("hidden partition layer is excluded and parent region remains",()=>{
   assert.equal(result.rooms.length,1);
   assert.equal(result.diagnostics.childrenKept,0);
 });
-test("empty boundary selection fails with actionable message",()=>{
-  assert.throws(()=>extractRoomHierarchy({...fixture(),selectedLayers:[]}),/境界レイヤー/);
+test("all wall layers are classified automatically without manual selection",()=>{
+  const input=fixture();
+  input.items.push(line("寸法",100,300,900,300),line("家具",200,200,300,300));
+  input.layers.push({name:"寸法"},{name:"家具"});
+  const result=extractRoomHierarchy({...input,selectedLayers:[]});
+  assert.equal(result.parents.length,1);
+  assert.equal(result.rooms.length,4);
+  assert.deepEqual(result.diagnostics.wallLayerNames.sort(),["外壁","間仕切壁"]);
+  assert.match(result.diagnostics.autoMode,/外周レイヤー/);
+});
+test("numeric layer names fall back to geometric classification",()=>{
+  const items=[
+    line("0",100,100,900,100),line("0",900,100,900,900),
+    line("0",900,900,100,900),line("0",100,900,100,100),
+    line("1",500,100,500,900),
+    line("寸法",100,300,900,300)
+  ];
+  const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"0"},{name:"1"},{name:"寸法"}],selectedLayers:[]});
+  assert.equal(result.parents.length,1);
+  assert.equal(result.rooms.length,2);
+  assert.deepEqual(result.diagnostics.wallLayerNames.sort(),["0","1"]);
 });
 
 test("separate parent spaces keep their own child-room ownership and label points",()=>{
