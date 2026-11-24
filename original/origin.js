@@ -1,3 +1,4 @@
+import { extractRoomHierarchy } from "./room-engine.js";
 let openCad,prepare,toSvg;
 let cadImportPromise;
 async function ensureCadLibrary(){if(openCad&&prepare&&toSvg)return;if(!cadImportPromise)cadImportPromise=import("https://cdn.jsdelivr.net/npm/ezpzfile-cad@0.1.0/dist/index.js").then(m=>{openCad=m.openCad;prepare=m.prepare;toSvg=m.toSvg;}).catch(e=>{cadImportPromise=null;throw new Error("CAD読込ライブラリを取得できません。通信状態を確認して再読み込みしてください。詳細: "+(e?.message||e));});await cadImportPromise;}
@@ -37,84 +38,24 @@ function showReport(){const d=state.drawing,s=state.sheet,info=d.meta.info||{};$
 
 function detectRooms(){
  if(!state.sheet)return;
- if(!state.boundaryLayers.size){$("inspection").insertAdjacentHTML("beforeend","<p><strong>区画抽出できません：</strong>先に「区画境界に使うレイヤー」を選択してください。壁候補の自動選択後、内容を確認してから抽出できます。</p>");return;}
- const s=state.sheet,W=s.size.w,H=s.size.h;
- // JWWの座標は用紙上のmm。縮尺図面では部屋面積が実寸m²より極端に小さくなるため、
- // 実寸0.25m²という固定条件では候補が全滅する。ここでは図面上の画素数で候補を残す。
- const aspect=W/Math.max(H,1);
- const nx=Math.max(240,Math.min(1100,Math.round(850*Math.sqrt(aspect))));
- const ny=Math.max(240,Math.min(1100,Math.round(850/Math.sqrt(aspect))));
- const cw=W/nx,ch=H/ny,N=nx*ny,wall=new Uint8Array(N),seen=new Uint8Array(N);
- const mark=(x,y)=>{
-  const ix=Math.round(x/cw),iy=Math.round(y/ch);
-  // 斜め線の4近傍すり抜けを抑えるため、線を約1セル太らせる
-  for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
-   const xx=ix+dx,yy=iy+dy;
-   if(xx>=0&&xx<nx&&yy>=0&&yy<ny)wall[yy*nx+xx]=1;
-  }
- };
- const drawLine=(x1,y1,x2,y2)=>{
-  const steps=Math.max(1,Math.ceil(Math.hypot((x2-x1)/cw,(y2-y1)/ch)*2));
-  for(let k=0;k<=steps;k++){const t=k/steps;mark(x1+(x2-x1)*t,y1+(y2-y1)*t);}
- };
- let usedItems=0,usedLines=0,skippedHidden=0;
- // 選択レイヤーに加え、名前から壁・間仕切りと明確に判断できるレイヤーを補助境界として使う。
- // 家具・寸法・文字レイヤーを無条件に混ぜない。曖昧な名前のレイヤーは自動追加しない。
- const wallNameRe=/(壁|間仕切|躯体|外壁|内壁|壁芯|建築|wall|partition)/i;
- const selectedNames=new Set(state.boundaryLayers);
- const supplementalNames=new Set(state.layers.filter(l=>wallNameRe.test(String(l.name))&&!selectedNames.has(l.name)).map(l=>l.name));
- const acceptedNames=new Set([...selectedNames,...supplementalNames]);
- for(const it of s.items){
-  if(!acceptedNames.has(it.layer))continue;
-  if(it.layer!=null){const li=state.layers.findIndex(x=>x.name===it.layer);if(li>=0&&state.hidden[li]){skippedHidden++;continue;}}
-  if(it.kind==="line"&&it.pts?.length>=4){
-   usedItems++;for(let k=0;k+3<it.pts.length;k+=2){drawLine(it.pts[k],it.pts[k+1],it.pts[k+2],it.pts[k+3]);usedLines++;}
-  }else if(it.kind==="arc"&&Number.isFinite(it.r)&&it.r>0){
-   usedItems++;const sweep=it.a1-it.a0,n=Math.max(16,Math.ceil(Math.abs(sweep)*it.r/Math.min(cw,ch)*2));
-   let px=it.cx+it.r*Math.cos(it.a0),py=it.cy+it.r*Math.sin(it.a0);
-   for(let k=1;k<=n;k++){const a=it.a0+sweep*k/n,x=it.cx+it.r*Math.cos(a),y=it.cy+it.r*Math.sin(a);drawLine(px,py,x,y);px=x;py=y;usedLines++;}
-  }else if(it.kind==="fill"&&it.pts?.length>=6){
-   usedItems++;for(let k=0;k+3<it.pts.length;k+=2){drawLine(it.pts[k],it.pts[k+1],it.pts[k+2],it.pts[k+3]);usedLines++;}
-   drawLine(it.pts[it.pts.length-2],it.pts[it.pts.length-1],it.pts[0],it.pts[1]);usedLines++;
-  }
+ if(!state.boundaryLayers.size){$("inspection").insertAdjacentHTML("beforeend","<p><strong>区画抽出できません：</strong>先に境界レイヤーを選択してください。</p>");return;}
+ try{
+  const result=extractRoomHierarchy({
+   items:state.sheet.items,width:state.sheet.size.w,height:state.sheet.size.h,
+   layers:state.layers,selectedLayers:[...state.boundaryLayers],
+   hiddenLayers:state.layers.filter((l,i)=>state.hidden[i]).map(l=>l.name)
+  });
+  state.rooms=result.rooms;
+  state.roomGrid=result.grid;
+  renderRooms();
+  const d=result.diagnostics;
+  const parentText=result.parents.map(p=>p.name+"："+p.children.length+"区画").join(" / ")||"親区画を検出できません";
+  const list=state.rooms.map(r=>"<li>"+esc(r.name)+"："+r.drawingAreaCm2.toFixed(1)+" cm²（図面上）</li>").join("");
+  $("inspection").insertAdjacentHTML("beforeend","<p><strong>階層区画抽出："+state.rooms.length+"件</strong></p><p>親区画："+esc(parentText)+"</p>"+(list?"<ol>"+list+"</ol>":"")+"<p>診断：親領域 "+d.parentRegions+"件／内部壁込み領域 "+d.childRegions+"件、親区画 "+d.parentsKept+"件／子区画 "+d.childrenKept+"件。壁候補 "+d.usedItems.toLocaleString()+"要素・線分 "+d.usedSegments.toLocaleString()+"本。自動追加壁レイヤー "+d.supplementalLayers+"件、非表示スキップ "+d.skippedHidden+"件。</p><p>※大部屋は選択レイヤー、内部の中・小部屋は壁名を含むレイヤーを加えて検出します。壁名のない内部壁は、そのレイヤーを手動で追加選択してください。</p>");
+ }catch(error){
+  state.rooms=[];state.roomGrid=null;
+  $("inspection").insertAdjacentHTML("beforeend","<p><strong>区画抽出エラー：</strong>"+esc(error?.message||error)+"</p>");
  }
- const regions=[],queue=new Int32Array(N);let rid=0;
- for(let p=0;p<N;p++){
-  if(wall[p]||seen[p])continue;
-  let head=0,tail=0;queue[tail++]=p;seen[p]=1;
-  let area=0,sx=0,sy=0,minx=nx,miny=ny,maxx=0,maxy=0;
-  while(head<tail){
-   const q=queue[head++],x=q%nx,y=(q/nx)|0;area++;sx+=x;sy+=y;
-   if(x<minx)minx=x;if(x>maxx)maxx=x;if(y<miny)miny=y;if(y>maxy)maxy=y;
-   const ns=[x?q-1:-1,x<nx-1?q+1:-1,y?q-nx:-1,y<ny-1?q+nx:-1];
-   for(const z of ns)if(z>=0&&!wall[z]&&!seen[z]){seen[z]=1;queue[tail++]=z;}
-  }
-  regions.push({id:rid++,seed:p,area,cx:sx/area,cy:sy/area,minx,miny,maxx,maxy,touchesEdge:minx===0||miny===0||maxx===nx-1||maxy===ny-1});
- }
- const inside=regions.filter(r=>!r.touchesEdge).sort((a,b)=>b.area-a.area);
- // 旧条件の「0.25m²」は縮尺図面に対して不適切。格子セル数で小さなノイズだけを除外する。
- const largest=inside[0]?.area||0;
- const minRegionCells=Math.max(20,Math.floor(largest*.0015));
- const viable=inside.filter(r=>r.area>=minRegionCells&&r.area<=N*.8).slice(0,100);
- state.rooms=viable.map((r,i)=>({...r,name:"区画 "+(i+1),drawingAreaCm2:r.area*cw*ch/100}));
- state.roomGrid={ids:null,nx,ny,cw,ch,regions:viable.map(r=>r.id),regionMap:null};
- // region IDs are kept in a compact grid for rendering; rerun flood-fill IDs in one pass.
- const regionMap=new Int32Array(N);regionMap.fill(-1);
- for(const r of viable){
-  let head=0,tail=0;const q=new Int32Array(r.area);
-  q[tail++]=r.seed;regionMap[r.seed]=r.id;
-  while(head<tail){
-   const z=q[head++],x=z%nx,y=(z/nx)|0;
-   for(const n of [x?z-1:-1,x<nx-1?z+1:-1,y?z-nx:-1,y<ny-1?z+nx:-1]){
-    if(n>=0&&regionMap[n]===-1&&!wall[n]){regionMap[n]=r.id;q[tail++]=n;}
-   }
-  }
- }
- state.roomGrid={ids:regionMap,nx,ny,cw,ch};
- renderRooms();
- const list=state.rooms.map(r=>"<li>"+esc(r.name)+"："+r.drawingAreaCm2.toFixed(1)+" cm²（図面上）</li>").join("");
- const biggest=inside.slice(0,5).map(r=>r.area+"セル"+(r.touchesEdge?"・外周接触":"")).join(" / ")||"なし";
- $("inspection").insertAdjacentHTML("beforeend","<p><strong>区画抽出："+state.rooms.length+"件（小領域を除外）</strong></p>"+(list?"<ol>"+list+"</ol>":"")+"<p>診断：境界候補 "+usedItems.toLocaleString()+"要素／線分 "+usedLines.toLocaleString()+"本、非表示スキップ "+skippedHidden.toLocaleString()+"要素。内部領域 "+inside.length+"件のうち、"+minRegionCells+"セル未満を除外。表示上限100件。境界指定 "+state.boundaryLayers.size+"レイヤー（壁系名称の自動追加 "+supplementalNames.size+"件を含む）。</p><p>※壁系レイヤー名が付いていない内部間仕切りは自動判定できません。必要なレイヤーを境界レイヤーに追加選択してください。家具・寸法線が同じレイヤーに混在する場合は誤分割の可能性があります。</p>");
 }
 function renderRooms(){
  const svg=$("canvas").querySelector("svg");if(!svg||!state.roomGrid)return;const old=svg.querySelector("#roomOverlay");if(old)old.remove();const oldLabels=svg.querySelector("#roomLabels");if(oldLabels)oldLabels.remove();
@@ -122,7 +63,7 @@ function renderRooms(){
  const colors=["#ff6b6b","#4dabf7","#51cf66","#fcc419","#cc5de8","#20c997","#ff922b","#845ef7"];
  for(let ri=0;ri<state.rooms.length;ri++){const room=state.rooms[ri],col=colors[ri%colors.length];let d="";for(let y=room.miny;y<=room.maxy;y++){let x=room.minx;while(x<=room.maxx){while(x<=room.maxx&&ids[y*nx+x]!==room.id)x++;if(x>room.maxx)break;const a=x;while(x<=room.maxx&&ids[y*nx+x]===room.id)x++;d+="M"+(a*cw)+" "+(y*ch)+"h"+((x-a)*cw)+"v"+ch+"h-"+((x-a)*cw)+"z";}}const p=document.createElementNS("http://www.w3.org/2000/svg","path");p.setAttribute("d",d);p.setAttribute("fill",col);p.setAttribute("fill-opacity",".20");p.setAttribute("stroke",col);p.setAttribute("stroke-width",Math.max(cw,ch)*.04);g.append(p);}
  svg.append(g);
- const labels=document.createElementNS("http://www.w3.org/2000/svg","g");labels.id="roomLabels";for(const room of state.rooms.slice(0,30)){const t=document.createElementNS("http://www.w3.org/2000/svg","text");t.setAttribute("x",room.cx*cw);t.setAttribute("y",H-room.cy*ch);t.setAttribute("text-anchor","middle");t.setAttribute("font-size","20");t.setAttribute("font-weight","bold");t.setAttribute("fill","#111");t.setAttribute("stroke","#fff");t.setAttribute("stroke-width","4");t.setAttribute("paint-order","stroke");t.textContent=room.name;labels.append(t);}svg.append(labels);
+ const labels=document.createElementNS("http://www.w3.org/2000/svg","g");labels.id="roomLabels";for(const room of state.rooms.slice(0,30)){const t=document.createElementNS("http://www.w3.org/2000/svg","text");t.setAttribute("x",room.cx*cw);t.setAttribute("y",H-room.cy*ch);t.setAttribute("text-anchor","middle");t.setAttribute("font-size",String(Math.max(8,Math.min(14,Math.sqrt(room.area)*.18))));t.setAttribute("font-weight","bold");t.setAttribute("fill","#111");t.setAttribute("stroke","#fff");t.setAttribute("stroke-width","4");t.setAttribute("paint-order","stroke");t.textContent=room.name;labels.append(t);}svg.append(labels);
  $("toggleRooms").disabled=!state.rooms.length;$("toggleRooms").textContent="区画表示中";
 }
 async function load(file){if(!file||state.busy)return;state.busy=true;state.boundaryLayers.clear();$("drawingName").textContent=file.name;$("drawingMeta").textContent="解析中…";$("fileHint").textContent=(file.size/1024).toFixed(1)+" KB · ブラウザ内解析";$("fit").disabled=true;setProgress(0,"ファイル解析中");try{status("CAD読込ライブラリを準備中");await ensureCadLibrary();const bytes=new Uint8Array(await file.arrayBuffer());const drawing=await openCad(bytes,(stage,ratio)=>setProgress(ratio,stage),{name:file.name});if(drawing.kind!=="2d")throw new Error("このファイルは2D図面として読み込めません。");if(!drawing.sheets?.length)throw new Error("図面シートがありません。");state.drawing=drawing;state.sheet=drawing.sheets[0];state.layers=(drawing.layers||[]).map(x=>({...x}));const counts=new Map();for(const item of state.sheet.items){if(item.layer!=null&&item.layer!==""){counts.set(item.layer,(counts.get(item.layer)||0)+1);}}const known=new Set(state.layers.map(x=>x.name));for(const [name,count] of counts){if(!known.has(name)){state.layers.push({name,color:"#000000",visible:true,items:count});known.add(name);}}for(const layer of state.layers){layer.actualItems=counts.get(layer.name)||0;}state.prepared=prepare(state.sheet,state.layers.map(x=>x.name));state.hidden=Uint8Array.from(state.layers.map(x=>x.visible===false?1:0));renderLayers();renderBoundaryLayers();renderDrawing();showReport();$("drawingMeta").textContent=(drawing.meta.label||drawing.meta.format)+" · "+state.sheet.items.length.toLocaleString()+"要素 · "+state.layers.length+"レイヤー";$("coords").textContent=state.sheet.size.w.toLocaleString()+" × "+state.sheet.size.h.toLocaleString()+" mm";$("fit").disabled=false;$("detectRooms").disabled=false;$("toggleRooms").disabled=true;state.rooms=[];state.roomGrid=null;setProgress(1,"読込完了");$("fileHint").textContent="レイヤーのチェックを切り替えて、図面の構成を確認できます。";}catch(error){state.drawing=null;state.sheet=null;state.prepared=null;state.layers=[];state.hidden=new Uint8Array(0);$("canvas").innerHTML="<div class='placeholder'><strong>読み込みに失敗しました</strong><p>"+esc(error?.message||error)+"</p></div>";$("drawingMeta").textContent="読込失敗";$("entityCount").textContent="—";$("layerCount").textContent="—";$("textCount").textContent="—";$("layerList").innerHTML='<div class="empty">読込成功後にレイヤー一覧が表示されます。</div>';$("inspection").textContent="読込失敗："+(error?.message||error);$("coords").textContent="座標未取得";status("読込失敗");}finally{state.busy=false;}}
