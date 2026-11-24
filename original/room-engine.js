@@ -274,17 +274,20 @@ function floodRegions(wall,nx,ny){
   }
   return {regions,regionAt};
 }
-function chooseRegions(regions,N,maxRatio=.82){
+function chooseRegions(regions,N,maxRatio=.82,nx= Math.round(Math.sqrt(N)),ny=Math.round(Math.sqrt(N))){
   const inner=regions.filter(r=>!r.touchesEdge).sort((a,b)=>b.area-a.area);
-  const largest=inner[0]?.area||0,minCells=Math.max(16,Math.floor(largest*.0025));
+  // Do not scale the minimum room area from the largest hall: that erases
+  // legitimate small rooms in large plans. Use a modest absolute cell floor
+  // plus a sheet-relative minimum span to reject drafting/title-block islands.
+  const minCells=16,minSpanCells=Math.max(8,Math.ceil(Math.min(nx,ny)*.035));
   const kept=inner.filter(r=>{
     const w=Math.max(1,r.maxx-r.minx+1),h=Math.max(1,r.maxy-r.miny+1);
     const boxArea=w*h,fill=r.area/boxArea,aspect=Math.max(w,h)/Math.min(w,h),ratio=r.area/N;
     // Reject drafting islands, thin annotation strips and tiny title-block cells.
     // Keep large halls: a high area alone is not enough to discard a real room.
-    return r.area>=minCells&&ratio<=maxRatio&&fill>=.10&&aspect<=24;
+    return r.area>=minCells&&Math.min(w,h)>=minSpanCells&&ratio<=maxRatio&&fill>=.10&&aspect<=24;
   }).slice(0,500);
-  return {inner,minCells,kept};
+  return {inner,minCells,minSpanCells,kept};
 }
 export function extractRoomHierarchy({items,width,height,layers,selectedLayers,hiddenLayers=[]}){
   if(!(width>0&&height>0))throw new Error("図面サイズを取得できません");
@@ -307,8 +310,8 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
   let childTrace=traceItems(childItems,allNames,hidden,width,height,nx,ny,cw,ch);
   let parentFlood=floodRegions(parentTrace.wall,nx,ny);
   let childFlood=floodRegions(childTrace.wall,nx,ny);
-  let parents=chooseRegions(parentFlood.regions,N,.995);
-  let children=chooseRegions(childFlood.regions,N);
+  let parents=chooseRegions(parentFlood.regions,N,.995,nx,ny);
+  let children=chooseRegions(childFlood.regions,N,.82,nx,ny);
   // If semantic wall-layer selection misses the building perimeter, retry with
   // every geometric layer except clearly non-architectural annotation/furniture.
   // This fallback is automatic and is used only when the first pass finds no room.
@@ -359,6 +362,6 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
     rooms:displayRooms.map((r,i)=>({...r,id:i,drawingAreaCm2:r.area*cw*ch/100})),
     parents:parentRooms.map(p=>({...p,children:p.children.map(c=>c.name)})),
     grid:{ids,nx,ny,cw,ch},
-    diagnostics:{selectedLayers:selected.size,supplementalLayers:supplemental.size,autoMode:classified.mode+(fallbackUsed?" → 全図形レイヤー再判定":""),fallbackUsed,parentLayerNames:[...selected],wallLayerNames:[...allNames],parentRegions:parents.inner.length,childRegions:children.inner.length,parentsKept:parentRooms.length,childrenKept:childRooms.length,unassignedChildren,minParentCells:parents.minCells,minChildCells:children.minCells,usedItems:childTrace.usedItems,usedSegments:childTrace.usedSegments,skippedHidden:childTrace.skippedHidden,skippedDimensionSegments:childTrace.skippedDimensionSegments,bridgedDoorGaps:childTrace.bridgedDoorGaps,virtualBoothClosures:boothClosures.length,endpointCount:childTrace.endpointCount}
+    diagnostics:{selectedLayers:selected.size,supplementalLayers:supplemental.size,autoMode:classified.mode+(fallbackUsed?" → 全図形レイヤー再判定":""),fallbackUsed,parentLayerNames:[...selected],wallLayerNames:[...allNames],parentRegions:parents.inner.length,childRegions:children.inner.length,parentsKept:parentRooms.length,childrenKept:childRooms.length,unassignedChildren,minParentCells:parents.minCells,minChildCells:children.minCells,minChildSpanCells:children.minSpanCells,minParentSpanCells:parents.minSpanCells,usedItems:childTrace.usedItems,usedSegments:childTrace.usedSegments,skippedHidden:childTrace.skippedHidden,skippedDimensionSegments:childTrace.skippedDimensionSegments,bridgedDoorGaps:childTrace.bridgedDoorGaps,virtualBoothClosures:boothClosures.length,endpointCount:childTrace.endpointCount}
   };
 }

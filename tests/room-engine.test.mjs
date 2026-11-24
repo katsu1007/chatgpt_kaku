@@ -170,6 +170,20 @@ test("A-WALL is recognised and DIM layer is excluded from automatic wall candida
   assert.equal(result.parents.length,1);
   assert.deepEqual(result.diagnostics.wallLayerNames,["A-WALL"]);
 });
+test("small valid room is retained beside a much larger hall by span rather than hall-area ratio",()=>{
+  const items=[
+    line("外壁",100,100,900,100),line("外壁",900,100,900,900),
+    line("外壁",900,900,100,900),line("外壁",100,900,100,100),
+    // A 40 x 40 mm enclosed room: small relative to the hall, but large enough
+    // in both dimensions to be a plausible small service/utility space.
+    line("間仕切壁",700,700,740,700),line("間仕切壁",740,700,740,740),
+    line("間仕切壁",740,740,700,740),line("間仕切壁",700,740,700,700)
+  ];
+  const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
+  assert.equal(result.rooms.length,2);
+  assert.ok(result.diagnostics.minChildSpanCells>0);
+});
+
 test("small closed title-block cells are filtered while real rooms remain",()=>{
   const items=[
     line("外壁",100,100,900,100),line("外壁",900,100,900,900),
