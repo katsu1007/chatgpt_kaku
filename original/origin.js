@@ -1,4 +1,4 @@
-import { extractRoomHierarchy } from "./room-engine.js?v=20261124-door-gap-bridge2";
+import { extractRoomHierarchy } from "./room-engine.js?v=20261124-multiframe1";
 let openCad,prepare,toSvg,findFrames;
 let cadImportPromise;
 async function ensureCadLibrary(){if(openCad&&prepare&&toSvg)return;if(!cadImportPromise)cadImportPromise=import("https://cdn.jsdelivr.net/npm/ezpzfile-cad@0.1.0/dist/index.js").then(m=>{openCad=m.openCad;prepare=m.prepare;toSvg=m.toSvg;findFrames=m.findFrames;}).catch(e=>{cadImportPromise=null;throw new Error("CAD読込ライブラリを取得できません。通信状態を確認して再読み込みしてください。詳細: "+(e?.message||e));});await cadImportPromise;}
@@ -24,18 +24,26 @@ function clipSegment(x0,y0,x1,y1,b){
  return [x0+t0*dx,y0+t0*dy,x0+t1*dx,y0+t1*dy];
 }
 function sliceSheetForFrame(source,frame){
- const [x0,y0,x1,y1]=frame,pad=Math.max(x1-x0,y1-y0)*.012,box=[x0-pad,y0-pad,x1+pad,y1+pad],items=[];
+ const [x0,y0,x1,y1]=frame,pad=Math.max(x1-x0,y1-y0)*.006,box=[x0-pad,y0-pad,x1+pad,y1+pad],items=[];
+ const edgeTol=Math.max(x1-x0,y1-y0)*.0005;
  for(const it of source.items){
-  const bb=itemBounds(it),cx=(bb[0]+bb[2])/2,cy=(bb[1]+bb[3])/2;
   if(it.kind==="line"){
-   const pts=[];for(let i=0;i+3<it.pts.length;i+=2){const c=clipSegment(it.pts[i],it.pts[i+1],it.pts[i+2],it.pts[i+3],box);if(c){if(pts.length&&Math.hypot(pts[pts.length-2]-c[0],pts[pts.length-1]-c[1])<.01)pts.push(c[2]-x0,c[3]-y0);else pts.push(c[0]-x0,c[1]-y0,c[2]-x0,c[3]-y0);}}
-   if(pts.length>=4)items.push({...it,pts});
-  }else if(cx>=box[0]&&cx<=box[2]&&cy>=box[1]&&cy<=box[3]){
-   if(it.kind==="fill")items.push({...it,pts:it.pts.map((v,i)=>v-(i%2?y0:x0))});
-   else if(it.kind==="arc")items.push({...it,cx:it.cx-x0,cy:it.cy-y0});
-   else if(it.kind==="text")items.push({...it,x:it.x-x0,y:it.y-y0});
-   else if(it.kind==="image")items.push({...it,x:it.x-x0,y:it.y-y0});
+   for(let i=0;i+3<it.pts.length;i+=2){
+    const ax=it.pts[i],ay=it.pts[i+1],bx=it.pts[i+2],by=it.pts[i+3];
+    // The detected sheet frame itself is not an architectural wall.
+    const onFrame=(Math.abs(ay-y0)<edgeTol&&Math.abs(by-y0)<edgeTol)||(Math.abs(ay-y1)<edgeTol&&Math.abs(by-y1)<edgeTol)||(Math.abs(ax-x0)<edgeTol&&Math.abs(bx-x0)<edgeTol)||(Math.abs(ax-x1)<edgeTol&&Math.abs(bx-x1)<edgeTol);
+    if(onFrame)continue;
+    const c=clipSegment(ax,ay,bx,by,box);
+    if(c&&Math.hypot(c[2]-c[0],c[3]-c[1])>edgeTol*.2)items.push({...it,pts:[c[0]-x0,c[1]-y0,c[2]-x0,c[3]-y0]});
+   }
+   continue;
   }
+  const bb=itemBounds(it),cx=(bb[0]+bb[2])/2,cy=(bb[1]+bb[3])/2;
+  if(cx<box[0]||cx>box[2]||cy<box[1]||cy>box[3])continue;
+  if(it.kind==="fill")items.push({...it,pts:it.pts.map((v,i)=>v-(i%2?y0:x0))});
+  else if(it.kind==="arc")items.push({...it,cx:it.cx-x0,cy:it.cy-y0});
+  else if(it.kind==="text")items.push({...it,x:it.x-x0,y:it.y-y0});
+  else if(it.kind==="image")items.push({...it,x:it.x-x0,y:it.y-y0});
  }
  return {...source,name:"図面枠",size:{w:x1-x0,h:y1-y0},items};
 }
@@ -80,7 +88,7 @@ function suggestBoundaryLayers(){
  renderBoundaryLayers();
 }
 function renderDrawing(){if(!state.prepared)return;$("canvas").innerHTML=toSvg(state.prepared,state.hidden);const node=$("canvas").querySelector("svg");if(node){node.style.width="100%";node.style.height="100%";node.style.minWidth="100%";node.style.minHeight="100%";node.setAttribute("preserveAspectRatio","xMidYMid meet");}if(state.rooms.length)renderRooms();}
-function showReport(){const d=state.drawing,s=state.sheet,info=d.meta.info||{};$("entityCount").textContent=Number(info.items??s.items.length).toLocaleString();$("layerCount").textContent=state.layers.length.toLocaleString();$("textCount").textContent=s.items.filter(x=>x.kind==="text").length.toLocaleString();const rows=[["形式",d.meta.label||d.meta.format],["バージョン",info.version||"—"],["図面メモ",info.memo||s.name||"—"],["用紙",info.paper||"—"],["縮尺",info.scales||"—"],["シート",d.sheets.length],["解析要素",info.figures??s.items.length],["ブロック定義",info.blocks??"—"],["完全性",s.completeness||"未判定"]];$("meta").innerHTML=rows.map(([k,v])=>"<div><dt>"+esc(k)+"</dt><dd>"+esc(v)+"</dd></div>").join("");const warnings=[...(d.meta.warnings||[]),...(s.warnings||[])];const visible=state.layers.filter(x=>x.visible).length;$("inspection").innerHTML="<strong>読込完了：レイヤー情報を保持</strong><ul><li>レイヤー："+state.layers.length+"件（読込時表示 "+visible+"件）</li><li>図形要素："+s.items.length.toLocaleString()+"件</li><li>座標：mm基準のシート座標</li><li>各要素に元レイヤー名を保持</li></ul>"+(warnings.length?"<strong>警告（"+warnings.length+"件）</strong><ul>"+warnings.slice(0,30).map(w=>"<li>"+esc(w)+"</li>").join("")+"</ul>":"<p>パーサーからの警告はありません。</p>")+"<p class='muted'>※元のJw_cad画面との完全一致は、対象ファイルでの照合が必要です。</p>";}
+function showReport(){const d=state.drawing,s=state.sheet,info=d.meta.info||{};$("entityCount").textContent=Number(info.items??s.items.length).toLocaleString();$("layerCount").textContent=state.layers.length.toLocaleString();$("textCount").textContent=s.items.filter(x=>x.kind==="text").length.toLocaleString();const rows=[["形式",d.meta.label||d.meta.format],["図面枠",state.frames.length?state.frames.length+"件検出（選択中 "+(state.frameIndex+1)+"）":"検出なし"],["バージョン",info.version||"—"],["図面メモ",info.memo||s.name||"—"],["用紙",info.paper||"—"],["縮尺",info.scales||"—"],["シート",d.sheets.length],["解析要素",info.figures??s.items.length],["ブロック定義",info.blocks??"—"],["完全性",s.completeness||"未判定"]];$("meta").innerHTML=rows.map(([k,v])=>"<div><dt>"+esc(k)+"</dt><dd>"+esc(v)+"</dd></div>").join("");const warnings=[...(d.meta.warnings||[]),...(s.warnings||[])];const visible=state.layers.filter(x=>x.visible).length;$("inspection").innerHTML="<strong>読込完了：レイヤー情報を保持</strong><ul><li>レイヤー："+state.layers.length+"件（読込時表示 "+visible+"件）</li><li>図形要素："+s.items.length.toLocaleString()+"件</li><li>座標：mm基準のシート座標</li><li>各要素に元レイヤー名を保持</li></ul>"+(warnings.length?"<strong>警告（"+warnings.length+"件）</strong><ul>"+warnings.slice(0,30).map(w=>"<li>"+esc(w)+"</li>").join("")+"</ul>":"<p>パーサーからの警告はありません。</p>")+"<p class='muted'>※元のJw_cad画面との完全一致は、対象ファイルでの照合が必要です。</p>";}
 
 function detectRooms(){
  if(!state.sheet)return;
