@@ -49,25 +49,32 @@ function findBoothFrontClosures(items,names,hidden){
   // Join only same-layer fragments with near-identical direction, <=45 mm
   // perpendicular offset, and <=120 mm projected gap. This is deliberately
   // stricter than raster healing and never joins neighbouring parallel bays.
-  const segs=raw.slice();let merged=true,mergePasses=0;
-  while(merged&&mergePasses++<Math.min(256,raw.length*2)){
-    merged=false;
-    outer:for(let i=0;i<segs.length;i++)for(let j=i+1;j<segs.length;j++){
-      const a=segs[i],b=segs[j];if(a.it.layer!==b.it.layer)continue;
-      if(Math.abs(a.dx*b.dy-a.dy*b.dx)>.035)continue;
-      const ux=a.dx,uy=a.dy,nx=-uy,ny=ux;
-      const perp1=Math.abs((b.x1-a.x1)*nx+(b.y1-a.y1)*ny);
-      const perp2=Math.abs((b.x2-a.x1)*nx+(b.y2-a.y1)*ny);
-      if(Math.max(perp1,perp2)>45)continue;
-      const pa1=0,pa2=a.len;
-      const pb1=(b.x1-a.x1)*ux+(b.y1-a.y1)*uy;
-      const pb2=(b.x2-a.x1)*ux+(b.y2-a.y1)*uy;
-      const blo=Math.min(pb1,pb2),bhi=Math.max(pb1,pb2);
-      if(Math.max(pa1,blo)-Math.min(pa2,bhi)>120)continue;
-      const lo=Math.min(pa1,blo),hi=Math.max(pa2,bhi);
-      const mergedSeg={it:a.it,x1:a.x1+ux*lo,y1:a.y1+uy*lo,x2:a.x1+ux*hi,y2:a.y1+uy*hi,dx:ux,dy:uy,len:hi-lo};
-      segs.splice(j,1);segs.splice(i,1,mergedSeg);merged=true;break outer;
+  // Group fragments by canonical direction and perpendicular offset, then
+  // merge their projected intervals in one sorted pass. This avoids the old
+  // all-pairs repeated scan (quadratic per pass) on dense JWW drawings.
+  const groups=new Map(),angleStep=2*Math.PI/180,offsetStep=45;
+  for(const s of raw){
+    let angle=Math.atan2(s.dy,s.dx);
+    if(angle<0)angle+=Math.PI;
+    if(angle>=Math.PI)angle-=Math.PI;
+    const bin=Math.round(angle/angleStep),ux=Math.cos(bin*angleStep),uy=Math.sin(bin*angleStep);
+    const nx=-uy,ny=ux,offset=(s.x1*nx+s.y1*ny+s.x2*nx+s.y2*ny)/2;
+    const key=String(s.it.layer)+"|"+bin+"|"+Math.round(offset/offsetStep);
+    if(!groups.has(key))groups.set(key,{it:s.it,ux,uy,parts:[]});
+    const g=groups.get(key),p1=s.x1*g.ux+s.y1*g.uy,p2=s.x2*g.ux+s.y2*g.uy;
+    g.parts.push({lo:Math.min(p1,p2),hi:Math.max(p1,p2)});
+  }
+  const segs=[];
+  for(const g of groups.values()){
+    g.parts.sort((a,b)=>a.lo-b.lo);
+    let lo=null,hi=null;
+    const flush=()=>{if(lo!==null&&hi-lo>1)segs.push({it:g.it,x1:g.ux*lo,y1:g.uy*lo,x2:g.ux*hi,y2:g.uy*hi,dx:g.ux,dy:g.uy,len:hi-lo});};
+    for(const p of g.parts){
+      if(lo===null){lo=p.lo;hi=p.hi;continue;}
+      if(p.lo-hi<=120){hi=Math.max(hi,p.hi);}
+      else{flush();lo=p.lo;hi=p.hi;}
     }
+    flush();
   }
   const pointLineDistance=(p,s)=>{
     const vx=s.x2-s.x1,vy=s.y2-s.y1,l2=vx*vx+vy*vy;
