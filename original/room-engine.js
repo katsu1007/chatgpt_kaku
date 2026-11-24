@@ -209,7 +209,9 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
   const ny=Math.max(320,Math.min(1500,Math.round(target/Math.sqrt(aspect))));
   const cw=width/nx,ch=height/ny,N=nx*ny;
   let parentTrace=traceItems(items,selected,hidden,width,height,nx,ny,cw,ch);
-  let childTrace=traceItems(items,allNames,hidden,width,height,nx,ny,cw,ch);
+  let boothClosures=findBoothFrontClosures(items,allNames,hidden);
+  let childItems=boothClosures.length?[...items,...boothClosures]:items;
+  let childTrace=traceItems(childItems,allNames,hidden,width,height,nx,ny,cw,ch);
   let parentFlood=floodRegions(parentTrace.wall,nx,ny);
   let childFlood=floodRegions(childTrace.wall,nx,ny);
   let parents=chooseRegions(parentFlood.regions,N);
@@ -222,7 +224,9 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
     selected=new Set([...allNames,...geometryNames]);
     allNames=new Set([...allNames,...geometryNames]);
     parentTrace=traceItems(items,selected,hidden,width,height,nx,ny,cw,ch);
-    childTrace=parentTrace;
+    boothClosures=findBoothFrontClosures(items,allNames,hidden);
+    childItems=boothClosures.length?[...items,...boothClosures]:items;
+    childTrace=traceItems(childItems,allNames,hidden,width,height,nx,ny,cw,ch);
     parentFlood=floodRegions(parentTrace.wall,nx,ny);
     childFlood=parentFlood;
     parents=chooseRegions(parentFlood.regions,N);
