@@ -137,20 +137,37 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
       if(xx>=0&&xx<nx&&yy>=0&&yy<ny)wall[yy*nx+xx]=1;
     }
   };
-  const line=(x1,y1,x2,y2,bridgeEligible=false)=>{
+  const line=(x1,y1,x2,y2)=>{
     if(![x1,y1,x2,y2].every(Number.isFinite))return false;
     if(isDimensionSegment(x1,y1,x2,y2,dimAnchors)){skippedDimensionSegments++;return false;}
-    if(bridgeEligible){const len=Math.hypot(x2-x1,y2-y1);if(len>0){const ux=(x2-x1)/len,uy=(y2-y1)/len;doorEndpoints.push({x:x1,y:y1,ux,uy});doorEndpoints.push({x:x2,y:y2,ux:-ux,uy:-uy});endpoints.push([Math.round(x1/cw),Math.round(y1/ch)],[Math.round(x2/cw),Math.round(y2/ch)]);}}
+    endpoints.push([Math.round(x1/cw),Math.round(y1/ch)],[Math.round(x2/cw),Math.round(y2/ch)]);
     const steps=Math.max(1,Math.ceil(Math.hypot((x2-x1)/cw,(y2-y1)/ch)*2));
     for(let k=0;k<=steps;k++){const t=k/steps;mark(x1+(x2-x1)*t,y1+(y2-y1)*t);}
     usedSegments++;return true;
+  };
+  const rememberDoorEndpoint=(x,y,dx,dy)=>{
+    const len=Math.hypot(dx,dy);
+    if(len>0)doorEndpoints.push({x,y,ux:dx/len,uy:dy/len});
   };
   const rememberEndpoint=(x,y)=>{if(Number.isFinite(x)&&Number.isFinite(y))endpoints.push([Math.round(x/cw),Math.round(y/ch)]);};
   for(const it of items){
     if(!names.has(it.layer))continue;
     if(hidden.has(it.layer)){skippedHidden++;continue;}
     if(it.kind==="line"&&Array.isArray(it.pts)&&it.pts.length>=4){
-      usedItems++;for(let k=0;k+3<it.pts.length;k+=2)line(it.pts[k],it.pts[k+1],it.pts[k+2],it.pts[k+3],!it.virtualBoothClosure);
+      usedItems++;
+      const segments=[];
+      for(let k=0;k+3<it.pts.length;k+=2){
+        const segment={x1:it.pts[k],y1:it.pts[k+1],x2:it.pts[k+2],y2:it.pts[k+3]};
+        segment.used=line(segment.x1,segment.y1,segment.x2,segment.y2);
+        segments.push(segment);
+      }
+      // A CAD polyline's intermediate vertices are connected corners, not
+      // free wall ends. Only its true first/last vertices may close a doorway.
+      if(!it.virtualBoothClosure&&segments.length){
+        const first=segments[0],last=segments[segments.length-1];
+        if(first.used)rememberDoorEndpoint(first.x1,first.y1,first.x2-first.x1,first.y2-first.y1);
+        if(last.used)rememberDoorEndpoint(last.x2,last.y2,last.x1-last.x2,last.y1-last.y2);
+      }
     }else if(it.kind==="arc"&&Number.isFinite(it.r)&&it.r>0){
       usedItems++;const sweep=it.a1-it.a0,n=Math.max(16,Math.ceil(Math.abs(sweep)*it.r/Math.min(cw,ch)*2));
       let px=it.cx+it.r*Math.cos(it.a0),py=it.cy+it.r*Math.sin(it.a0);rememberEndpoint(px,py);rememberEndpoint(it.cx+it.r*Math.cos(it.a1),it.cy+it.r*Math.sin(it.a1));

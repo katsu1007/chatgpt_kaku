@@ -121,6 +121,17 @@ test("dimension line on the same layer is ignored when a numeric dimension label
   assert.ok(result.diagnostics.skippedDimensionSegments>0);
 });
 
+test("polyline corner vertices are not mistaken for doorway endpoints",()=>{
+  const items=[
+    line("外壁",50,50,1450,50),line("外壁",1450,50,1450,950),
+    line("外壁",1450,950,50,950),line("外壁",50,950,50,50),
+    {kind:"line",layer:"間仕切壁",pts:[100,100,500,100,500,400]},
+    line("間仕切壁",1100,100,1400,100)
+  ];
+  const result=extractRoomHierarchy({items,width:1500,height:1000,layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
+  assert.equal(result.diagnostics.bridgedDoorGaps,0);
+});
+
 test("normal doorway openings are bridged so adjacent rooms remain separate",()=>{
   const items=[
     line("外壁",100,100,1400,100),line("外壁",1400,100,1400,1400),
