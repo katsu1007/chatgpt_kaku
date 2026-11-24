@@ -65,16 +65,48 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
       line(it.pts[it.pts.length-2],it.pts[it.pts.length-1],it.pts[0],it.pts[1]);
     }
   }
-  // Bridge likely door openings: two collinear wall ends facing each other across a normal doorway.\n  // This preserves room topology while leaving small drafting gaps to the separate healer.\n  const bridgeMin=350,bridgeMax=1200,bucketSize=bridgeMax;\n  const endpointBins=new Map();\n  for(const ep of endpoints){const bx=Math.floor(ep.x/bucketSize),by=Math.floor(ep.y/bucketSize);const key=bx+":"+by;if(!endpointBins.has(key))endpointBins.set(key,[]);endpointBins.get(key).push(ep);}\n  let bridgedDoorGaps=0;const bridgedPairs=new Set();\n  for(const [key,list] of endpointBins){const [bx,by]=key.split(":").map(Number);for(const a of list){for(let oy=-1;oy<=1;oy++)for(let ox=-1;ox<=1;ox++){for(const b of endpointBins.get((bx+ox)+":"+(by+oy))||[]){if(a===b)continue;const dx=b.x-a.x,dy=b.y-a.y,dist=Math.hypot(dx,dy);if(dist<bridgeMin||dist>bridgeMax)continue;const ux=dx/dist,uy=dy/dist;if(a.ux*ux+a.uy*uy>-.96||b.ux*ux+b.uy*uy<.96)continue;if(Math.abs(a.ux*uy-a.uy*ux)*dist>35||Math.abs(b.ux*uy-b.uy*ux)*dist>35)continue;const ak=a.x+","+a.y,bk=b.x+","+b.y,pair=ak<bk?ak+"|"+bk:bk+"|"+ak;if(bridgedPairs.has(pair))continue;bridgedPairs.add(pair);const steps=Math.max(1,Math.ceil(dist/Math.min(cw,ch)*2));for(let k=0;k<=steps;k++){const t=k/steps;mark(a.x+dx*t,a.y+dy*t);}bridgedDoorGaps++;}}}}\n  // Heal only tiny drafting gaps between distinct line endpoints. Tolerance is
-  // raster-relative (1.6 cells), so normal door openings remain open.
+  // Bridge likely door openings: two collinear wall ends facing each other across a normal doorway.
+  // This preserves room topology while leaving small drafting gaps to the separate healer.
+  const bridgeMin=350,bridgeMax=1200,bucketSize=bridgeMax;
+  const endpointBins=new Map();
+  for(const ep of doorEndpoints){
+    const bx=Math.floor(ep.x/bucketSize),by=Math.floor(ep.y/bucketSize),key=bx+":"+by;
+    if(!endpointBins.has(key))endpointBins.set(key,[]);
+    endpointBins.get(key).push(ep);
+  }
+  let bridgedDoorGaps=0;const bridgedPairs=new Set();
+  for(const [key,list] of endpointBins){
+    const [bx,by]=key.split(":").map(Number);
+    for(const a of list)for(let oy=-1;oy<=1;oy++)for(let ox=-1;ox<=1;ox++){
+      for(const b of endpointBins.get((bx+ox)+":"+(by+oy))||[]){
+        if(a===b)continue;
+        const dx=b.x-a.x,dy=b.y-a.y,dist=Math.hypot(dx,dy);
+        if(dist<bridgeMin||dist>bridgeMax)continue;
+        const ux=dx/dist,uy=dy/dist;
+        if(a.ux*ux+a.uy*uy>-.96||b.ux*ux+b.uy*uy<.96)continue;
+        if(Math.abs(a.ux*uy-a.uy*ux)*dist>35||Math.abs(b.ux*uy-b.uy*ux)*dist>35)continue;
+        const ak=a.x+","+a.y,bk=b.x+","+b.y,pair=ak<bk?ak+"|"+bk:bk+"|"+ak;
+        if(bridgedPairs.has(pair))continue;
+        bridgedPairs.add(pair);
+        const steps=Math.max(1,Math.ceil(dist/Math.min(cw,ch)*2));
+        for(let k=0;k<=steps;k++){const t=k/steps;mark(a.x+dx*t,a.y+dy*t);}
+        bridgedDoorGaps++;
+      }
+    }
+  }
+  // Heal only tiny drafting gaps between distinct line endpoints.
   const bins=new Map(),tol=1.6,tol2=tol*tol;
-  for(const ep of endpoints){\n    const x=Math.round(ep.x/cw),y=Math.round(ep.y/ch);\n    const bx=Math.floor(x/2),by=Math.floor(y/2);
+  for(const [x,y] of endpoints){
+    const bx=Math.floor(x/2),by=Math.floor(y/2);
     for(let oy=-1;oy<=1;oy++)for(let ox=-1;ox<=1;ox++){
-      const bucket=bins.get((bx+ox)+":"+ (by+oy));if(!bucket)continue;
-      for(const [px,py] of bucket){const dx=x-px,dy=y-py,d2=dx*dx+dy*dy;if(d2>0.01&&d2<=tol2){
-        const steps=Math.max(1,Math.ceil(Math.sqrt(d2)*2));
-        for(let k=0;k<=steps;k++){const t=k/steps,xx=Math.round(px+dx*t),yy=Math.round(py+dy*t);if(xx>=0&&xx<nx&&yy>=0&&yy<ny)wall[yy*nx+xx]=1;}
-      }}
+      const bucket=bins.get((bx+ox)+":"+(by+oy));if(!bucket)continue;
+      for(const [px,py] of bucket){
+        const dx=x-px,dy=y-py,d2=dx*dx+dy*dy;
+        if(d2>0.01&&d2<=tol2){
+          const steps=Math.max(1,Math.ceil(Math.sqrt(d2)*2));
+          for(let k=0;k<=steps;k++){const t=k/steps,xx=Math.round(px+dx*t),yy=Math.round(py+dy*t);if(xx>=0&&xx<nx&&yy>=0&&yy<ny)wall[yy*nx+xx]=1;}
+        }
+      }
     }
     const key=bx+":"+by;if(!bins.has(key))bins.set(key,[]);bins.get(key).push([x,y]);
   }
