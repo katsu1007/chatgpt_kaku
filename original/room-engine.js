@@ -60,7 +60,7 @@ function findBoothFrontClosures(items,names,hidden){
     const bin=Math.round(angle/angleStep),ux=Math.cos(bin*angleStep),uy=Math.sin(bin*angleStep);
     const nx=-uy,ny=ux,offset=(s.x1*nx+s.y1*ny+s.x2*nx+s.y2*ny)/2;
     const key=String(s.it.layer)+"|"+bin+"|"+Math.round(offset/offsetStep);
-    if(!groups.has(key))groups.set(key,{it:s.it,ux,uy,parts:[]});
+    if(!groups.has(key))groups.set(key,{it:s.it,ux,uy,offset,nx,ny,parts:[]});
     const g=groups.get(key),p1=s.x1*g.ux+s.y1*g.uy,p2=s.x2*g.ux+s.y2*g.uy;
     g.parts.push({lo:Math.min(p1,p2),hi:Math.max(p1,p2)});
   }
@@ -68,7 +68,7 @@ function findBoothFrontClosures(items,names,hidden){
   for(const g of groups.values()){
     g.parts.sort((a,b)=>a.lo-b.lo);
     let lo=null,hi=null;
-    const flush=()=>{if(lo!==null&&hi-lo>1)segs.push({it:g.it,x1:g.ux*lo,y1:g.uy*lo,x2:g.ux*hi,y2:g.uy*hi,dx:g.ux,dy:g.uy,len:hi-lo});};
+    const flush=()=>{if(lo!==null&&hi-lo>1)segs.push({it:g.it,x1:g.ux*lo+g.nx*g.offset,y1:g.uy*lo+g.ny*g.offset,x2:g.ux*hi+g.nx*g.offset,y2:g.uy*hi+g.ny*g.offset,dx:g.ux,dy:g.uy,len:hi-lo});};
     for(const p of g.parts){
       if(lo===null){lo=p.lo;hi=p.hi;continue;}
       if(p.lo-hi<=120){hi=Math.max(hi,p.hi);}
