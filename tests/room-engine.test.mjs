@@ -243,9 +243,11 @@ test("six open-front toilet cubicles are virtually closed as six separate bays",
   ];
   const result=extractRoomHierarchy({items,width:6300,height:2500,layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
   assert.equal(result.diagnostics.virtualBoothClosures,6);
-  assert.ok(result.rooms.length>=6);
+  // Six enclosed cubicles plus one connected circulation area: no merged bays,
+  // duplicate fragments, or phantom micro-rooms are acceptable.
+  assert.equal(result.rooms.length,7);
   const boothSeeds=result.rooms.filter(r=>r.cx*result.grid.cw>300&&r.cx*result.grid.cw<5700&&r.cy*result.grid.ch>500&&r.cy*result.grid.ch<2000);
-  assert.ok(boothSeeds.length>=6);
+  assert.equal(boothSeeds.length,6);
 });
 
 
@@ -266,12 +268,12 @@ test("automatic all-layer fallback preserves six virtual toilet cubicle closures
   assert.equal(result.diagnostics.minParentSpanCells,Math.max(8,Math.ceil(Math.min(result.grid.nx,result.grid.ny)*.03)));
   assert.equal(result.diagnostics.virtualBoothClosures,6);
   assert.equal(result.parents.length,1);
-  assert.ok(result.rooms.length>=6);
+  assert.equal(result.rooms.length,7);
   const boothRooms=result.rooms.filter(r=>{
     const x=r.cx*result.grid.cw,y=r.cy*result.grid.ch;
     return x>300&&x<5700&&y>500&&y<2000;
   });
-  assert.ok(boothRooms.length>=6);
+  assert.equal(boothRooms.length,6);
 });
 
 
