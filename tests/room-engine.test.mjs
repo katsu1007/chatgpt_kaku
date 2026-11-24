@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { extractRoomHierarchy } from "../original/room-engine.js";
+import { extractRoomHierarchy, suggestWallLayers } from "../original/room-engine.js";
 
 const line=(layer,x1,y1,x2,y2)=>({kind:"line",layer,pts:[x1,y1,x2,y2]});
 function fixture(){
@@ -160,6 +160,13 @@ test("toilet cubicles with door openings are extracted as separate compartments"
   assert.equal(result.diagnostics.bridgedDoorGaps,2);
 });
 
+test("wall layer suggestions exclude dimensions, furniture, equipment and annotations",()=>{
+  assert.deepEqual(
+    suggestWallLayers(["外壁","間仕切壁","A-WALL","建築寸法","壁注記","設備","FURNITURE","DIM"]),
+    ["外壁","間仕切壁","A-WALL"]
+  );
+});
+
 test("A-WALL is recognised and DIM layer is excluded from automatic wall candidates",()=>{
   const items=[
     line("A-WALL",100,100,900,100),line("A-WALL",900,100,900,900),
@@ -225,7 +232,7 @@ test("automatic all-layer fallback preserves six virtual toilet cubicle closures
     layers:[{name:"外壁"},{name:"間仕切壁"}],
     selectedLayers:["外壁"]
   });
-  assert.equal(result.diagnostics.fallbackUsed,true);
+  assert.equal(result.diagnostics.fallbackUsed,true);\n  assert.equal(result.diagnostics.minParentSpanCells,Math.max(8,Math.ceil(Math.min(result.grid.nx,result.grid.ny)*.03)));
   assert.equal(result.diagnostics.virtualBoothClosures,6);
   assert.equal(result.parents.length,1);
   assert.ok(result.rooms.length>=6);

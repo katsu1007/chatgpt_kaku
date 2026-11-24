@@ -1,4 +1,4 @@
-import { extractRoomHierarchy } from "./room-engine.js?v=20261124-parentarea2";
+import { extractRoomHierarchy, suggestWallLayers } from "./room-engine.js?v=20261124-wall-layer-safe1";
 import { makeDrawingChoices, sliceSheetForFrame } from "./drawing-split.js?v=20261124-split2";
 let openCad,prepare,toSvg,findFrames;
 let cadImportPromise;
@@ -47,11 +47,10 @@ function renderBoundaryLayers(){
 }
 function updateBoundarySummary(){
  const n=state.boundaryLayers.size;
- $("boundarySummary").textContent=n+"レイヤー選択中 · "+(n?"このレイヤーの図形だけを区画境界に使用":"未選択：抽出は実行できません");
+ $("boundarySummary").textContent=n+"レイヤー選択中 · "+(n?"選択レイヤーを外周候補として優先":"壁候補レイヤーを自動判定して抽出");
 }
 function suggestBoundaryLayers(){
- const re=/(壁|間仕切|躯体|外壁|内壁|壁芯|建築|wall|partition|架台壁)/i;
- state.boundaryLayers=new Set(state.layers.filter(l=>re.test(String(l.name))).map(l=>l.name));
+ state.boundaryLayers=new Set(suggestWallLayers(state.layers));
  renderBoundaryLayers();
  detectRooms();
 }
