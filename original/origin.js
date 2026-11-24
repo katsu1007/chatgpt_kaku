@@ -1,4 +1,5 @@
 import { extractRoomHierarchy } from "./room-engine.js?v=20261124-multisheet2";
+import { makeDrawingChoices, sliceSheetForFrame } from "./drawing-split.js?v=20261124-split1";
 let openCad,prepare,toSvg,findFrames;
 let cadImportPromise;
 async function ensureCadLibrary(){if(openCad&&prepare&&toSvg)return;if(!cadImportPromise)cadImportPromise=import("https://cdn.jsdelivr.net/npm/ezpzfile-cad@0.1.0/dist/index.js").then(m=>{openCad=m.openCad;prepare=m.prepare;toSvg=m.toSvg;findFrames=m.findFrames;}).catch(e=>{cadImportPromise=null;throw new Error("CAD読込ライブラリを取得できません。通信状態を確認して再読み込みしてください。詳細: "+(e?.message||e));});await cadImportPromise;}
@@ -8,60 +9,6 @@ function status(s){$("status").textContent=s;}
 function setProgress(ratio,message){$("progress").hidden=false;$("progressBar").style.width=Math.max(0,Math.min(100,ratio*100))+"%";if(message)status(message);}
 function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 
-function itemBounds(it){
- if(it.kind==="line"||it.kind==="fill"){const p=it.pts||[];let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;for(let i=0;i+1<p.length;i+=2){x0=Math.min(x0,p[i]);x1=Math.max(x1,p[i]);y0=Math.min(y0,p[i+1]);y1=Math.max(y1,p[i+1]);}return [x0,y0,x1,y1];}
- if(it.kind==="arc")return [it.cx-it.r,it.cy-it.r,it.cx+it.r,it.cy+it.r];
- if(it.kind==="text")return [it.x,it.y,it.x+Math.max(1,String(it.text||"").length)*it.size*.6,it.y+it.size];
- if(it.kind==="image")return [it.x,it.y,it.x+it.w,it.y+it.h];
- return [Infinity,Infinity,-Infinity,-Infinity];
-}
-function clipSegment(x0,y0,x1,y1,b){
- let t0=0,t1=1,dx=x1-x0,dy=y1-y0;
- for(const [p,q] of [[-dx,x0-b[0]],[dx,b[2]-x0],[-dy,y0-b[1]],[dy,b[3]-y0]]){
-  if(Math.abs(p)<1e-9){if(q<0)return null;continue;}
-  const t=q/p;if(p<0){if(t>t1)return null;if(t>t0)t0=t;}else{if(t<t0)return null;if(t<t1)t1=t;}
- }
- return [x0+t0*dx,y0+t0*dy,x0+t1*dx,y0+t1*dy];
-}
-function sliceSheetForFrame(source,frame){
- const [x0,y0,x1,y1]=frame,pad=Math.max(x1-x0,y1-y0)*.006,box=[x0-pad,y0-pad,x1+pad,y1+pad],items=[];
- const edgeTol=Math.max(x1-x0,y1-y0)*.0005;
- for(const it of source.items){
-  if(it.kind==="line"){
-   for(let i=0;i+3<it.pts.length;i+=2){
-    const ax=it.pts[i],ay=it.pts[i+1],bx=it.pts[i+2],by=it.pts[i+3];
-    // The detected sheet frame itself is not an architectural wall.
-    const onFrame=(Math.abs(ay-y0)<edgeTol&&Math.abs(by-y0)<edgeTol)||(Math.abs(ay-y1)<edgeTol&&Math.abs(by-y1)<edgeTol)||(Math.abs(ax-x0)<edgeTol&&Math.abs(bx-x0)<edgeTol)||(Math.abs(ax-x1)<edgeTol&&Math.abs(bx-x1)<edgeTol);
-    if(onFrame)continue;
-    const c=clipSegment(ax,ay,bx,by,box);
-    if(c&&Math.hypot(c[2]-c[0],c[3]-c[1])>edgeTol*.2)items.push({...it,pts:[c[0]-x0,c[1]-y0,c[2]-x0,c[3]-y0]});
-   }
-   continue;
-  }
-  const bb=itemBounds(it),cx=(bb[0]+bb[2])/2,cy=(bb[1]+bb[3])/2;
-  if(cx<box[0]||cx>box[2]||cy<box[1]||cy>box[3])continue;
-  if(it.kind==="fill")items.push({...it,pts:it.pts.map((v,i)=>v-(i%2?y0:x0))});
-  else if(it.kind==="arc")items.push({...it,cx:it.cx-x0,cy:it.cy-y0});
-  else if(it.kind==="text")items.push({...it,x:it.x-x0,y:it.y-y0});
-  else if(it.kind==="image")items.push({...it,x:it.x-x0,y:it.y-y0});
- }
- return {...source,name:"図面枠",size:{w:x1-x0,h:y1-y0},items};
-}
-
-function makeDrawingChoices(drawing){
- const choices=[];
- for(let si=0;si<drawing.sheets.length;si++){
-  const sheet=drawing.sheets[si];
-  let frames=[];
-  try{frames=typeof findFrames==="function"?findFrames(sheet)||[]:[];}catch(_){frames=[];}
-  if(frames.length){
-   frames.forEach((frame,fi)=>choices.push({sheetIndex:si,frameIndex:fi,frame,label:"シート "+(si+1)+" / 図面枠 "+(fi+1)+"（"+Math.round(frame[2]-frame[0])+" × "+Math.round(frame[3]-frame[1])+"）"}));
-  }else{
-   choices.push({sheetIndex:si,frameIndex:-1,frame:null,label:"シート "+(si+1)+" / 全体表示"+(drawing.sheets.length>1?"（図面枠未検出）":"")});
-  }
- }
- return choices;
-}
 function activateChoice(index){
  const choice=state.choices[index];if(!choice||!state.drawing)return;
  state.choiceIndex=index;state.sheetIndex=choice.sheetIndex;
