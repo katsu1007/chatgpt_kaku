@@ -276,7 +276,7 @@ function floodRegions(wall,nx,ny){
 }
 function chooseRegions(regions,N,maxRatio=.82){
   const inner=regions.filter(r=>!r.touchesEdge).sort((a,b)=>b.area-a.area);
-  const largest=inner[0]?.area||0,minCells=Math.max(16,Math.floor(largest*.0005));
+  const largest=inner[0]?.area||0,minCells=Math.max(16,Math.floor(largest*.0025));
   const kept=inner.filter(r=>{
     const w=Math.max(1,r.maxx-r.minx+1),h=Math.max(1,r.maxy-r.miny+1);
     const boxArea=w*h,fill=r.area/boxArea,aspect=Math.max(w,h)/Math.min(w,h),ratio=r.area/N;
