@@ -171,3 +171,17 @@ test("small closed title-block cells are filtered while real rooms remain",()=>{
   const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
   assert.equal(result.rooms.length,2);
 });
+
+test("six open-front toilet cubicles are virtually closed as six separate bays",()=>{
+  const items=[
+    line("外壁",100,100,6200,100),line("外壁",6200,100,6200,2400),
+    line("外壁",6200,2400,100,2400),line("外壁",100,2400,100,100),
+    line("間仕切壁",300,2000,5700,2000),
+    ...Array.from({length:7},(_,i)=>line("間仕切壁",300+i*900,500,300+i*900,2000))
+  ];
+  const result=extractRoomHierarchy({items,width:6300,height:2500,layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
+  assert.equal(result.diagnostics.virtualBoothClosures,6);
+  assert.ok(result.rooms.length>=6);
+  const boothSeeds=result.rooms.filter(r=>r.cx>300&&r.cx<5700&&r.cy>500&&r.cy<2000);
+  assert.ok(boothSeeds.length>=6);
+});
