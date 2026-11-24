@@ -246,7 +246,10 @@ test("six open-front toilet cubicles are virtually closed as six separate bays",
   // Six enclosed cubicles plus one connected circulation area: no merged bays,
   // duplicate fragments, or phantom micro-rooms are acceptable.
   assert.equal(result.rooms.length,7);
-  const boothSeeds=result.rooms.filter(r=>r.cx*result.grid.cw>300&&r.cx*result.grid.cw<5700&&r.cy*result.grid.ch>500&&r.cy*result.grid.ch<2000);
+  const boothSeeds=result.rooms.filter(r=>{
+    const w=(r.maxx-r.minx+1)*result.grid.cw,h=(r.maxy-r.miny+1)*result.grid.ch;
+    return w<1100&&h>1000;
+  });
   assert.equal(boothSeeds.length,6);
 });
 
@@ -270,8 +273,8 @@ test("automatic all-layer fallback preserves six virtual toilet cubicle closures
   assert.equal(result.parents.length,1);
   assert.equal(result.rooms.length,7);
   const boothRooms=result.rooms.filter(r=>{
-    const x=r.cx*result.grid.cw,y=r.cy*result.grid.ch;
-    return x>300&&x<5700&&y>500&&y<2000;
+    const w=(r.maxx-r.minx+1)*result.grid.cw,h=(r.maxy-r.miny+1)*result.grid.ch;
+    return w<1100&&h>1000;
   });
   assert.equal(boothRooms.length,6);
 });
