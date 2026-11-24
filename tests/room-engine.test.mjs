@@ -327,5 +327,8 @@ test("room extraction retains more than 160 valid rooms in a large floor plan",(
   assert.equal(result.parents.length,1);
   assert.equal(result.rooms.length,180);
   assert.equal(result.diagnostics.childrenKept,180);
+  const pixelCounts=new Int32Array(result.rooms.length);
+  for(const id of result.grid.ids)if(id>=0)pixelCounts[id]++;
+  result.rooms.forEach((room,index)=>assert.equal(pixelCounts[index],room.area));
 });
 

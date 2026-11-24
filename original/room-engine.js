@@ -391,14 +391,18 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
   // Prefer the finer partition for rendering, falling back to parent spaces if no inner walls were found.
   const displayRooms=childRooms.length?childRooms:parentRooms;
   const ids=new Int32Array(N);ids.fill(-1);
-  for(let ri=0;ri<displayRooms.length;ri++){
-    const r=displayRooms[ri],map=childRooms.length?childTrace.wall:parentTrace.wall;
-    const seen=new Uint8Array(N),q=new Int32Array(r.area);let head=0,tail=0;
-    q[tail++]=r.seed;seen[r.seed]=1;ids[r.seed]=ri;
-    while(head<tail){const z=q[head++],x=z%nx,y=(z/nx)|0;
-      for(const n of [x?z-1:-1,x<nx-1?z+1:-1,y?z-nx:-1,y<ny-1?z+nx:-1]){
-        if(n>=0&&!seen[n]&&!map[n]){seen[n]=1;ids[n]=ri;q[tail++]=n;}
-      }
+  // Flood-fill already assigned every open cell to a region. Reuse that topology
+  // instead of allocating and traversing a full-size visited array once per room.
+  // This keeps rendering close to O(grid cells + room count), even on dense plans.
+  const displayRegionAt=childRooms.length?childFlood.regionAt:parentFlood.regionAt;
+  const maxRegionId=displayRooms.reduce((max,r)=>Math.max(max,r.id),-1);
+  const displayIndexByRegion=new Int32Array(maxRegionId+1);displayIndexByRegion.fill(-1);
+  for(let ri=0;ri<displayRooms.length;ri++)displayIndexByRegion[displayRooms[ri].id]=ri;
+  for(let cell=0;cell<N;cell++){
+    const regionId=displayRegionAt[cell];
+    if(regionId>=0&&regionId<displayIndexByRegion.length){
+      const displayIndex=displayIndexByRegion[regionId];
+      if(displayIndex>=0)ids[cell]=displayIndex;
     }
   }
   return {
