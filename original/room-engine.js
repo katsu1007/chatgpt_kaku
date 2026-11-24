@@ -341,7 +341,7 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
     const parent=parentByRegion.get(parentRegionId);
     if(!parent){unassignedChildren++;continue;}
     // Avoid duplicating an unchanged parent as its own child.
-    if(child.area>=parent.area*.985)continue;
+    if(child.area>=parent.area*.9999)continue;
     const room={...child,name:parent.name+"-"+(parent.children.length+1),level:2,parentId:parent.id,parentName:parent.name,children:[]};
     parent.children.push(room);childRooms.push(room);
   }
