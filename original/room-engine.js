@@ -297,8 +297,16 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
   if(!(width>0&&height>0))throw new Error("図面サイズを取得できません");
   const hidden=new Set(hiddenLayers);
   const classified=classifyLayers(layers,items,hidden);
-  let selected=selectedLayers?.length?new Set(selectedLayers):classified.parent;
-  let allNames=selectedLayers?.length?new Set([...selected,...classified.all]):classified.all;
+  // An explicit wall-candidate selection filters the geometry used for room
+  // extraction; it must not promote every interior partition to an outer boundary.
+  // Prefer semantically named exterior layers for the parent pass, while all
+  // selected wall candidates remain available to the child-room pass.
+  let allNames=selectedLayers?.length
+    ?new Set(selectedLayers.filter(name=>!NON_WALL_NAME.test(String(name))))
+    :new Set(classified.all);
+  let selected=selectedLayers?.length
+    ?(()=>{const outer=[...allNames].filter(name=>OUTER_WALL_NAME.test(String(name)));return new Set(outer.length?outer:allNames);})()
+    :new Set(classified.parent);
   if(!allNames.size)throw new Error("壁・図形候補レイヤーを自動判定できませんでした。図面の線分レイヤーを確認してください。");
   const geometryNames=new Set(items.filter(it=>it.layer!=null&&["line","arc","fill"].includes(it.kind)&&!NON_WALL_NAME.test(String(it.layer))).map(it=>it.layer));
   let fallbackUsed=false;

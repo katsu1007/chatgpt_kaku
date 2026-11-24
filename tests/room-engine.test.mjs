@@ -26,6 +26,16 @@ test("hidden partition layer is excluded and parent region remains",()=>{
   assert.equal(result.rooms.length,1);
   assert.equal(result.diagnostics.childrenKept,0);
 });
+test("explicitly selecting all wall candidates keeps exterior walls as parent boundary",()=>{
+  const input=fixture();
+  const result=extractRoomHierarchy({...input,selectedLayers:["外壁","間仕切壁"]});
+  assert.equal(result.parents.length,1);
+  assert.equal(result.parents[0].children.length,4);
+  assert.equal(result.rooms.length,4);
+  assert.deepEqual(result.diagnostics.parentLayerNames,["外壁"]);
+  assert.deepEqual(result.diagnostics.wallLayerNames.sort(),["外壁","間仕切壁"]);
+});
+
 test("all wall layers are classified automatically without manual selection",()=>{
   const input=fixture();
   input.items.push(line("寸法",100,300,900,300),line("家具",200,200,300,300));
