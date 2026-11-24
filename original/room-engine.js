@@ -35,20 +35,20 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
   return {wall,usedItems,usedSegments,skippedHidden};
 }
 function floodRegions(wall,nx,ny){
-  const N=nx*ny,seen=new Uint8Array(N),queue=new Int32Array(N),regions=[];let rid=0;
+  const N=nx*ny,seen=new Uint8Array(N),queue=new Int32Array(N),regionAt=new Int32Array(N),regions=[];regionAt.fill(-1);let rid=0;
   for(let p=0;p<N;p++){
     if(wall[p]||seen[p])continue;
-    let head=0,tail=0;queue[tail++]=p;seen[p]=1;
+    const regionId=rid++;let head=0,tail=0;queue[tail++]=p;seen[p]=1;regionAt[p]=regionId;
     let area=0,sx=0,sy=0,minx=nx,miny=ny,maxx=0,maxy=0;
     while(head<tail){
       const q=queue[head++],x=q%nx,y=(q/nx)|0;area++;sx+=x;sy+=y;
       if(x<minx)minx=x;if(x>maxx)maxx=x;if(y<miny)miny=y;if(y>maxy)maxy=y;
       const ns=[x?q-1:-1,x<nx-1?q+1:-1,y?q-nx:-1,y<ny-1?q+nx:-1];
-      for(const z of ns)if(z>=0&&!wall[z]&&!seen[z]){seen[z]=1;queue[tail++]=z;}
+      for(const z of ns)if(z>=0&&!wall[z]&&!seen[z]){seen[z]=1;regionAt[z]=regionId;queue[tail++]=z;}
     }
     regions.push({id:rid++,seed:p,area,cx:sx/area,cy:sy/area,minx,miny,maxx,maxy,touchesEdge:minx===0||miny===0||maxx===nx-1||maxy===ny-1});
   }
-  return regions;
+  return {regions,regionAt};
 }
 function chooseRegions(regions,N){
   const inner=regions.filter(r=>!r.touchesEdge).sort((a,b)=>b.area-a.area);
@@ -67,12 +67,19 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
   const cw=width/nx,ch=height/ny,N=nx*ny;
   const parentTrace=traceItems(items,selected,hidden,width,height,nx,ny,cw,ch);
   const childTrace=traceItems(items,allNames,hidden,width,height,nx,ny,cw,ch);
-  const parents=chooseRegions(floodRegions(parentTrace.wall,nx,ny),N);
-  const children=chooseRegions(floodRegions(childTrace.wall,nx,ny),N);
+  const parentFlood=floodRegions(parentTrace.wall,nx,ny);
+  const childFlood=floodRegions(childTrace.wall,nx,ny);
+  const parents=chooseRegions(parentFlood.regions,N);
+  const children=chooseRegions(childFlood.regions,N);
   const parentRooms=parents.kept.map((r,i)=>({...r,name:"大部屋 "+(i+1),level:1,children:[]}));
-  const childRooms=[];
+  const parentByRegion=new Map(parentRooms.map(p=>[p.id,p]));
+  const childRooms=[];let unassignedChildren=0;
   for(const child of children.kept){
-    const parent=parentRooms.find(p=>child.cx>=p.minx&&child.cx<=p.maxx&&child.cy>=p.miny&&child.cy<=p.maxy);
+    // Resolve ownership by the exact parent flood-fill component at this child's seed,
+    // not by overlapping bounding boxes.
+    const parentRegionId=parentFlood.regionAt[child.seed];
+    const parent=parentByRegion.get(parentRegionId);
+    if(!parent){unassignedChildren++;continue;}
     if(!parent)continue;
     // Avoid duplicating an unchanged parent as its own child.
     if(child.area>=parent.area*.985)continue;
@@ -96,6 +103,6 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
     rooms:displayRooms.map((r,i)=>({...r,id:i,drawingAreaCm2:r.area*cw*ch/100})),
     parents:parentRooms.map(p=>({...p,children:p.children.map(c=>c.name)})),
     grid:{ids,nx,ny,cw,ch},
-    diagnostics:{selectedLayers:selected.size,supplementalLayers:supplemental.size,parentRegions:parents.inner.length,childRegions:children.inner.length,parentsKept:parentRooms.length,childrenKept:childRooms.length,minParentCells:parents.minCells,minChildCells:children.minCells,usedItems:childTrace.usedItems,usedSegments:childTrace.usedSegments,skippedHidden:childTrace.skippedHidden}
+    diagnostics:{selectedLayers:selected.size,supplementalLayers:supplemental.size,parentRegions:parents.inner.length,childRegions:children.inner.length,parentsKept:parentRooms.length,childrenKept:childRooms.length,unassignedChildren,minParentCells:parents.minCells,minChildCells:children.minCells,usedItems:childTrace.usedItems,usedSegments:childTrace.usedSegments,skippedHidden:childTrace.skippedHidden}
   };
 }
