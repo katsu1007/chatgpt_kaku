@@ -96,3 +96,14 @@ test("diagonal partition connected to both boundary walls separates two rooms",(
     assert.equal(result.grid.ids[cellY*result.grid.nx+cellX],room.id);
   }
 });
+
+test("tiny drafting endpoint gap is healed without changing normal room topology",()=>{
+  const items=[
+    line("外壁",100,100,499.5,100),line("外壁",500.5,100,900,100),
+    line("外壁",900,100,900,900),line("外壁",900,900,100,900),
+    line("外壁",100,900,100,100)
+  ];
+  const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"外壁"}],selectedLayers:[]});
+  assert.equal(result.rooms.length,1);
+  assert.ok(result.diagnostics.endpointCount>=10);
+});
