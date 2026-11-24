@@ -332,8 +332,8 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
     // intentionally present only in childTrace. Reusing parentFlood here silently
     // discarded those closures whenever automatic layer fallback was needed.
     childFlood=floodRegions(childTrace.wall,nx,ny);
-    parents=chooseRegions(parentFlood.regions,N,.995);
-    children=chooseRegions(childFlood.regions,N);
+    parents=chooseRegions(parentFlood.regions,N,.995,nx,ny);
+    children=chooseRegions(childFlood.regions,N,.82,nx,ny);
   }
   const parentRooms=parents.kept.map((r,i)=>({...r,name:"大部屋 "+(i+1),level:1,children:[]}));
   const parentByRegion=new Map(parentRooms.map(p=>[p.id,p]));
