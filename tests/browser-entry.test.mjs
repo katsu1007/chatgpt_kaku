@@ -18,7 +18,7 @@ test('公開HTMLがフル機能のKAKU FIELDモジュールを起動する',asyn
 test('JWW・JWC・DXFの読み込み経路がHTMLアプリから接続されている',async()=>{
  const project=await read('js/project.js');
  const legacy=await read('js/legacy.js');
- assert.match(project,/\.jww\|\.jwc\|\.dxf/i);
+ assert.match(project,/\.jww,\.jwc,\.dxf/i);
  assert.match(project,/readWithFixtures\(cad/);
  assert.match(legacy,/old\/index\.html\?reader=1/);
  assert.match(legacy,/runDrawingImport/);
