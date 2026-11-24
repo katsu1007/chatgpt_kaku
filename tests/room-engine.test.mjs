@@ -354,3 +354,25 @@ test("Japanese toilet-booth layers are automatically recognized as wall candidat
   assert.equal(result.parents.length,1);
   assert.equal(result.diagnostics.virtualBoothClosures,6);
 });
+
+\ntest("near-miss partition endpoint snaps to the receiving wall without closing a real doorway",()=>{
+  const items=[
+    line("外壁",100,100,900,100),line("外壁",900,100,900,900),
+    line("外壁",900,900,100,900),line("外壁",100,900,100,100),
+    line("間仕切壁",500,100,500,898)
+  ];
+  const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
+  assert.equal(result.rooms.length,2);
+  assert.ok(result.diagnostics.snappedTJunctions>0);
+});
+
+test("endpoint-to-wall repair does not bridge a normal 120 mm doorway",()=>{
+  const items=[
+    line("外壁",100,100,900,100),line("外壁",900,100,900,900),
+    line("外壁",900,900,100,900),line("外壁",100,900,100,100),
+    line("間仕切壁",500,100,500,440),
+    line("間仕切壁",500,560,500,900)
+  ];
+  const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
+  assert.equal(result.rooms.length,1);
+});

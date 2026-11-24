@@ -169,7 +169,7 @@ function isWallLikeFill(pts,cw,ch){
   return ratio>=3.5&&major*2>=Math.max(cw,ch)*12;
 }
 function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
-  const wall=new Uint8Array(nx*ny); let usedItems=0,usedSegments=0,skippedHidden=0,skippedDimensionSegments=0,skippedNonWallFills=0; const endpoints=[]; const doorEndpoints=[]; const dimAnchors=dimensionTextAnchors(items);
+  const wall=new Uint8Array(nx*ny); let usedItems=0,usedSegments=0,skippedHidden=0,skippedDimensionSegments=0,skippedNonWallFills=0,snappedTJunctions=0; const endpoints=[]; const doorEndpoints=[]; const geometrySegments=[]; const dimAnchors=dimensionTextAnchors(items);
   const mark=(x,y)=>{
     const ix=Math.round(x/cw),iy=Math.round(y/ch);
     // 8-neighbour raster stroke reduces diagonal leaks.
@@ -181,7 +181,7 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
   const line=(x1,y1,x2,y2)=>{
     if(![x1,y1,x2,y2].every(Number.isFinite))return false;
     if(isDimensionSegment(x1,y1,x2,y2,dimAnchors)){skippedDimensionSegments++;return false;}
-    endpoints.push([Math.round(x1/cw),Math.round(y1/ch)],[Math.round(x2/cw),Math.round(y2/ch)]);
+    endpoints.push([Math.round(x1/cw),Math.round(y1/ch)],[Math.round(x2/cw),Math.round(y2/ch)]);\n    geometrySegments.push({x1:x1/cw,y1:y1/ch,x2:x2/cw,y2:y2/ch});
     const steps=Math.max(1,Math.ceil(Math.hypot((x2-x1)/cw,(y2-y1)/ch)*2));
     for(let k=0;k<=steps;k++){const t=k/steps;mark(x1+(x2-x1)*t,y1+(y2-y1)*t);}
     usedSegments++;return true;
@@ -217,6 +217,43 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
       if(!isWallLikeFill(it.pts,cw,ch)){skippedNonWallFills++;continue;}
       usedItems++;for(let k=0;k+3<it.pts.length;k+=2)line(it.pts[k],it.pts[k+1],it.pts[k+2],it.pts[k+3]);
       line(it.pts[it.pts.length-2],it.pts[it.pts.length-1],it.pts[0],it.pts[1]);
+    }
+  }
+  // Repair near-miss T-junctions before flood fill. CAD plans often draw a
+  // partition endpoint a few millimetres short of the receiving wall; endpoint-
+  // to-endpoint healing cannot fix that. Index sampled segment points in grid
+  // space, then connect only endpoints lying within 2.25 raster cells of a
+  // segment interior. The small, resolution-relative tolerance cannot bridge
+  // normal door openings.
+  const tCell=8,tBins=new Map(),tKey=(x,y)=>Math.floor(x/tCell)+":"+Math.floor(y/tCell);
+  for(let si=0;si<geometrySegments.length;si++){
+    const s=geometrySegments[si],dx=s.x2-s.x1,dy=s.y2-s.y1,len=Math.hypot(dx,dy);
+    const steps=Math.max(1,Math.ceil(len/(tCell*.7)));
+    for(let k=0;k<=steps;k++){
+      const t=k/steps,key=tKey(s.x1+dx*t,s.y1+dy*t);
+      if(!tBins.has(key))tBins.set(key,new Set());
+      tBins.get(key).add(si);
+    }
+  }
+  const endpointSeen=new Set();
+  for(const [ex,ey] of endpoints){
+    const pointKey=ex+","+ey;if(endpointSeen.has(pointKey))continue;endpointSeen.add(pointKey);
+    const bx=Math.floor(ex/tCell),by=Math.floor(ey/tCell),candidates=new Set();
+    for(let oy=-1;oy<=1;oy++)for(let ox=-1;ox<=1;ox++)
+      for(const si of tBins.get((bx+ox)+":"+(by+oy))||[])candidates.add(si);
+    let best=null,bestD=2.25*2.25;
+    for(const si of candidates){
+      const s=geometrySegments[si],dx=s.x2-s.x1,dy=s.y2-s.y1,l2=dx*dx+dy*dy;
+      if(l2<1)continue;
+      const t=((ex-s.x1)*dx+(ey-s.y1)*dy)/l2;
+      if(t<.03||t>.97)continue;
+      const px=s.x1+t*dx,py=s.y1+t*dy,d2=(ex-px)*(ex-px)+(ey-py)*(ey-py);
+      if(d2>0.04&&d2<bestD){bestD=d2;best={x:px,y:py};}
+    }
+    if(best){
+      const steps=Math.max(1,Math.ceil(Math.sqrt(bestD)*2));
+      for(let k=0;k<=steps;k++){const t=k/steps,x=Math.round(ex+(best.x-ex)*t),y=Math.round(ey+(best.y-ey)*t);if(x>=0&&x<nx&&y>=0&&y<ny)wall[y*nx+x]=1;}
+      snappedTJunctions++;
     }
   }
   // Bridge only mutually-best facing endpoints. A global all-pairs bridge can
@@ -274,7 +311,7 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
     }
     const key=bx+":"+by;if(!bins.has(key))bins.set(key,[]);bins.get(key).push([x,y]);
   }
-  return {wall,usedItems,usedSegments,skippedHidden,skippedDimensionSegments,skippedNonWallFills,endpointCount:endpoints.length,bridgedDoorGaps};
+  return {wall,usedItems,usedSegments,skippedHidden,skippedDimensionSegments,skippedNonWallFills,endpointCount:endpoints.length,bridgedDoorGaps,snappedTJunctions};
 }
 function floodRegions(wall,nx,ny){
   const N=nx*ny,seen=new Uint8Array(N),queue=new Int32Array(N),regionAt=new Int32Array(N),regions=[];regionAt.fill(-1);let rid=0;
@@ -412,6 +449,6 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
     rooms:displayRooms.map((r,i)=>({...r,id:i,drawingAreaCm2:r.area*cw*ch/100})),
     parents:parentRooms.map(p=>({...p,children:p.children.map(c=>c.name)})),
     grid:{ids,nx,ny,cw,ch},
-    diagnostics:{selectedLayers:selected.size,supplementalLayers:supplemental.size,autoMode:classified.mode+(fallbackUsed?" → 全図形レイヤー再判定":""),fallbackUsed,parentLayerNames:[...selected],wallLayerNames:[...allNames],parentRegions:parents.inner.length,childRegions:children.inner.length,parentsKept:parentRooms.length,childrenKept:childRooms.length,unassignedChildren,minParentCells:parents.minCells,minChildCells:children.minCells,minChildSpanCells:children.minSpanCells,minParentSpanCells:parents.minSpanCells,usedItems:childTrace.usedItems,usedSegments:childTrace.usedSegments,skippedHidden:childTrace.skippedHidden,skippedDimensionSegments:childTrace.skippedDimensionSegments,skippedNonWallFills:childTrace.skippedNonWallFills,bridgedDoorGaps:childTrace.bridgedDoorGaps,virtualBoothClosures:boothClosures.length,endpointCount:childTrace.endpointCount}
+    diagnostics:{selectedLayers:selected.size,supplementalLayers:supplemental.size,autoMode:classified.mode+(fallbackUsed?" → 全図形レイヤー再判定":""),fallbackUsed,parentLayerNames:[...selected],wallLayerNames:[...allNames],parentRegions:parents.inner.length,childRegions:children.inner.length,parentsKept:parentRooms.length,childrenKept:childRooms.length,unassignedChildren,minParentCells:parents.minCells,minChildCells:children.minCells,minChildSpanCells:children.minSpanCells,minParentSpanCells:parents.minSpanCells,usedItems:childTrace.usedItems,usedSegments:childTrace.usedSegments,skippedHidden:childTrace.skippedHidden,skippedDimensionSegments:childTrace.skippedDimensionSegments,skippedNonWallFills:childTrace.skippedNonWallFills,bridgedDoorGaps:childTrace.bridgedDoorGaps,snappedTJunctions:childTrace.snappedTJunctions,virtualBoothClosures:boothClosures.length,endpointCount:childTrace.endpointCount}
   };
 }
