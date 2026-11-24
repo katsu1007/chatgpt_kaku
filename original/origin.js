@@ -35,6 +35,7 @@ function showReport(){const d=state.drawing,s=state.sheet,info=d.meta.info||{};$
 
 function detectRooms(){
  if(!state.sheet)return;
+ if(!state.boundaryLayers.size){$("inspection").insertAdjacentHTML("beforeend","<p><strong>区画抽出できません：</strong>先に「区画境界に使うレイヤー」を選択してください。壁候補の自動選択後、内容を確認してから抽出できます。</p>");return;}
  const s=state.sheet,W=s.size.w,H=s.size.h;
  // JWWの座標は用紙上のmm。縮尺図面では部屋面積が実寸m²より極端に小さくなるため、
  // 実寸0.25m²という固定条件では候補が全滅する。ここでは図面上の画素数で候補を残す。
@@ -56,6 +57,7 @@ function detectRooms(){
  };
  let usedItems=0,usedLines=0,skippedHidden=0;
  for(const it of s.items){
+  if(!state.boundaryLayers.has(it.layer))continue;
   if(it.layer!=null){const li=state.layers.findIndex(x=>x.name===it.layer);if(li>=0&&state.hidden[li]){skippedHidden++;continue;}}
   if(it.kind==="line"&&it.pts?.length>=4){
    usedItems++;for(let k=0;k+3<it.pts.length;k+=2){drawLine(it.pts[k],it.pts[k+1],it.pts[k+2],it.pts[k+3]);usedLines++;}
@@ -84,8 +86,8 @@ function detectRooms(){
  const inside=regions.filter(r=>!r.touchesEdge).sort((a,b)=>b.area-a.area);
  // 旧条件の「0.25m²」は縮尺図面に対して不適切。格子セル数で小さなノイズだけを除外する。
  const largest=inside[0]?.area||0;
- const minRegionCells=Math.max(100,Math.floor(largest*.01));
- const viable=inside.filter(r=>r.area>=minRegionCells&&r.area<=N*.8).slice(0,30);
+ const minRegionCells=Math.max(20,Math.floor(largest*.0015));
+ const viable=inside.filter(r=>r.area>=minRegionCells&&r.area<=N*.8).slice(0,100);
  state.rooms=viable.map((r,i)=>({...r,name:"区画 "+(i+1),drawingAreaCm2:r.area*cw*ch/100}));
  state.roomGrid={ids:null,nx,ny,cw,ch,regions:viable.map(r=>r.id),regionMap:null};
  // region IDs are kept in a compact grid for rendering; rerun flood-fill IDs in one pass.
