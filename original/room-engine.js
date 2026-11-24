@@ -6,22 +6,6 @@ const WALL_NAME=/(壁|間仕切|ブース|躯体|外壁|内壁|壁芯|(?:^|[-_ ]
 const NON_WALL_NAME=/(寸法|寸法線|寸法補助|寸法記入|寸法記号|引出線|引出|補助線|中心線|通り芯|グリッド|文字|注記|注釈|家具|什器|設備|器具|照明|電気|コンセント|記号|ハッチ|dimension|\bdim\b|measure|annotation|leader|extension|center.?line|grid|axis|furniture|fixture|text|symbol|hatch(?:ing)?)/i;
 // Numeric dimension labels help identify dimension strokes even when they share a wall layer.
 const DIMENSION_LABEL=/^\s*[+-]?\d[\d,]*(?:\.\d+)?\s*(?:mm|ｍｍ|m|ｍ|cm|㎜|㎝|φ|ø)?\s*$/i;
-// Layer metadata can identify furniture/equipment even when the CAD layer name is generic.
-const NON_BOUNDARY_ATTRIBUTE=/(furniture|fixture|equipment|furnishing|sanitary|plumbing.?fixture|什器|家具|備品|器具|衛生器具|便器|洗面|手洗|小便器|大便器|カウンター|机|椅子|棚|収納|ロッカー|什物)/i;
-function layerSemanticText(layer){
-  if(!layer||typeof layer!=="object")return String(layer??"");
-  return [layer.name,layer.role,layer.type,layer.category,layer.kind,layer.description,layer.group,layer.blockName,layer.entityType]
-    .filter(v=>v!=null).map(String).join(" ");
-}
-function isNonBoundaryLayer(layer){
-  return NON_WALL_NAME.test(layerSemanticText(layer))||NON_BOUNDARY_ATTRIBUTE.test(layerSemanticText(layer));
-}
-function isNonBoundaryItem(item,layerMetadata){
-  const layer=layerMetadata?.get(String(item?.layer));
-  const attrs=[item?.role,item?.type,item?.category,item?.kind,item?.blockName,item?.entityType,item?.description]
-    .filter(v=>v!=null).map(String).join(" ");
-  return isNonBoundaryLayer(layer||item?.layer)||NON_BOUNDARY_ATTRIBUTE.test(attrs);
-}
 function dimensionTextAnchors(items){
   return items.filter(it=>it.kind==="text"&&DIMENSION_LABEL.test(String(it.text||""))&&Number.isFinite(it.x)&&Number.isFinite(it.y)&&Number.isFinite(it.size)&&it.size>0).map(it=>{
     const w=Math.max(1,String(it.text).length)*it.size*.6,rot=it.rot||0;
@@ -40,27 +24,26 @@ function isDimensionSegment(x1,y1,x2,y2,anchors){
 }
 export function suggestWallLayers(layers=[]){
   const names=(layers||[]).map(layer=>typeof layer==="string"?layer:layer?.name);
-  const metadata=new Map((layers||[]).filter(x=>x&&typeof x==="object").map(x=>[String(x.name),x]));
-  return [...new Set(names.filter(name=>name!=null&&WALL_NAME.test(layerSemanticText(metadata.get(String(name))||name))&&!isNonBoundaryLayer(metadata.get(String(name))||name)).map(String))];
+  return [...new Set(names.filter(name=>name!=null&&WALL_NAME.test(String(name))&&!NON_WALL_NAME.test(String(name))).map(String))];
 }
 function classifyLayers(layers,items,hidden){
   const visible=(layers||[]).filter(l=>!hidden.has(l.name));
-  const namedWalls=visible.filter(l=>WALL_NAME.test(layerSemanticText(l))&&!isNonBoundaryLayer(l));
+  const namedWalls=visible.filter(l=>WALL_NAME.test(String(l.name))&&!NON_WALL_NAME.test(String(l.name)));
   const geometryLayers=new Set(items.filter(it=>it.layer!=null&&["line","arc","fill"].includes(it.kind)).map(it=>it.layer));
   // Numeric or non-semantic layer names fall back to geometric layers, excluding obvious annotations.
-  const candidates=namedWalls.length?namedWalls:visible.filter(l=>geometryLayers.has(l.name)&&!isNonBoundaryLayer(l));
+  const candidates=namedWalls.length?namedWalls:visible.filter(l=>geometryLayers.has(l.name)&&!NON_WALL_NAME.test(String(l.name)));
   const outer=candidates.filter(l=>OUTER_WALL_NAME.test(String(l.name)));
   const parent=outer.length?outer:candidates;
   return {parent:new Set(parent.map(l=>l.name)),all:new Set(candidates.map(l=>l.name)),mode:namedWalls.length?(outer.length?"外周レイヤー＋壁レイヤー":"壁候補レイヤー"):"図形レイヤー自動判定"};
 }
-function findBoothFrontClosures(items,names,hidden,layerMetadata){
+function findBoothFrontClosures(items,names,hidden){
   // Detect repeated U-shaped toilet cubicles: two parallel side partitions meet a
   // common rear wall, while their free ends face the same open corridor.
   // Close only the open front between those side partitions; ordinary door gaps
   // are collinear with their wall and therefore do not satisfy this geometry.
   const raw=[];
   for(const it of items){
-    if(it.kind!=="line"||!names.has(it.layer)||hidden.has(it.layer)||isNonBoundaryItem(it,layerMetadata)||!Array.isArray(it.pts))continue;
+    if(it.kind!=="line"||!names.has(it.layer)||hidden.has(it.layer)||!Array.isArray(it.pts))continue;
     for(let k=0;k+3<it.pts.length;k+=2){
       const x1=it.pts[k],y1=it.pts[k+1],x2=it.pts[k+2],y2=it.pts[k+3],dx=x2-x1,dy=y2-y1,len=Math.hypot(dx,dy);
       if(len>1)raw.push({it,x1,y1,x2,y2,dx:dx/len,dy:dy/len,len});
@@ -185,8 +168,8 @@ function isWallLikeFill(pts,cw,ch){
   // geometry remains the primary source for wall boundaries.
   return ratio>=3.5&&major*2>=Math.max(cw,ch)*12;
 }
-function traceItems(items, names, hidden, W, H, nx, ny, cw, ch, layerMetadata) {
-  const wall=new Uint8Array(nx*ny); let usedItems=0,usedSegments=0,skippedHidden=0,skippedNonBoundaryItems=0,skippedDimensionSegments=0,skippedNonWallFills=0,snappedTJunctions=0; const endpoints=[]; const doorEndpoints=[]; const geometrySegments=[]; const dimAnchors=dimensionTextAnchors(items);
+function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
+  const wall=new Uint8Array(nx*ny); let usedItems=0,usedSegments=0,skippedHidden=0,skippedDimensionSegments=0,skippedNonWallFills=0,snappedTJunctions=0; const endpoints=[]; const doorEndpoints=[]; const geometrySegments=[]; const dimAnchors=dimensionTextAnchors(items);
   const mark=(x,y)=>{
     const ix=Math.round(x/cw),iy=Math.round(y/ch);
     // 8-neighbour raster stroke reduces diagonal leaks.
@@ -212,7 +195,6 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch, layerMetadata) {
   for(const it of items){
     if(!names.has(it.layer))continue;
     if(hidden.has(it.layer)){skippedHidden++;continue;}
-    if(isNonBoundaryItem(it,layerMetadata)){skippedNonBoundaryItems++;continue;}
     if(it.kind==="line"&&Array.isArray(it.pts)&&it.pts.length>=4){
       usedItems++;
       const segments=[];
@@ -330,7 +312,7 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch, layerMetadata) {
     }
     const key=bx+":"+by;if(!bins.has(key))bins.set(key,[]);bins.get(key).push([x,y]);
   }
-  return {wall,usedItems,usedSegments,skippedHidden,skippedNonBoundaryItems,skippedDimensionSegments,skippedNonWallFills,endpointCount:endpoints.length,bridgedDoorGaps,snappedTJunctions};
+  return {wall,usedItems,usedSegments,skippedHidden,skippedDimensionSegments,skippedNonWallFills,endpointCount:endpoints.length,bridgedDoorGaps,snappedTJunctions};
 }
 function floodRegions(wall,nx,ny){
   const N=nx*ny,seen=new Uint8Array(N),queue=new Int32Array(N),regionAt=new Int32Array(N),regions=[];regionAt.fill(-1);let rid=0;
@@ -371,13 +353,12 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
   if(!(width>0&&height>0))throw new Error("図面サイズを取得できません");
   const hidden=new Set(hiddenLayers);
   const classified=classifyLayers(layers,items,hidden);
-  const layerMetadata=new Map((layers||[]).filter(x=>x&&typeof x==="object").map(x=>[String(x.name),x]));
   // An explicit wall-candidate selection filters the geometry used for room
   // extraction; it must not promote every interior partition to an outer boundary.
   // Prefer semantically named exterior layers for the parent pass, while all
   // selected wall candidates remain available to the child-room pass.
   const requested=selectedLayers?.length
-    ?new Set(selectedLayers.filter(name=>!isNonBoundaryLayer(layerMetadata.get(String(name))||name)))
+    ?new Set(selectedLayers.filter(name=>!NON_WALL_NAME.test(String(name))))
     :null;
   // Explicit selection controls the parent-boundary preference, not the
   // supplemental child-wall set. Keep automatically classified wall layers
@@ -389,7 +370,7 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
     ?(()=>{const exterior=[...new Set([...requested,...classified.all])].filter(name=>OUTER_WALL_NAME.test(String(name)));return new Set(exterior.length?exterior:requested);})()
     :new Set(classified.parent);
   if(!allNames.size)throw new Error("壁・図形候補レイヤーを自動判定できませんでした。図面の線分レイヤーを確認してください。");
-  const geometryNames=new Set(items.filter(it=>it.layer!=null&&["line","arc","fill"].includes(it.kind)&&!isNonBoundaryItem(it,layerMetadata)).map(it=>it.layer));
+  const geometryNames=new Set(items.filter(it=>it.layer!=null&&["line","arc","fill"].includes(it.kind)&&!NON_WALL_NAME.test(String(it.layer))).map(it=>it.layer));
   let fallbackUsed=false;
   const supplemental=new Set([...allNames].filter(n=>!selected.has(n)));
   const aspect=width/height;
@@ -397,13 +378,13 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
   const nx=Math.max(320,Math.min(1500,Math.round(target*Math.sqrt(aspect))));
   const ny=Math.max(320,Math.min(1500,Math.round(target/Math.sqrt(aspect))));
   const cw=width/nx,ch=height/ny,N=nx*ny;
-  let parentTrace=traceItems(items,selected,hidden,width,height,nx,ny,cw,ch,layerMetadata);
+  let parentTrace=traceItems(items,selected,hidden,width,height,nx,ny,cw,ch);
   // Exterior perimeter edges must not be interpreted as cubicle partitions.
   // Keep generic wall layers eligible, but exclude explicitly named outer-wall layers.
   const boothPartitionNames=new Set([...allNames].filter(name=>!OUTER_WALL_NAME.test(String(name))));
-  let boothClosures=findBoothFrontClosures(items,boothPartitionNames,hidden,layerMetadata);
+  let boothClosures=findBoothFrontClosures(items,boothPartitionNames,hidden);
   let childItems=boothClosures.length?[...items,...boothClosures]:items;
-  let childTrace=traceItems(childItems,allNames,hidden,width,height,nx,ny,cw,ch,layerMetadata);
+  let childTrace=traceItems(childItems,allNames,hidden,width,height,nx,ny,cw,ch);
   let parentFlood=floodRegions(parentTrace.wall,nx,ny);
   let childFlood=floodRegions(childTrace.wall,nx,ny);
   let parents=chooseRegions(parentFlood.regions,N,.995,nx,ny);
@@ -415,10 +396,10 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
     fallbackUsed=true;
     selected=new Set([...allNames,...geometryNames]);
     allNames=new Set([...allNames,...geometryNames]);
-    parentTrace=traceItems(items,selected,hidden,width,height,nx,ny,cw,ch,layerMetadata);
-    boothClosures=findBoothFrontClosures(items,new Set([...allNames].filter(name=>!OUTER_WALL_NAME.test(String(name)))),hidden,layerMetadata);
+    parentTrace=traceItems(items,selected,hidden,width,height,nx,ny,cw,ch);
+    boothClosures=findBoothFrontClosures(items,new Set([...allNames].filter(name=>!OUTER_WALL_NAME.test(String(name)))),hidden);
     childItems=boothClosures.length?[...items,...boothClosures]:items;
-    childTrace=traceItems(childItems,allNames,hidden,width,height,nx,ny,cw,ch,layerMetadata);
+    childTrace=traceItems(childItems,allNames,hidden,width,height,nx,ny,cw,ch);
     parentFlood=floodRegions(parentTrace.wall,nx,ny);
     // Keep the child topology independent: virtual cubicle-front closures are
     // intentionally present only in childTrace. Reusing parentFlood here silently
@@ -469,6 +450,6 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
     rooms:displayRooms.map((r,i)=>({...r,id:i,drawingAreaCm2:r.area*cw*ch/100})),
     parents:parentRooms.map(p=>({...p,children:p.children.map(c=>c.name)})),
     grid:{ids,nx,ny,cw,ch},
-    diagnostics:{selectedLayers:selected.size,supplementalLayers:supplemental.size,autoMode:classified.mode+(fallbackUsed?" → 全図形レイヤー再判定":""),fallbackUsed,parentLayerNames:[...selected],wallLayerNames:[...allNames],parentRegions:parents.inner.length,childRegions:children.inner.length,parentsKept:parentRooms.length,childrenKept:childRooms.length,unassignedChildren,minParentCells:parents.minCells,minChildCells:children.minCells,minChildSpanCells:children.minSpanCells,minParentSpanCells:parents.minSpanCells,usedItems:childTrace.usedItems,usedSegments:childTrace.usedSegments,skippedHidden:childTrace.skippedHidden,skippedNonBoundaryItems:childTrace.skippedNonBoundaryItems,skippedDimensionSegments:childTrace.skippedDimensionSegments,skippedNonWallFills:childTrace.skippedNonWallFills,bridgedDoorGaps:childTrace.bridgedDoorGaps,snappedTJunctions:childTrace.snappedTJunctions,virtualBoothClosures:boothClosures.length,endpointCount:childTrace.endpointCount}
+    diagnostics:{selectedLayers:selected.size,supplementalLayers:supplemental.size,autoMode:classified.mode+(fallbackUsed?" → 全図形レイヤー再判定":""),fallbackUsed,parentLayerNames:[...selected],wallLayerNames:[...allNames],parentRegions:parents.inner.length,childRegions:children.inner.length,parentsKept:parentRooms.length,childrenKept:childRooms.length,unassignedChildren,minParentCells:parents.minCells,minChildCells:children.minCells,minChildSpanCells:children.minSpanCells,minParentSpanCells:parents.minSpanCells,usedItems:childTrace.usedItems,usedSegments:childTrace.usedSegments,skippedHidden:childTrace.skippedHidden,skippedDimensionSegments:childTrace.skippedDimensionSegments,skippedNonWallFills:childTrace.skippedNonWallFills,bridgedDoorGaps:childTrace.bridgedDoorGaps,snappedTJunctions:childTrace.snappedTJunctions,virtualBoothClosures:boothClosures.length,endpointCount:childTrace.endpointCount}
   };
 }
