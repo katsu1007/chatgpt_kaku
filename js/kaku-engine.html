@@ -1925,6 +1925,16 @@ function rgCompute0(X){
    const groups=[...cl.values()].map(fs=>({fs,x0:Math.min(...fs.map(f=>f.bb[0])),y1:Math.max(...fs.map(f=>f.bb[3])),x1:Math.max(...fs.map(f=>f.bb[2])),y0:Math.min(...fs.map(f=>f.bb[1]))}));
    /* かたまりの並び：横に並んでいれば左から、縦に並んでいれば上から */
    groups.sort((A,B)=>{const ov=Math.min(A.y1,B.y1)-Math.max(A.y0,B.y0);return ov>0?A.x0-B.x0:B.y1-A.y1});
+   /* 離れて配置された平面図を「図面区画」として保持する。階名が近くにあれば採用し、なければ図面区画A/B…とする */
+   RG.zones=groups.map((g,zi)=>{
+     const near=(RG.texts||[]).filter(t=>t.x*M>=g.x0-3&&t.x*M<=g.x1+3&&t.y*M>=g.y0-3&&t.y*M<=g.y1+3)
+       .map(t=>t.t.normalize("NFKC").replace(/\\s+/g,"").trim());
+     const floor=near.find(t=>/^(?:地下[1-9]?階|[1-9]階|RF|PH|屋上)$/.test(t));
+     const label=floor||("図面区画"+String.fromCharCode("A".charCodeAt(0)+zi));
+     g.fs.forEach(f=>f.zone=zi);
+     return {id:zi,label,bb:[g.x0,g.y0,g.x1,g.y1],count:g.fs.length,area:g.fs.reduce((n,f)=>n+f.area,0)};
+   });
+   if(RG.zoneFilter==null)RG.zoneFilter=-1;
    const order=[];
    groups.forEach(g=>{
      /* 番号が出る位置（f.c）で並べる。同じ段＝高さの差が、小さい方の区画の高さの半分以内 */
@@ -1965,18 +1975,22 @@ function rgCompute0(X){
 function rgRender(){
   const box=$("impList");$("impStatus").textContent=RG.msg;
   const M=rgM(),on=new Set(RG.groups.filter(g=>g.on).map(g=>g.key));
+  const zone=RG.zoneFilter==null?-1:RG.zoneFilter;
+  const viewFaces=RG.faces.filter(f=>zone<0||f.zone===zone);
+  const zoneMeta=zone>=0&&RG.zones?RG.zones[zone]:null;
   const doorsX=RG.autoDoor?findDoors(RG.segs,RG.arcs,M):new Set();
   const segs=[],segsOff=[];RG.segs.forEach((s,i)=>{if(!on.has(gkey(s)))return;((RG.autoHatch&&RG.hatch.has(i))||doorsX.has(i)?segsOff:segs).push(s)});
-  let [x0,y0,x1,y1]=RG.ext||[0,0,1,1];if(!RG.ext){x0=Infinity;y0=Infinity;x1=-Infinity;y1=-Infinity;RG.segs.forEach(s=>{x0=Math.min(x0,s[1]*M,s[3]*M);x1=Math.max(x1,s[1]*M,s[3]*M);y0=Math.min(y0,s[2]*M,s[4]*M);y1=Math.max(y1,s[2]*M,s[4]*M)})}
+  let [x0,y0,x1,y1]=zoneMeta?zoneMeta.bb:(RG.ext||[0,0,1,1]);if(!RG.ext&&!zoneMeta){x0=Infinity;y0=Infinity;x1=-Infinity;y1=-Infinity;RG.segs.forEach(s=>{x0=Math.min(x0,s[1]*M,s[3]*M);x1=Math.max(x1,s[1]*M,s[3]*M);y0=Math.min(y0,s[2]*M,s[4]*M);y1=Math.max(y1,s[2]*M,s[4]*M)})}
   const w=(x1-x0)||1,h=(y1-y0)||1,pad=Math.max(w,h)*0.02,fs=Math.max(w,h)/42;
   const step=Math.ceil(segs.length/7000)||1;
   // 選んだ区画を、マス目の横並びの帯で塗る
   let fill="";const G=RG.grid;
-  if(G){const selL=new Set(RG.faces.filter(f=>f.sel).map(f=>f.lab));
+  if(G){const selL=new Set(viewFaces.filter(f=>f.sel).map(f=>f.lab));
     if(selL.size){for(let y=0;y<G.H;y++){let st=-1;for(let x=0;x<=G.W;x++){const l=x<G.W?G.lab[y*G.W+x]:0;const inS=l>0&&selL.has(G.root[l]);
       if(inS&&st<0)st=x;if(!inS&&st>=0){fill+=`<rect x="${G.ox+st*G.c}" y="${-(G.oy+(y+1)*G.c)}" width="${(x-st)*G.c}" height="${G.c}"/>`;st=-1}}}}}
-  const sel=RG.faces.filter(x=>x.sel),selA=sel.reduce((s,x)=>s+x.area,0);
+  const sel=viewFaces.filter(x=>x.sel),selA=sel.reduce((s,x)=>s+x.area,0);
   box.innerHTML=`<div class="rgtools">
+      <label>図面区画 <select id="rgZone"><option value="-1">全体（${RG.zones?.length||1}区画）</option>${(RG.zones||[]).map(z=>`<option value="${z.id}">${esc(z.label)}・${z.count}区画</option>`).join("")}</select></label>
       <label>単位 <select id="rgUnit"><option>mm</option><option>cm</option><option>m</option></select></label>
       <label>縮尺 1/<input id="rgScale" type="number" min="1" step="1" inputmode="numeric" value="${RG.scale}"></label>
       <label>出入口をふさぐ幅（最大） <input id="rgGap" type="number" min="0" step="0.1" inputmode="decimal" value="${RG.gap}"> m</label>
@@ -1988,10 +2002,10 @@ function rgRender(){
       <g class="rgfill">${fill}</g>
       <g class="rgoff">${segsOff.filter((_,i)=>i%step===0).map(s=>`<line x1="${s[1]*M}" y1="${-s[2]*M}" x2="${s[3]*M}" y2="${-s[4]*M}"/>`).join("")}</g>
       ${segs.filter((_,i)=>i%step===0).map(s=>`<line x1="${s[1]*M}" y1="${-s[2]*M}" x2="${s[3]*M}" y2="${-s[4]*M}"/>`).join("")}
-      ${RG.faces.slice(0,300).map((x,i)=>`<text x="${x.c[0]}" y="${-x.c[1]}" font-size="${fs}" class="${x.sel?"on":""}">${x.no}</text>`).join("")}
+      ${viewFaces.slice(0,300).map(x=>`<text x="${x.c[0]}" y="${-x.c[1]}" font-size="${fs}" class="${x.sel?"on":""}">${x.no}</text>`).join("")}
     </svg></div>
     <p class="note">区画の中をタップすると、工事する所として選べます（色が付きます）。もう一回タップで外れます。</p>
-    <div class="rgsum"><span>選んだ区画 <b>${sel.length}</b> か所・<b>${r2n(selA)}</b> ㎡</span><span>全部の区画 ${r2n(RG.total||0)} ㎡</span></div>
+    <div class="rgsum"><span>${zoneMeta?esc(zoneMeta.label)+"：":""}選んだ区画 <b>${sel.length}</b> か所・<b>${r2n(selA)}</b> ㎡</span><span>${zoneMeta?"この区画":"全体"}の床面積 ${r2n(zoneMeta?zoneMeta.area:(RG.total||0))} ㎡</span></div>
     ${sel.map(x=>{const i=RG.faces.indexOf(x);return `<div class="imprm"><div class="imptop"><span class="rgno">${x.no}</span><input data-r="${i}" data-k="name" placeholder="名前" value="${esc(x.name)}" aria-label="区画${x.no}の名前"><button type="button" class="act" data-x="${i}">外す</button></div>
       <div class="impgrid">
         <div class="f"><label>床面積（㎡）</label><input data-r="${i}" data-k="area" type="number" step="0.01" inputmode="decimal" value="${r2n(x.area)}"></div>
@@ -2010,6 +2024,7 @@ function rgRender(){
       ${RG.groups.map((g,i)=>`<label class="rgg"><input type="checkbox" data-g="${i}" ${g.on?"checked":""}><span class="gn">${esc(g.layer)}${g.color!=null?"・色"+(ACI[g.color]||g.color):""}${g.lw!=null&&g.lw>0?"・太さ"+(g.lw/100)+"mm":""}</span><span class="gl">${r2n(g.len*M).toLocaleString("ja-JP")} m</span></label>`).join("")}
     </details>`;
   const re=()=>{rgCompute();rgRender()};
+  $("rgZone").value=String(zone);$("rgZone").onchange=()=>{RG.zoneFilter=+$("rgZone").value;rgRender()};
   $("rgUnit").value=RG.unit;$("rgUnit").onchange=()=>{RG.unit=$("rgUnit").value;re()};
   $("rgScale").onchange=()=>{RG.scale=Math.max(1,+$("rgScale").value||1);re()};
   $("rgGap").onchange=()=>{RG.gap=+$("rgGap").value||0;re()};
@@ -2019,7 +2034,7 @@ function rgRender(){
   $("rgZo").onclick=()=>{RG.zoom=Math.max(1,RG.zoom/1.6);$("rgSvg").style.width=100*RG.zoom+"%"};
   const svg=$("rgSvg");
   svg.addEventListener("click",e=>{if(!RG.grid)return;const pt=svg.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;const p=pt.matrixTransform(svg.getScreenCTM().inverse());
-    const l=RG.grid.labOf(p.x,-p.y);const f=RG.faces.find(x=>x.lab===l);if(!f)return;f.sel=!f.sel;const v=svg.parentElement,sy=v.scrollTop,sx=v.scrollLeft;rgRender();const v2=$("rgSvg").parentElement;v2.scrollTop=sy;v2.scrollLeft=sx});
+    const l=RG.grid.labOf(p.x,-p.y);const f=RG.faces.find(x=>x.lab===l&&(zone<0||x.zone===zone));if(!f)return;f.sel=!f.sel;const v=svg.parentElement,sy=v.scrollTop,sx=v.scrollLeft;rgRender();const v2=$("rgSvg").parentElement;v2.scrollTop=sy;v2.scrollLeft=sx});
   box.querySelectorAll("[data-x]").forEach(b=>b.onclick=()=>{RG.faces[+b.dataset.x].sel=false;rgRender()});
   box.querySelectorAll("input[data-r]").forEach(inp=>inp.oninput=()=>{const x=RG.faces[+inp.dataset.r];const k=inp.dataset.k;x[k]=k==="name"?inp.value:(inp.value===""?"":+inp.value);if(k==="win"||k==="door")x.touched=true});
   box.querySelectorAll("[data-g]").forEach(c2=>c2.onchange=()=>{RG.groups[+c2.dataset.g].on=c2.checked;re()});
