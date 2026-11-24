@@ -380,7 +380,8 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
     ?(()=>{const exterior=[...new Set([...requested,...classified.all])].filter(name=>OUTER_WALL_NAME.test(String(name)));return new Set(exterior.length?exterior:requested);})()
     :new Set(classified.parent);
   if(!allNames.size)throw new Error("壁・図形候補レイヤーを自動判定できませんでした。図面の線分レイヤーを確認してください。");
-  const layerMetadata=new Map((layers||[]).filter(x=>x&&typeof x==="object").map(x=>[String(x.name),x]));\n  const geometryNames=new Set(items.filter(it=>it.layer!=null&&["line","arc","fill"].includes(it.kind)&&!isNonBoundaryLayer(layerMetadata.get(String(it.layer))||it.layer)&&!NON_BOUNDARY_ATTRIBUTE.test([it.role,it.type,it.category,it.blockName,it.entityType].filter(Boolean).join(" "))).map(it=>it.layer));
+  const layerMetadata=new Map((layers||[]).filter(x=>x&&typeof x==="object").map(x=>[String(x.name),x]));
+  const geometryNames=new Set(items.filter(it=>it.layer!=null&&["line","arc","fill"].includes(it.kind)&&!isNonBoundaryLayer(layerMetadata.get(String(it.layer))||it.layer)&&!NON_BOUNDARY_ATTRIBUTE.test([it.role,it.type,it.category,it.blockName,it.entityType].filter(Boolean).join(" "))).map(it=>it.layer));
   let fallbackUsed=false;
   const supplemental=new Set([...allNames].filter(n=>!selected.has(n)));
   const aspect=width/height;
