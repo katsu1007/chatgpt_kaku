@@ -1,7 +1,7 @@
 /* DXF ASCII reader: closed rectangular LWPOLYLINEs only; inferred geometry remains a candidate. */
 export function parseDxfRooms(source){
- const lines=String(source).replace(/^\\uFEFF/,'').split(/\\r?\\n/), pairs=[];
- for(let i=0;i+1<lines.length;i+=2){const code=lines[i].trim();if(/^\\d+$/.test(code))pairs.push([Number(code),lines[i+1].trim()]);}
+ const lines=String(source).replace(/^\uFEFF/,'').split(/\r?\n/), pairs=[];
+ for(let i=0;i+1<lines.length;i+=2){const code=lines[i].trim();if(/^\d+$/.test(code))pairs.push([Number(code),lines[i+1].trim()]);}
  let units=0;for(let i=0;i<pairs.length-1;i++){if(pairs[i][0]===9&&pairs[i][1]==='$INSUNITS'&&pairs[i+1][0]===70){units=Number(pairs[i+1][1]);break}}
  const scales={1:.0254,2:.3048,4:.001,5:.01,6:1,8:.001};const scale=scales[units]||.001;
  let inEntities=false,entity=null,raw=[];
