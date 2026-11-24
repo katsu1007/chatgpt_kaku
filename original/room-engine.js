@@ -6,6 +6,16 @@ const WALL_NAME=/(壁|間仕切|ブース|躯体|外壁|内壁|壁芯|(?:^|[-_ ]
 const NON_WALL_NAME=/(寸法|寸法線|寸法補助|寸法記入|寸法記号|引出線|引出|補助線|中心線|通り芯|グリッド|文字|注記|注釈|家具|什器|設備|器具|照明|電気|コンセント|記号|ハッチ|dimension|\bdim\b|measure|annotation|leader|extension|center.?line|grid|axis|furniture|fixture|text|symbol|hatch(?:ing)?)/i;
 // Numeric dimension labels help identify dimension strokes even when they share a wall layer.
 const DIMENSION_LABEL=/^\s*[+-]?\d[\d,]*(?:\.\d+)?\s*(?:mm|ｍｍ|m|ｍ|cm|㎜|㎝|φ|ø)?\s*$/i;
+// Layer metadata can identify furniture/equipment even when the CAD layer name is generic.
+const NON_BOUNDARY_ATTRIBUTE=/(furniture|fixture|equipment|furnishing|sanitary|plumbing.?fixture|什器|家具|備品|器具|衛生器具|便器|洗面|手洗|小便器|大便器|カウンター|机|椅子|棚|収納|ロッカー|什物)/i;
+function layerSemanticText(layer){
+  if(!layer||typeof layer!=="object")return String(layer??"");
+  return [layer.name,layer.role,layer.type,layer.category,layer.kind,layer.description,layer.group,layer.blockName,layer.entityType]
+    .filter(v=>v!=null).map(String).join(" ");
+}
+function isNonBoundaryLayer(layer){
+  return NON_WALL_NAME.test(layerSemanticText(layer))||NON_BOUNDARY_ATTRIBUTE.test(layerSemanticText(layer));
+}
 function dimensionTextAnchors(items){
   return items.filter(it=>it.kind==="text"&&DIMENSION_LABEL.test(String(it.text||""))&&Number.isFinite(it.x)&&Number.isFinite(it.y)&&Number.isFinite(it.size)&&it.size>0).map(it=>{
     const w=Math.max(1,String(it.text).length)*it.size*.6,rot=it.rot||0;
@@ -24,14 +34,14 @@ function isDimensionSegment(x1,y1,x2,y2,anchors){
 }
 export function suggestWallLayers(layers=[]){
   const names=(layers||[]).map(layer=>typeof layer==="string"?layer:layer?.name);
-  return [...new Set(names.filter(name=>name!=null&&WALL_NAME.test(String(name))&&!NON_WALL_NAME.test(String(name))).map(String))];
+  const metadata=new Map((layers||[]).filter(x=>x&&typeof x==="object").map(x=>[String(x.name),x]));\n  return [...new Set(names.filter(name=>name!=null&&WALL_NAME.test(layerSemanticText(metadata.get(String(name))||name))&&!isNonBoundaryLayer(metadata.get(String(name))||name)).map(String))];
 }
 function classifyLayers(layers,items,hidden){
   const visible=(layers||[]).filter(l=>!hidden.has(l.name));
-  const namedWalls=visible.filter(l=>WALL_NAME.test(String(l.name))&&!NON_WALL_NAME.test(String(l.name)));
+  const namedWalls=visible.filter(l=>WALL_NAME.test(layerSemanticText(l))&&!isNonBoundaryLayer(l));
   const geometryLayers=new Set(items.filter(it=>it.layer!=null&&["line","arc","fill"].includes(it.kind)).map(it=>it.layer));
   // Numeric or non-semantic layer names fall back to geometric layers, excluding obvious annotations.
-  const candidates=namedWalls.length?namedWalls:visible.filter(l=>geometryLayers.has(l.name)&&!NON_WALL_NAME.test(String(l.name)));
+  const candidates=namedWalls.length?namedWalls:visible.filter(l=>geometryLayers.has(l.name)&&!isNonBoundaryLayer(l));
   const outer=candidates.filter(l=>OUTER_WALL_NAME.test(String(l.name)));
   const parent=outer.length?outer:candidates;
   return {parent:new Set(parent.map(l=>l.name)),all:new Set(candidates.map(l=>l.name)),mode:namedWalls.length?(outer.length?"外周レイヤー＋壁レイヤー":"壁候補レイヤー"):"図形レイヤー自動判定"};
@@ -370,7 +380,7 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
     ?(()=>{const exterior=[...new Set([...requested,...classified.all])].filter(name=>OUTER_WALL_NAME.test(String(name)));return new Set(exterior.length?exterior:requested);})()
     :new Set(classified.parent);
   if(!allNames.size)throw new Error("壁・図形候補レイヤーを自動判定できませんでした。図面の線分レイヤーを確認してください。");
-  const geometryNames=new Set(items.filter(it=>it.layer!=null&&["line","arc","fill"].includes(it.kind)&&!NON_WALL_NAME.test(String(it.layer))).map(it=>it.layer));
+  const layerMetadata=new Map((layers||[]).filter(x=>x&&typeof x==="object").map(x=>[String(x.name),x]));\n  const geometryNames=new Set(items.filter(it=>it.layer!=null&&["line","arc","fill"].includes(it.kind)&&!isNonBoundaryLayer(layerMetadata.get(String(it.layer))||it.layer)&&!NON_BOUNDARY_ATTRIBUTE.test([it.role,it.type,it.category,it.blockName,it.entityType].filter(Boolean).join(" "))).map(it=>it.layer));
   let fallbackUsed=false;
   const supplemental=new Set([...allNames].filter(n=>!selected.has(n)));
   const aspect=width/height;

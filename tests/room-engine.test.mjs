@@ -56,6 +56,24 @@ test("all wall layers are classified automatically without manual selection",()=
   assert.deepEqual(result.diagnostics.wallLayerNames.sort(),["外壁","間仕切壁"]);
   assert.match(result.diagnostics.autoMode,/外周レイヤー/);
 });
+test("generic layer with furniture/equipment attributes is excluded from floor boundaries",()=>{
+  const input=fixture();
+  input.items.push(line("A-家具設備",200,200,350,200),line("A-家具設備",350,200,350,350),line("A-家具設備",350,350,200,350),line("A-家具設備",200,350,200,200));
+  input.layers.push({name:"A-家具設備",role:"furniture",category:"equipment"});
+  const result=extractRoomHierarchy({...input,selectedLayers:[]});
+  assert.equal(result.parents.length,1);
+  assert.equal(result.rooms.length,4);
+  assert.deepEqual(result.diagnostics.wallLayerNames.sort(),["外壁","間仕切壁"]);
+});
+test("fixture geometry carrying item-level equipment attributes is ignored",()=>{
+  const input=fixture();
+  input.items.push({kind:"line",layer:"A-汎用",role:"sanitary fixture",pts:[200,200,350,200]});
+  input.layers.push({name:"A-汎用"});
+  const result=extractRoomHierarchy({...input,selectedLayers:[]});
+  assert.equal(result.rooms.length,4);
+  assert.ok(!result.diagnostics.wallLayerNames.includes("A-汎用"));
+});
+
 test("numeric layer names fall back to geometric classification",()=>{
   const items=[
     line("0",100,100,900,100),line("0",900,100,900,900),
