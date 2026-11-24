@@ -1,4 +1,4 @@
-import { extractRoomHierarchy } from "./room-engine.js";
+import { extractRoomHierarchy } from "./room-engine.js?v=20261124-debug1";
 let openCad,prepare,toSvg;
 let cadImportPromise;
 async function ensureCadLibrary(){if(openCad&&prepare&&toSvg)return;if(!cadImportPromise)cadImportPromise=import("https://cdn.jsdelivr.net/npm/ezpzfile-cad@0.1.0/dist/index.js").then(m=>{openCad=m.openCad;prepare=m.prepare;toSvg=m.toSvg;}).catch(e=>{cadImportPromise=null;throw new Error("CAD読込ライブラリを取得できません。通信状態を確認して再読み込みしてください。詳細: "+(e?.message||e));});await cadImportPromise;}
@@ -69,4 +69,6 @@ async function load(file){if(!file||state.busy)return;state.busy=true;state.boun
 $("detectRooms").addEventListener("click",detectRooms);
 $("suggestBoundary").addEventListener("click",suggestBoundaryLayers);
 $("clearBoundary").addEventListener("click",()=>{state.boundaryLayers.clear();renderBoundaryLayers();});
-$("boundarySearch").addEventListener("input",renderBoundaryLayers);$("toggleRooms").addEventListener("click",()=>{const g=$("canvas").querySelector("#roomOverlay");if(g){g.remove();$("canvas").querySelector("#roomLabels")?.remove();$("toggleRooms").textContent="区画表示";}else renderRooms();});$("file").addEventListener("change",e=>load(e.target.files?.[0]));$("allOn").addEventListener("click",()=>{state.hidden.fill(0);renderLayers();renderDrawing();});$("allOff").addEventListener("click",()=>{state.hidden.fill(1);renderLayers();renderDrawing();});$("fit").addEventListener("click",renderDrawing);
+$("boundarySearch").addEventListener("input",renderBoundaryLayers);$("toggleRooms").addEventListener("click",()=>{const g=$("canvas").querySelector("#roomOverlay");if(g){g.remove();$("canvas").querySelector("#roomLabels")?.remove();$("toggleRooms").textContent="区画表示";}else renderRooms();});$("file").addEventListener("change",e=>{const file=e.target.files?.[0];if(!file){status("ファイル未選択");return;}status("選択検知："+file.name);$("fileHint").textContent="選択検知："+file.name+" / "+file.size+" bytes";load(file);});$("allOn").addEventListener("click",()=>{state.hidden.fill(0);renderLayers();renderDrawing();});$("allOff").addEventListener("click",()=>{state.hidden.fill(1);renderLayers();renderDrawing();});$("fit").addEventListener("click",renderDrawing);
+
+window.__kakuReady=true;status("起動完了：ファイル選択待ち");
