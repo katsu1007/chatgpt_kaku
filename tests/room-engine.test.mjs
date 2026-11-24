@@ -232,7 +232,8 @@ test("automatic all-layer fallback preserves six virtual toilet cubicle closures
     layers:[{name:"外壁"},{name:"間仕切壁"}],
     selectedLayers:["外壁"]
   });
-  assert.equal(result.diagnostics.fallbackUsed,true);\n  assert.equal(result.diagnostics.minParentSpanCells,Math.max(8,Math.ceil(Math.min(result.grid.nx,result.grid.ny)*.03)));
+  assert.equal(result.diagnostics.fallbackUsed,true);
+  assert.equal(result.diagnostics.minParentSpanCells,Math.max(8,Math.ceil(Math.min(result.grid.nx,result.grid.ny)*.03)));
   assert.equal(result.diagnostics.virtualBoothClosures,6);
   assert.equal(result.parents.length,1);
   assert.ok(result.rooms.length>=6);
