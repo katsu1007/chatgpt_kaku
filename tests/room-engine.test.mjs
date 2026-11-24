@@ -405,3 +405,24 @@ test("endpoint-to-wall repair does not bridge a normal 120 mm doorway",()=>{
   const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
   assert.equal(result.rooms.length,1);
 });
+
+test("explicitly selected furniture layer and item-level sanitary fixtures never split floor regions",()=>{
+  const input=fixture();
+  input.items.push(
+    line("A-汎用",200,200,350,200),
+    {kind:"line",layer:"A-汎用",role:"sanitary fixture",pts:[350,200,350,350]},
+    line("A-汎用",350,350,200,350),
+    line("A-汎用",200,350,200,200)
+  );
+  input.layers.push({name:"A-汎用",role:"architectural",category:"furniture"});
+  const result=extractRoomHierarchy({...input,selectedLayers:["外壁","A-汎用"]});
+  assert.equal(result.rooms.length,4);
+  assert.ok(!result.diagnostics.wallLayerNames.includes("A-汎用"));
+});
+
+test("item-level fixture attributes are filtered even when their layer is explicitly selected",()=>{
+  const input=fixture();
+  input.items.push({kind:"line",layer:"間仕切壁",role:"sanitary fixture",pts:[200,200,350,200]});
+  const result=extractRoomHierarchy({...input,selectedLayers:["外壁","間仕切壁"]});
+  assert.equal(result.rooms.length,4);
+});
