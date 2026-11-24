@@ -214,6 +214,7 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
       let px=it.cx+it.r*Math.cos(it.a0),py=it.cy+it.r*Math.sin(it.a0);rememberEndpoint(px,py);rememberEndpoint(it.cx+it.r*Math.cos(it.a1),it.cy+it.r*Math.sin(it.a1));
       for(let k=1;k<=n;k++){const a=it.a0+sweep*k/n,x=it.cx+it.r*Math.cos(a),y=it.cy+it.r*Math.sin(a);line(px,py,x,y);px=x;py=y;}
     }else if(it.kind==="fill"&&Array.isArray(it.pts)&&it.pts.length>=6){
+      if(!isWallLikeFill(it.pts,cw,ch)){skippedNonWallFills++;continue;}
       usedItems++;for(let k=0;k+3<it.pts.length;k+=2)line(it.pts[k],it.pts[k+1],it.pts[k+2],it.pts[k+3]);
       line(it.pts[it.pts.length-2],it.pts[it.pts.length-1],it.pts[0],it.pts[1]);
     }
