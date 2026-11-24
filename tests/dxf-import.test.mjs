@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseDxfRooms } from '../js/next-app.js';
+import { parseDxfRooms } from '../js/dxf-import.js';
 
 const dxf=(units)=>`0
 SECTION
