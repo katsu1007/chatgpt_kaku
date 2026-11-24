@@ -334,16 +334,23 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
   const parentRooms=parents.kept.map((r,i)=>({...r,name:"大部屋 "+(i+1),level:1,children:[]}));
   const parentByRegion=new Map(parentRooms.map(p=>[p.id,p]));
   const childRooms=[];let unassignedChildren=0;
+  const childGroups=new Map();
   for(const child of children.kept){
-    // Resolve ownership by the exact parent flood-fill component at this child's seed,
-    // not by overlapping bounding boxes.
     const parentRegionId=parentFlood.regionAt[child.seed];
+    if(!childGroups.has(parentRegionId))childGroups.set(parentRegionId,[]);
+    childGroups.get(parentRegionId).push(child);
+  }
+  for(const [parentRegionId,group] of childGroups){
     const parent=parentByRegion.get(parentRegionId);
-    if(!parent){unassignedChildren++;continue;}
-    // Avoid duplicating an unchanged parent as its own child.
-    if(child.area>=parent.area*.9999)continue;
-    const room={...child,name:parent.name+"-"+(parent.children.length+1),level:2,parentId:parent.id,parentName:parent.name,children:[]};
-    parent.children.push(room);childRooms.push(room);
+    if(!parent){unassignedChildren+=group.length;continue;}
+    // A lone child covering nearly all of its parent is the same space, often
+    // caused by a doorway gap. If a second enclosed component exists, retain
+    // both the dominant hall and the small enclosed room.
+    if(group.length===1&&group[0].area>=parent.area*.985)continue;
+    for(const child of group){
+      const room={...child,name:parent.name+"-"+(parent.children.length+1),level:2,parentId:parent.id,parentName:parent.name,children:[]};
+      parent.children.push(room);childRooms.push(room);
+    }
   }
   // Prefer the finer partition for rendering, falling back to parent spaces if no inner walls were found.
   const displayRooms=childRooms.length?childRooms:parentRooms;
