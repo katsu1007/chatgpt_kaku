@@ -27,3 +27,15 @@ test('JWW・JWC・DXFの読み込み経路がHTMLアプリから接続されて�
 test('現場・図面・積算・電気設備・書類の中核モジュールが残っている',async()=>{
  for(const p of ['js/calc.js','js/master-data.js','js/reader2/index.js','js/elec.js','js/lighting.js','js/piping.js','js/view3d.js','js/docs.js','js/export.js','js/store.js'])assert.equal(await exists(p),true,p);
 });
+
+test('JWWの解析エンジンは更新済みの外部エンジンを読み込み、失敗を画面へ返す',async()=>{
+ const old=await read('old/index.html');
+ const engine=await read('js/kaku-engine.html');
+ const legacy=await read('js/legacy.js');
+ assert.match(old,/f\.src='js\/kaku-engine\.html'/);
+ assert.match(engine,/function jwwRead\(buf\)/);
+ assert.match(engine,/function jwwGeom\(buf\)/);
+ assert.match(engine,/const g=jwwGeom\(buf\)/);
+ assert.match(legacy,/JWW読み取りエンジンの起動が120秒以内/);
+ assert.match(legacy,/JWW\/DXFの読み込み結果/);
+});
