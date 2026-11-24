@@ -31,8 +31,10 @@ export function makeDrawingChoices(drawing,findFrames){
  return choices;
 }
 export function sliceSheetForFrame(source,frame){
- const [x0,y0,x1,y1]=frame,pad=Math.max(x1-x0,y1-y0)*.006;
- const box=[x0-pad,y0-pad,x1+pad,y1+pad],items=[],edgeTol=Math.max(x1-x0,y1-y0)*.0005;
+ const [x0,y0,x1,y1]=frame;
+ // Do not expand the frame: even a small proportional margin can pull in
+ // neighboring drawing geometry on large model-space sheets.
+ const box=[x0,y0,x1,y1],items=[],edgeTol=Math.max(x1-x0,y1-y0)*.0005;
  for(const item of source.items||[]){
   if(item.kind==="line"){
    const pts=item.pts||[];
