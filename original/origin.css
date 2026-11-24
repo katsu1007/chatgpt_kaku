@@ -8,3 +8,8 @@
 .boundary-row{display:grid;grid-template-columns:20px minmax(0,1fr) auto;align-items:center;gap:7px;padding:6px 8px;border:1px solid #2b3e4c;border-radius:5px;background:#1d2c38;font-size:11px}
 .boundary-row input{width:16px;height:16px;margin:0;accent-color:var(--cyan)}
 .boundary-row span{overflow-wrap:anywhere}.boundary-row small{color:var(--muted);font-size:9px}
+
+/* Automatic workflow: retain layer data internally, hide manual layer controls. */
+.layer-panel,.boundary-panel{display:none!important}
+.layout{grid-template-columns:260px minmax(0,1fr)}
+@media(max-width:850px){.layout{grid-template-rows:minmax(150px,22vh) minmax(420px,1fr)}.rail{display:flex;max-height:22vh;overflow:auto}.rail .panel:first-child,.rail .panel:last-child{display:block;grid-column:auto}}
