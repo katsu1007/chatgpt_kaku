@@ -228,9 +228,12 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
     childItems=boothClosures.length?[...items,...boothClosures]:items;
     childTrace=traceItems(childItems,allNames,hidden,width,height,nx,ny,cw,ch);
     parentFlood=floodRegions(parentTrace.wall,nx,ny);
-    childFlood=parentFlood;
+    // Keep the child topology independent: virtual cubicle-front closures are
+    // intentionally present only in childTrace. Reusing parentFlood here silently
+    // discarded those closures whenever automatic layer fallback was needed.
+    childFlood=floodRegions(childTrace.wall,nx,ny);
     parents=chooseRegions(parentFlood.regions,N,.995);
-    children=parents;
+    children=chooseRegions(childFlood.regions,N);
   }
   const parentRooms=parents.kept.map((r,i)=>({...r,name:"大部屋 "+(i+1),level:1,children:[]}));
   const parentByRegion=new Map(parentRooms.map(p=>[p.id,p]));
