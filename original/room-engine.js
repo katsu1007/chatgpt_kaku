@@ -90,21 +90,37 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
   if(!(width>0&&height>0))throw new Error("図面サイズを取得できません");
   const hidden=new Set(hiddenLayers);
   const classified=classifyLayers(layers,items,hidden);
-  const selected=selectedLayers?.length?new Set(selectedLayers):classified.parent;
-  const allNames=selectedLayers?.length?new Set([...selected,...classified.all]):classified.all;
+  let selected=selectedLayers?.length?new Set(selectedLayers):classified.parent;
+  let allNames=selectedLayers?.length?new Set([...selected,...classified.all]):classified.all;
   if(!allNames.size)throw new Error("壁・図形候補レイヤーを自動判定できませんでした。図面の線分レイヤーを確認してください。");
+  const geometryNames=new Set(items.filter(it=>it.layer!=null&&["line","arc","fill"].includes(it.kind)&&!NON_WALL_NAME.test(String(it.layer))).map(it=>it.layer));
+  let fallbackUsed=false;
   const supplemental=new Set([...allNames].filter(n=>!selected.has(n)));
   const aspect=width/height;
   const target=Math.max(900,Math.min(1500,Math.round(1100*Math.sqrt(Math.min(1.8,Math.max(.55,aspect))))));
   const nx=Math.max(320,Math.min(1500,Math.round(target*Math.sqrt(aspect))));
   const ny=Math.max(320,Math.min(1500,Math.round(target/Math.sqrt(aspect))));
   const cw=width/nx,ch=height/ny,N=nx*ny;
-  const parentTrace=traceItems(items,selected,hidden,width,height,nx,ny,cw,ch);
-  const childTrace=traceItems(items,allNames,hidden,width,height,nx,ny,cw,ch);
-  const parentFlood=floodRegions(parentTrace.wall,nx,ny);
-  const childFlood=floodRegions(childTrace.wall,nx,ny);
-  const parents=chooseRegions(parentFlood.regions,N);
-  const children=chooseRegions(childFlood.regions,N);
+  let parentTrace=traceItems(items,selected,hidden,width,height,nx,ny,cw,ch);
+  let childTrace=traceItems(items,allNames,hidden,width,height,nx,ny,cw,ch);
+  let parentFlood=floodRegions(parentTrace.wall,nx,ny);
+  let childFlood=floodRegions(childTrace.wall,nx,ny);
+  let parents=chooseRegions(parentFlood.regions,N);
+  let children=chooseRegions(childFlood.regions,N);
+  // If semantic wall-layer selection misses the building perimeter, retry with
+  // every geometric layer except clearly non-architectural annotation/furniture.
+  // This fallback is automatic and is used only when the first pass finds no room.
+  if(!parents.kept.length&&geometryNames.size>allNames.size){
+    fallbackUsed=true;
+    selected=geometryNames;
+    allNames=geometryNames;
+    parentTrace=traceItems(items,selected,hidden,width,height,nx,ny,cw,ch);
+    childTrace=parentTrace;
+    parentFlood=floodRegions(parentTrace.wall,nx,ny);
+    childFlood=parentFlood;
+    parents=chooseRegions(parentFlood.regions,N);
+    children=parents;
+  }
   const parentRooms=parents.kept.map((r,i)=>({...r,name:"大部屋 "+(i+1),level:1,children:[]}));
   const parentByRegion=new Map(parentRooms.map(p=>[p.id,p]));
   const childRooms=[];let unassignedChildren=0;
@@ -136,6 +152,6 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
     rooms:displayRooms.map((r,i)=>({...r,id:i,drawingAreaCm2:r.area*cw*ch/100})),
     parents:parentRooms.map(p=>({...p,children:p.children.map(c=>c.name)})),
     grid:{ids,nx,ny,cw,ch},
-    diagnostics:{selectedLayers:selected.size,supplementalLayers:supplemental.size,autoMode:classified.mode,parentLayerNames:[...selected],wallLayerNames:[...allNames],parentRegions:parents.inner.length,childRegions:children.inner.length,parentsKept:parentRooms.length,childrenKept:childRooms.length,unassignedChildren,minParentCells:parents.minCells,minChildCells:children.minCells,usedItems:childTrace.usedItems,usedSegments:childTrace.usedSegments,skippedHidden:childTrace.skippedHidden,endpointCount:childTrace.endpointCount}
+    diagnostics:{selectedLayers:selected.size,supplementalLayers:supplemental.size,autoMode:classified.mode+(fallbackUsed?" → 全図形レイヤー再判定":""),fallbackUsed,parentLayerNames:[...selected],wallLayerNames:[...allNames],parentRegions:parents.inner.length,childRegions:children.inner.length,parentsKept:parentRooms.length,childrenKept:childRooms.length,unassignedChildren,minParentCells:parents.minCells,minChildCells:children.minCells,usedItems:childTrace.usedItems,usedSegments:childTrace.usedSegments,skippedHidden:childTrace.skippedHidden,endpointCount:childTrace.endpointCount}
   };
 }
