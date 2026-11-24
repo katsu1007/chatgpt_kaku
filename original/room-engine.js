@@ -1,7 +1,19 @@
 // KAKU ORIGIN room extraction engine
 // Grid-space topology engine. Coordinates are sheet mm; thresholds are relative to grid,
 // never interpreted as real-world m² without scale conversion.
-const WALL_NAME=/(壁|間仕切|躯体|外壁|内壁|壁芯|建築|wall|partition)/i;
+const OUTER_WALL_NAME=/(外壁|躯体|外周|建物外形|外形壁|exterior|outer.?wall)/i;
+const WALL_NAME=/(壁|間仕切|躯体|外壁|内壁|壁芯|wall|partition)/i;
+const NON_WALL_NAME=/(寸法|寸法線|文字|注記|家具|什器|設備|器具|照明|電気|コンセント|記号|ハッチ|引出線|寸法補助|dimension|furniture|fixture|text|symbol)/i;
+function classifyLayers(layers,items,hidden){
+  const visible=(layers||[]).filter(l=>!hidden.has(l.name));
+  const namedWalls=visible.filter(l=>WALL_NAME.test(String(l.name))&&!NON_WALL_NAME.test(String(l.name)));
+  const geometryLayers=new Set(items.filter(it=>it.layer!=null&&["line","arc","fill"].includes(it.kind)).map(it=>it.layer));
+  // Numeric or non-semantic layer names fall back to geometric layers, excluding obvious annotations.
+  const candidates=namedWalls.length?namedWalls:visible.filter(l=>geometryLayers.has(l.name)&&!NON_WALL_NAME.test(String(l.name)));
+  const outer=candidates.filter(l=>OUTER_WALL_NAME.test(String(l.name)));
+  const parent=outer.length?outer:candidates;
+  return {parent:new Set(parent.map(l=>l.name)),all:new Set(candidates.map(l=>l.name)),mode:namedWalls.length?(outer.length?"外周レイヤー＋壁レイヤー":"壁候補レイヤー"):"図形レイヤー自動判定"};
+}
 function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
   const wall=new Uint8Array(nx*ny); let usedItems=0,usedSegments=0,skippedHidden=0;
   const mark=(x,y)=>{
@@ -61,11 +73,12 @@ function chooseRegions(regions,N){
 }
 export function extractRoomHierarchy({items,width,height,layers,selectedLayers,hiddenLayers=[]}){
   if(!(width>0&&height>0))throw new Error("図面サイズを取得できません");
-  const selected=new Set(selectedLayers||[]);
-  if(!selected.size)throw new Error("境界レイヤーを選択してください");
-  const wallNames=new Set((layers||[]).filter(l=>WALL_NAME.test(String(l.name))).map(l=>l.name));
-  const supplemental=new Set([...wallNames].filter(n=>!selected.has(n)));
-  const allNames=new Set([...selected,...supplemental]),hidden=new Set(hiddenLayers);
+  const hidden=new Set(hiddenLayers);
+  const classified=classifyLayers(layers,items,hidden);
+  const selected=selectedLayers?.length?new Set(selectedLayers):classified.parent;
+  const allNames=selectedLayers?.length?new Set([...selected,...classified.all]):classified.all;
+  if(!allNames.size)throw new Error("壁・図形候補レイヤーを自動判定できませんでした。図面の線分レイヤーを確認してください。");
+  const supplemental=new Set([...allNames].filter(n=>!selected.has(n)));
   const aspect=width/height,nx=Math.max(260,Math.min(1000,Math.round(820*Math.sqrt(aspect))));
   const ny=Math.max(260,Math.min(1000,Math.round(820/Math.sqrt(aspect))));
   const cw=width/nx,ch=height/ny,N=nx*ny;
@@ -106,6 +119,6 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
     rooms:displayRooms.map((r,i)=>({...r,id:i,drawingAreaCm2:r.area*cw*ch/100})),
     parents:parentRooms.map(p=>({...p,children:p.children.map(c=>c.name)})),
     grid:{ids,nx,ny,cw,ch},
-    diagnostics:{selectedLayers:selected.size,supplementalLayers:supplemental.size,parentRegions:parents.inner.length,childRegions:children.inner.length,parentsKept:parentRooms.length,childrenKept:childRooms.length,unassignedChildren,minParentCells:parents.minCells,minChildCells:children.minCells,usedItems:childTrace.usedItems,usedSegments:childTrace.usedSegments,skippedHidden:childTrace.skippedHidden}
+    diagnostics:{selectedLayers:selected.size,supplementalLayers:supplemental.size,autoMode:classified.mode,parentLayerNames:[...selected],wallLayerNames:[...allNames],parentRegions:parents.inner.length,childRegions:children.inner.length,parentsKept:parentRooms.length,childrenKept:childRooms.length,unassignedChildren,minParentCells:parents.minCells,minChildCells:children.minCells,usedItems:childTrace.usedItems,usedSegments:childTrace.usedSegments,skippedHidden:childTrace.skippedHidden}
   };
 }
