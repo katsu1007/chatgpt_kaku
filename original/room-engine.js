@@ -186,7 +186,7 @@ function isWallLikeFill(pts,cw,ch){
   return ratio>=3.5&&major*2>=Math.max(cw,ch)*12;
 }
 function traceItems(items, names, hidden, W, H, nx, ny, cw, ch, layerMetadata) {
-  const wall=new Uint8Array(nx*ny); let usedItems=0,usedSegments=0,skippedHidden=0,skippedDimensionSegments=0,skippedNonWallFills=0,snappedTJunctions=0; const endpoints=[]; const doorEndpoints=[]; const geometrySegments=[]; const dimAnchors=dimensionTextAnchors(items);
+  const wall=new Uint8Array(nx*ny); let usedItems=0,usedSegments=0,skippedHidden=0,skippedNonBoundaryItems=0,skippedDimensionSegments=0,skippedNonWallFills=0,snappedTJunctions=0; const endpoints=[]; const doorEndpoints=[]; const geometrySegments=[]; const dimAnchors=dimensionTextAnchors(items);
   const mark=(x,y)=>{
     const ix=Math.round(x/cw),iy=Math.round(y/ch);
     // 8-neighbour raster stroke reduces diagonal leaks.
@@ -210,8 +210,9 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch, layerMetadata) {
   };
   const rememberEndpoint=(x,y)=>{if(Number.isFinite(x)&&Number.isFinite(y))endpoints.push([Math.round(x/cw),Math.round(y/ch)]);};
   for(const it of items){
-    if(!names.has(it.layer)||isNonBoundaryItem(it,layerMetadata))continue;
+    if(!names.has(it.layer))continue;
     if(hidden.has(it.layer)){skippedHidden++;continue;}
+    if(isNonBoundaryItem(it,layerMetadata)){skippedNonBoundaryItems++;continue;}
     if(it.kind==="line"&&Array.isArray(it.pts)&&it.pts.length>=4){
       usedItems++;
       const segments=[];
@@ -329,7 +330,7 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch, layerMetadata) {
     }
     const key=bx+":"+by;if(!bins.has(key))bins.set(key,[]);bins.get(key).push([x,y]);
   }
-  return {wall,usedItems,usedSegments,skippedHidden,skippedDimensionSegments,skippedNonWallFills,endpointCount:endpoints.length,bridgedDoorGaps,snappedTJunctions};
+  return {wall,usedItems,usedSegments,skippedHidden,skippedNonBoundaryItems,skippedDimensionSegments,skippedNonWallFills,endpointCount:endpoints.length,bridgedDoorGaps,snappedTJunctions};
 }
 function floodRegions(wall,nx,ny){
   const N=nx*ny,seen=new Uint8Array(N),queue=new Int32Array(N),regionAt=new Int32Array(N),regions=[];regionAt.fill(-1);let rid=0;
@@ -468,6 +469,6 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
     rooms:displayRooms.map((r,i)=>({...r,id:i,drawingAreaCm2:r.area*cw*ch/100})),
     parents:parentRooms.map(p=>({...p,children:p.children.map(c=>c.name)})),
     grid:{ids,nx,ny,cw,ch},
-    diagnostics:{selectedLayers:selected.size,supplementalLayers:supplemental.size,autoMode:classified.mode+(fallbackUsed?" → 全図形レイヤー再判定":""),fallbackUsed,parentLayerNames:[...selected],wallLayerNames:[...allNames],parentRegions:parents.inner.length,childRegions:children.inner.length,parentsKept:parentRooms.length,childrenKept:childRooms.length,unassignedChildren,minParentCells:parents.minCells,minChildCells:children.minCells,minChildSpanCells:children.minSpanCells,minParentSpanCells:parents.minSpanCells,usedItems:childTrace.usedItems,usedSegments:childTrace.usedSegments,skippedHidden:childTrace.skippedHidden,skippedDimensionSegments:childTrace.skippedDimensionSegments,skippedNonWallFills:childTrace.skippedNonWallFills,bridgedDoorGaps:childTrace.bridgedDoorGaps,snappedTJunctions:childTrace.snappedTJunctions,virtualBoothClosures:boothClosures.length,endpointCount:childTrace.endpointCount}
+    diagnostics:{selectedLayers:selected.size,supplementalLayers:supplemental.size,autoMode:classified.mode+(fallbackUsed?" → 全図形レイヤー再判定":""),fallbackUsed,parentLayerNames:[...selected],wallLayerNames:[...allNames],parentRegions:parents.inner.length,childRegions:children.inner.length,parentsKept:parentRooms.length,childrenKept:childRooms.length,unassignedChildren,minParentCells:parents.minCells,minChildCells:children.minCells,minChildSpanCells:children.minSpanCells,minParentSpanCells:parents.minSpanCells,usedItems:childTrace.usedItems,usedSegments:childTrace.usedSegments,skippedHidden:childTrace.skippedHidden,skippedNonBoundaryItems:childTrace.skippedNonBoundaryItems,skippedDimensionSegments:childTrace.skippedDimensionSegments,skippedNonWallFills:childTrace.skippedNonWallFills,bridgedDoorGaps:childTrace.bridgedDoorGaps,snappedTJunctions:childTrace.snappedTJunctions,virtualBoothClosures:boothClosures.length,endpointCount:childTrace.endpointCount}
   };
 }

@@ -426,3 +426,22 @@ test("item-level fixture attributes are filtered even when their layer is explic
   const result=extractRoomHierarchy({...input,selectedLayers:["外壁","間仕切壁"]});
   assert.equal(result.rooms.length,4);
 });
+
+test("fixture attributes are excluded from a selected wall layer and reported",()=>{
+  const input=fixture();
+  input.items.push({kind:"line",layer:"間仕切壁",role:"furniture",pts:[200,200,350,200]});
+  const result=extractRoomHierarchy({...input,selectedLayers:["外壁","間仕切壁"]});
+  assert.equal(result.rooms.length,4);
+  assert.ok(result.diagnostics.skippedNonBoundaryItems>0);
+});
+test("explicit selection cannot promote a generic furniture layer to a room boundary",()=>{
+  const input=fixture();
+  input.items.push(
+    line("A-什器",200,200,350,200),line("A-什器",350,200,350,350),
+    line("A-什器",350,350,200,350),line("A-什器",200,350,200,200)
+  );
+  input.layers.push({name:"A-什器",role:"furniture"});
+  const result=extractRoomHierarchy({...input,selectedLayers:["外壁","間仕切壁","A-什器"]});
+  assert.equal(result.rooms.length,4);
+  assert.ok(!result.diagnostics.wallLayerNames.includes("A-什器"));
+});
