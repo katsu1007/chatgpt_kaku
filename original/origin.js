@@ -10,23 +10,78 @@ function showReport(){const d=state.drawing,s=state.sheet,info=d.meta.info||{};$
 
 function detectRooms(){
  if(!state.sheet)return;
- const s=state.sheet,W=s.size.w,H=s.size.h,aspect=W/Math.max(H,1);
- const nx=Math.max(180,Math.min(900,Math.round(700*Math.sqrt(aspect)))),ny=Math.max(180,Math.min(900,Math.round(700/Math.sqrt(aspect))));
- const cw=W/nx,ch=H/ny,N=nx*ny,wall=new Uint8Array(N),seen=new Uint8Array(N),ids=new Int32Array(N);
- const mark=(x,y)=>{const ix=Math.round(x/cw),iy=Math.round(y/ch);if(ix>=0&&ix<nx&&iy>=0&&iy<ny)wall[iy*nx+ix]=1;};
- const drawLine=(x1,y1,x2,y2)=>{const steps=Math.max(1,Math.ceil(Math.hypot((x2-x1)/cw,(y2-y1)/ch)*2));for(let k=0;k<=steps;k++){const t=k/steps;mark(x1+(x2-x1)*t,y1+(y2-y1)*t);}};
+ const s=state.sheet,W=s.size.w,H=s.size.h;
+ // JWWの座標は用紙上のmm。縮尺図面では部屋面積が実寸m²より極端に小さくなるため、
+ // 実寸0.25m²という固定条件では候補が全滅する。ここでは図面上の画素数で候補を残す。
+ const aspect=W/Math.max(H,1);
+ const nx=Math.max(240,Math.min(1100,Math.round(850*Math.sqrt(aspect))));
+ const ny=Math.max(240,Math.min(1100,Math.round(850/Math.sqrt(aspect))));
+ const cw=W/nx,ch=H/ny,N=nx*ny,wall=new Uint8Array(N),seen=new Uint8Array(N);
+ const mark=(x,y)=>{
+  const ix=Math.round(x/cw),iy=Math.round(y/ch);
+  // 斜め線の4近傍すり抜けを抑えるため、線を約1セル太らせる
+  for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+   const xx=ix+dx,yy=iy+dy;
+   if(xx>=0&&xx<nx&&yy>=0&&yy<ny)wall[yy*nx+xx]=1;
+  }
+ };
+ const drawLine=(x1,y1,x2,y2)=>{
+  const steps=Math.max(1,Math.ceil(Math.hypot((x2-x1)/cw,(y2-y1)/ch)*2));
+  for(let k=0;k<=steps;k++){const t=k/steps;mark(x1+(x2-x1)*t,y1+(y2-y1)*t);}
+ };
+ let usedItems=0,usedLines=0,skippedHidden=0;
  for(const it of s.items){
-  if(it.layer!=null){const li=state.layers.findIndex(x=>x.name===it.layer);if(li>=0&&state.hidden[li])continue;}
-  if(it.kind==="line"){for(let k=0;k+3<it.pts.length;k+=2)drawLine(it.pts[k],it.pts[k+1],it.pts[k+2],it.pts[k+3]);}
-  else if(it.kind==="arc"){const sweep=it.a1-it.a0,n=Math.max(12,Math.ceil(Math.abs(sweep)*it.r/Math.min(cw,ch)*2));let px=it.cx+it.r*Math.cos(it.a0),py=it.cy+it.r*Math.sin(it.a0);for(let k=1;k<=n;k++){const a=it.a0+sweep*k/n,x=it.cx+it.r*Math.cos(a),y=it.cy+it.r*Math.sin(a);drawLine(px,py,x,y);px=x;py=y;}}
-  else if(it.kind==="fill"&&it.pts.length>=6){for(let k=0;k+3<it.pts.length;k+=2)drawLine(it.pts[k],it.pts[k+1],it.pts[k+2],it.pts[k+3]);drawLine(it.pts[it.pts.length-2],it.pts[it.pts.length-1],it.pts[0],it.pts[1]);}
+  if(it.layer!=null){const li=state.layers.findIndex(x=>x.name===it.layer);if(li>=0&&state.hidden[li]){skippedHidden++;continue;}}
+  if(it.kind==="line"&&it.pts?.length>=4){
+   usedItems++;for(let k=0;k+3<it.pts.length;k+=2){drawLine(it.pts[k],it.pts[k+1],it.pts[k+2],it.pts[k+3]);usedLines++;}
+  }else if(it.kind==="arc"&&Number.isFinite(it.r)&&it.r>0){
+   usedItems++;const sweep=it.a1-it.a0,n=Math.max(16,Math.ceil(Math.abs(sweep)*it.r/Math.min(cw,ch)*2));
+   let px=it.cx+it.r*Math.cos(it.a0),py=it.cy+it.r*Math.sin(it.a0);
+   for(let k=1;k<=n;k++){const a=it.a0+sweep*k/n,x=it.cx+it.r*Math.cos(a),y=it.cy+it.r*Math.sin(a);drawLine(px,py,x,y);px=x;py=y;usedLines++;}
+  }else if(it.kind==="fill"&&it.pts?.length>=6){
+   usedItems++;for(let k=0;k+3<it.pts.length;k+=2){drawLine(it.pts[k],it.pts[k+1],it.pts[k+2],it.pts[k+3]);usedLines++;}
+   drawLine(it.pts[it.pts.length-2],it.pts[it.pts.length-1],it.pts[0],it.pts[1]);usedLines++;
+  }
  }
  const regions=[],queue=new Int32Array(N);let rid=0;
- for(let p=0;p<N;p++){if(wall[p]||seen[p])continue;let head=0,tail=0;queue[tail++]=p;seen[p]=1;let area=0,sx=0,sy=0,minx=nx,miny=ny,maxx=0,maxy=0;while(head<tail){const q=queue[head++],x=q%nx,y=(q/nx)|0;ids[q]=rid;area++;sx+=x;sy+=y;if(x<minx)minx=x;if(x>maxx)maxx=x;if(y<miny)miny=y;if(y>maxy)maxy=y;const ns=[x?q-1:-1,x<nx-1?q+1:-1,y?q-nx:-1,y<ny-1?q+nx:-1];for(const z of ns)if(z>=0&&!wall[z]&&!seen[z]){seen[z]=1;queue[tail++]=z;}}regions.push({id:rid,area,cx:sx/area,cy:sy/area,minx,miny,maxx,maxy,touchesEdge:minx===0||miny===0||maxx===nx-1||maxy===ny-1});rid++;}
- const viable=regions.filter(r=>!r.touchesEdge&&r.area*cw*ch>=250000&&r.area*cw*ch<=W*H*.8).sort((a,b)=>b.area-a.area);
- state.rooms=viable.map((r,i)=>({...r,name:"区画 "+(i+1),areaM2:r.area*cw*ch/1000000}));state.roomGrid={ids,nx,ny,cw,ch};renderRooms();
- const list=state.rooms.map(r=>"<li>"+esc(r.name)+"："+r.areaM2.toFixed(2)+" m²</li>").join("");
- $("inspection").insertAdjacentHTML("beforeend","<p><strong>区画抽出："+state.rooms.length+"件</strong></p><ol>"+list+"</ol><p>表示中レイヤーの線・円弧・塗り輪郭を境界候補として抽出。格子解析 "+nx+" × "+ny+"。外周接触領域と0.25m²未満を除外。壁の隙間や家具線による誤判定に注意。</p>");
+ for(let p=0;p<N;p++){
+  if(wall[p]||seen[p])continue;
+  let head=0,tail=0;queue[tail++]=p;seen[p]=1;
+  let area=0,sx=0,sy=0,minx=nx,miny=ny,maxx=0,maxy=0;
+  while(head<tail){
+   const q=queue[head++],x=q%nx,y=(q/nx)|0;area++;sx+=x;sy+=y;
+   if(x<minx)minx=x;if(x>maxx)maxx=x;if(y<miny)miny=y;if(y>maxy)maxy=y;
+   const ns=[x?q-1:-1,x<nx-1?q+1:-1,y?q-nx:-1,y<ny-1?q+nx:-1];
+   for(const z of ns)if(z>=0&&!wall[z]&&!seen[z]){seen[z]=1;queue[tail++]=z;}
+  }
+  regions.push({id:rid++,area,cx:sx/area,cy:sy/area,minx,miny,maxx,maxy,touchesEdge:minx===0||miny===0||maxx===nx-1||maxy===ny-1});
+ }
+ const inside=regions.filter(r=>!r.touchesEdge).sort((a,b)=>b.area-a.area);
+ // 旧条件の「0.25m²」は縮尺図面に対して不適切。格子セル数で小さなノイズだけを除外する。
+ const viable=inside.filter(r=>r.area>=12&&r.area<=N*.8);
+ state.rooms=viable.map((r,i)=>({...r,name:"区画 "+(i+1),drawingAreaCm2:r.area*cw*ch/100}));
+ state.roomGrid={ids:null,nx,ny,cw,ch,regions:viable.map(r=>r.id),regionMap:null};
+ // region IDs are kept in a compact grid for rendering; rerun flood-fill IDs in one pass.
+ const regionMap=new Int32Array(N);regionMap.fill(-1);
+ for(let i=0;i<viable.length;i++){
+  const r=viable[i];let head=0,tail=0;const q=new Int32Array(r.area);
+  const seed=Math.round(r.cy)*nx+Math.round(r.cx);q[tail++]=seed;regionMap[seed]=r.id;
+  while(head<tail){const z=q[head++],x=z%nx,y=(z/nx)|0;for(const n of [x?z-1:-1,x<nx-1?z+1:-1,y?z-nx:-1,y<ny-1?z+nx:-1])if(n>=0&&regionMap[n]===-1&&!wall[n]&&!seen[n]){regionMap[n]=r.id;q[tail++]=n;}}
+ }
+ // The first flood-fill's seen map cannot be reused for region reconstruction; retain a fresh flood-fill map.
+ regionMap.fill(-1);
+ for(const r of viable){
+  let head=0,tail=0;const q=new Int32Array(r.area);
+  const seed=Math.round(r.cy)*nx+Math.round(r.cx);
+  if(seed<0||seed>=N||wall[seed])continue;
+  q[tail++]=seed;regionMap[seed]=r.id;
+  while(head<tail){const z=q[head++],x=z%nx,y=(z/nx)|0;for(const n of [x?z-1:-1,x<nx-1?z+1:-1,y?z-nx:-1,y<ny-1?z+nx:-1])if(n>=0&&regionMap[n]===-1&&!wall[n]){regionMap[n]=r.id;q[tail++]=n;}}
+ }
+ state.roomGrid={ids:regionMap,nx,ny,cw,ch};
+ renderRooms();
+ const list=state.rooms.map(r=>"<li>"+esc(r.name)+"："+r.drawingAreaCm2.toFixed(1)+" cm²（図面上）</li>").join("");
+ const biggest=inside.slice(0,5).map(r=>r.area+"セル"+(r.touchesEdge?"・外周接触":"")).join(" / ")||"なし";
+ $("inspection").insertAdjacentHTML("beforeend","<p><strong>区画抽出："+state.rooms.length+"件</strong></p>"+(list?"<ol>"+list+"</ol>":"")+"<p>診断：境界候補 "+usedItems.toLocaleString()+"要素／線分 "+usedLines.toLocaleString()+"本、非表示スキップ "+skippedHidden.toLocaleString()+"要素。格子 "+nx+" × "+ny+"。外周に接する領域 "+regions.filter(r=>r.touchesEdge).length+"件。内部領域 "+inside.length+"件。内部領域上位： "+esc(biggest)+"。</p><p>面積は縮尺換算前の図面上の値。実寸面積ではありません。家具・寸法線などの混入を避けるレイヤー別境界指定は次段階で必要です。</p>");
 }
 function renderRooms(){
  const svg=$("canvas").querySelector("svg");if(!svg||!state.roomGrid)return;const old=svg.querySelector("#roomOverlay");if(old)old.remove();const oldLabels=svg.querySelector("#roomLabels");if(oldLabels)oldLabels.remove();
