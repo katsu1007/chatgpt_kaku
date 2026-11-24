@@ -65,34 +65,44 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
       line(it.pts[it.pts.length-2],it.pts[it.pts.length-1],it.pts[0],it.pts[1]);
     }
   }
-  // Bridge likely door openings: two collinear wall ends facing each other across a normal doorway.
-  // This preserves room topology while leaving small drafting gaps to the separate healer.
+  // Bridge only mutually-best facing endpoints. A global all-pairs bridge can
+  // accidentally connect nearby parallel walls, T-junctions, or adjacent cubicles.
+  // Mutual nearest-neighbour matching makes each endpoint participate in at most
+  // one doorway bridge and prefers the most plausible local opening.
   const bridgeMin=350,bridgeMax=1200,bucketSize=bridgeMax;
   const endpointBins=new Map();
-  for(const ep of doorEndpoints){
-    const bx=Math.floor(ep.x/bucketSize),by=Math.floor(ep.y/bucketSize),key=bx+":"+by;
+  for(let i=0;i<doorEndpoints.length;i++){
+    const ep=doorEndpoints[i],bx=Math.floor(ep.x/bucketSize),by=Math.floor(ep.y/bucketSize),key=bx+":"+by;
     if(!endpointBins.has(key))endpointBins.set(key,[]);
-    endpointBins.get(key).push(ep);
+    endpointBins.get(key).push(i);
   }
-  let bridgedDoorGaps=0;const bridgedPairs=new Set();
-  for(const [key,list] of endpointBins){
-    const [bx,by]=key.split(":").map(Number);
-    for(const a of list)for(let oy=-1;oy<=1;oy++)for(let ox=-1;ox<=1;ox++){
-      for(const b of endpointBins.get((bx+ox)+":"+(by+oy))||[]){
-        if(a===b)continue;
-        const dx=b.x-a.x,dy=b.y-a.y,dist=Math.hypot(dx,dy);
+  const best=new Map();
+  for(let i=0;i<doorEndpoints.length;i++){
+    const a=doorEndpoints[i],bx=Math.floor(a.x/bucketSize),by=Math.floor(a.y/bucketSize);
+    let bestIndex=-1,bestScore=Infinity;
+    for(let oy=-1;oy<=1;oy++)for(let ox=-1;ox<=1;ox++){
+      for(const j of endpointBins.get((bx+ox)+":"+(by+oy))||[]){
+        if(i===j)continue;
+        const b=doorEndpoints[j],dx=b.x-a.x,dy=b.y-a.y,dist=Math.hypot(dx,dy);
         if(dist<bridgeMin||dist>bridgeMax)continue;
         const ux=dx/dist,uy=dy/dist;
+        // Both endpoints must point into the same gap, face each other,
+        // and lie on the same projected wall axis.
         if(a.ux*ux+a.uy*uy>-.96||b.ux*ux+b.uy*uy<.96)continue;
         if(Math.abs(a.ux*uy-a.uy*ux)*dist>35||Math.abs(b.ux*uy-b.uy*ux)*dist>35)continue;
-        const ak=a.x+","+a.y,bk=b.x+","+b.y,pair=ak<bk?ak+"|"+bk:bk+"|"+ak;
-        if(bridgedPairs.has(pair))continue;
-        bridgedPairs.add(pair);
-        const steps=Math.max(1,Math.ceil(dist/Math.min(cw,ch)*2));
-        for(let k=0;k<=steps;k++){const t=k/steps;mark(a.x+dx*t,a.y+dy*t);}
-        bridgedDoorGaps++;
+        const score=dist+35*(2+a.ux*ux+a.uy*uy+b.ux*ux+b.uy*uy);
+        if(score<bestScore){bestScore=score;bestIndex=j;}
       }
     }
+    if(bestIndex>=0)best.set(i,bestIndex);
+  }
+  let bridgedDoorGaps=0;
+  for(const [i,j] of best){
+    if(i>=j||best.get(j)!==i)continue;
+    const a=doorEndpoints[i],b=doorEndpoints[j],dx=b.x-a.x,dy=b.y-a.y,dist=Math.hypot(dx,dy);
+    const steps=Math.max(1,Math.ceil(dist/Math.min(cw,ch)*2));
+    for(let k=0;k<=steps;k++){const t=k/steps;mark(a.x+dx*t,a.y+dy*t);}
+    bridgedDoorGaps++;
   }
   // Heal only tiny drafting gaps between distinct line endpoints.
   const bins=new Map(),tol=1.6,tol2=tol*tol;
