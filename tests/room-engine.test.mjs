@@ -132,7 +132,7 @@ test("normal doorway openings are bridged so adjacent rooms remain separate",()=
   const result=extractRoomHierarchy({items,width:1500,height:1500,layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
   assert.equal(result.parents.length,1);
   assert.equal(result.rooms.length,2);
-  assert.ok(result.diagnostics.bridgedDoorGaps>=1);
+  assert.equal(result.diagnostics.bridgedDoorGaps,1);
 });
 
 test("toilet cubicles with door openings are extracted as separate compartments",()=>{
@@ -146,5 +146,5 @@ test("toilet cubicles with door openings are extracted as separate compartments"
   const result=extractRoomHierarchy({items,width:1500,height:1500,layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
   assert.equal(result.parents.length,1);
   assert.equal(result.rooms.length,3);
-  assert.ok(result.diagnostics.bridgedDoorGaps>=2);
+  assert.equal(result.diagnostics.bridgedDoorGaps,2);
 });
