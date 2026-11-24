@@ -1,4 +1,4 @@
-import { extractRoomHierarchy } from "./room-engine.js?v=20261124-recovery2";
+import { extractRoomHierarchy } from "./room-engine.js?v=20261124-dim-portrait1";
 let openCad,prepare,toSvg;
 let cadImportPromise;
 async function ensureCadLibrary(){if(openCad&&prepare&&toSvg)return;if(!cadImportPromise)cadImportPromise=import("https://cdn.jsdelivr.net/npm/ezpzfile-cad@0.1.0/dist/index.js").then(m=>{openCad=m.openCad;prepare=m.prepare;toSvg=m.toSvg;}).catch(e=>{cadImportPromise=null;throw new Error("CAD読込ライブラリを取得できません。通信状態を確認して再読み込みしてください。詳細: "+(e?.message||e));});await cadImportPromise;}
