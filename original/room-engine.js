@@ -82,8 +82,33 @@ function findBoothFrontClosures(items,names,hidden){
     return Math.hypot(p.x-(s.x1+t*vx),p.y-(s.y1+t*vy));
   };
   const closures=[];
-  for(let i=0;i<segs.length;i++)for(let j=i+1;j<segs.length;j++){
-    const a=segs[i],b=segs[j];
+  // Only compare partition ends that are physically close enough to form a
+  // cubicle front. Dense CAD plans may contain thousands of unrelated strokes;
+  // an endpoint spatial index avoids testing every segment pair.
+  const endpointCell=1100,nearbySegments=new Map();
+  const bucketKey=(x,y)=>Math.floor(x/endpointCell)+":"+Math.floor(y/endpointCell);
+  for(let i=0;i<segs.length;i++){
+    const s=segs[i];
+    for(const p of [{x:s.x1,y:s.y1},{x:s.x2,y:s.y2}]){
+      const key=bucketKey(p.x,p.y);
+      if(!nearbySegments.has(key))nearbySegments.set(key,[]);
+      nearbySegments.get(key).push(i);
+    }
+  }
+  const candidatePairs=new Set();
+  for(let i=0;i<segs.length;i++){
+    const s=segs[i];
+    for(const p of [{x:s.x1,y:s.y1},{x:s.x2,y:s.y2}]){
+      const bx=Math.floor(p.x/endpointCell),by=Math.floor(p.y/endpointCell);
+      for(let oy=-1;oy<=1;oy++)for(let ox=-1;ox<=1;ox++){
+        for(const j of nearbySegments.get((bx+ox)+":"+(by+oy))||[]){
+          if(j>i)candidatePairs.add(i+","+j);
+        }
+      }
+    }
+  }
+  for(const pair of candidatePairs){
+    const [i,j]=pair.split(",").map(Number),a=segs[i],b=segs[j];
     if(Math.abs(a.dx*b.dx+a.dy*b.dy)<.97)continue;
     const endsA=[{x:a.x1,y:a.y1,back:{x:a.x2,y:a.y2}},{x:a.x2,y:a.y2,back:{x:a.x1,y:a.y1}}];
     const endsB=[{x:b.x1,y:b.y1,back:{x:b.x2,y:b.y2}},{x:b.x2,y:b.y2,back:{x:b.x1,y:b.y1}}];
