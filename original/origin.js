@@ -1,5 +1,5 @@
 import { extractRoomHierarchy } from "./room-engine.js?v=20261124-multisheet3";
-import { makeDrawingChoices, sliceSheetForFrame } from "./drawing-split.js?v=20261124-split1";
+import { makeDrawingChoices, sliceSheetForFrame } from "./drawing-split.js?v=20261124-split2";
 let openCad,prepare,toSvg,findFrames;
 let cadImportPromise;
 async function ensureCadLibrary(){if(openCad&&prepare&&toSvg)return;if(!cadImportPromise)cadImportPromise=import("https://cdn.jsdelivr.net/npm/ezpzfile-cad@0.1.0/dist/index.js").then(m=>{openCad=m.openCad;prepare=m.prepare;toSvg=m.toSvg;findFrames=m.findFrames;}).catch(e=>{cadImportPromise=null;throw new Error("CAD読込ライブラリを取得できません。通信状態を確認して再読み込みしてください。詳細: "+(e?.message||e));});await cadImportPromise;}
@@ -27,19 +27,6 @@ function activateChoice(index){
  detectRooms();
 }
 
-function activateFrame(index){
- const raw=state.rawSheet;if(!raw)return;
- state.frameIndex=index;
- state.sheet=index>=0?sliceSheetForFrame(raw,state.frames[index]):raw;
- state.boundaryLayers.clear();state.rooms=[];state.roomGrid=null;
- const counts=new Map();for(const it of state.sheet.items)if(it.layer!=null)counts.set(it.layer,(counts.get(it.layer)||0)+1);
- state.layers=state.layers.map(l=>({...l,actualItems:counts.get(l.name)||0}));
- state.prepared=prepare(state.sheet,state.layers.map(x=>x.name));
- renderLayers();renderBoundaryLayers();renderDrawing();showReport();
- $("coords").textContent=state.sheet.size.w.toLocaleString()+" × "+state.sheet.size.h.toLocaleString()+" mm";
- $("drawingMeta").textContent=(state.drawing.meta.label||state.drawing.meta.format)+" · "+state.sheet.items.length.toLocaleString()+"要素 · "+(index>=0?"図面枠 "+(index+1):"全体");
- detectRooms();
-}
 
 function renderLayers(){const host=$("layerList");host.replaceChildren();if(!state.layers.length){host.innerHTML='<div class="empty">レイヤー情報がありません。</div>';return;}state.layers.forEach((layer,index)=>{const row=document.createElement("label");row.className="layer-row";const check=document.createElement("input");check.type="checkbox";check.checked=!state.hidden[index];check.addEventListener("change",()=>{state.hidden[index]=check.checked?0:1;renderDrawing();});const name=document.createElement("span");name.className="layer-name";name.textContent=layer.name;const sub=document.createElement("small");sub.className="layer-sub";sub.textContent=(layer.visible?"読込時：表示":"読込時：非表示")+(layer.scale?" · 縮尺 1:"+layer.scale:"");name.append(sub);const count=document.createElement("span");count.className="layer-count";count.textContent=Number(layer.actualItems??layer.items??0).toLocaleString();row.append(check,name,count);host.append(row);});$("allOn").disabled=false;$("allOff").disabled=false;}
 function renderBoundaryLayers(){
