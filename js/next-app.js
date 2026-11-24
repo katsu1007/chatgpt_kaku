@@ -75,5 +75,5 @@ async function importDrawing(file){
  }catch(err){out.textContent='読み込みエラー：'+err.message;toast('ファイルを読み込めませんでした')}
 }
 document.addEventListener('change',e=>{if(e.target?.id==='drawing-file')importDrawing(e.target.files?.[0])});
-\nfunction init(){load();shell()}
+function init(){load();shell()}
 init();
