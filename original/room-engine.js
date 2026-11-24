@@ -15,7 +15,7 @@ function classifyLayers(layers,items,hidden){
   return {parent:new Set(parent.map(l=>l.name)),all:new Set(candidates.map(l=>l.name)),mode:namedWalls.length?(outer.length?"外周レイヤー＋壁レイヤー":"壁候補レイヤー"):"図形レイヤー自動判定"};
 }
 function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
-  const wall=new Uint8Array(nx*ny); let usedItems=0,usedSegments=0,skippedHidden=0;
+  const wall=new Uint8Array(nx*ny); let usedItems=0,usedSegments=0,skippedHidden=0; const endpoints=[];
   const mark=(x,y)=>{
     const ix=Math.round(x/cw),iy=Math.round(y/ch);
     // 8-neighbour raster stroke reduces diagonal leaks.
@@ -30,21 +30,36 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
     for(let k=0;k<=steps;k++){const t=k/steps;mark(x1+(x2-x1)*t,y1+(y2-y1)*t);}
     usedSegments++;
   };
+  const rememberEndpoint=(x,y)=>{if(Number.isFinite(x)&&Number.isFinite(y))endpoints.push([Math.round(x/cw),Math.round(y/ch)]);};
   for(const it of items){
     if(!names.has(it.layer))continue;
     if(hidden.has(it.layer)){skippedHidden++;continue;}
     if(it.kind==="line"&&Array.isArray(it.pts)&&it.pts.length>=4){
-      usedItems++;for(let k=0;k+3<it.pts.length;k+=2)line(it.pts[k],it.pts[k+1],it.pts[k+2],it.pts[k+3]);
+      usedItems++;rememberEndpoint(it.pts[0],it.pts[1]);rememberEndpoint(it.pts[it.pts.length-2],it.pts[it.pts.length-1]);for(let k=0;k+3<it.pts.length;k+=2)line(it.pts[k],it.pts[k+1],it.pts[k+2],it.pts[k+3]);
     }else if(it.kind==="arc"&&Number.isFinite(it.r)&&it.r>0){
       usedItems++;const sweep=it.a1-it.a0,n=Math.max(16,Math.ceil(Math.abs(sweep)*it.r/Math.min(cw,ch)*2));
-      let px=it.cx+it.r*Math.cos(it.a0),py=it.cy+it.r*Math.sin(it.a0);
+      let px=it.cx+it.r*Math.cos(it.a0),py=it.cy+it.r*Math.sin(it.a0);rememberEndpoint(px,py);rememberEndpoint(it.cx+it.r*Math.cos(it.a1),it.cy+it.r*Math.sin(it.a1));
       for(let k=1;k<=n;k++){const a=it.a0+sweep*k/n,x=it.cx+it.r*Math.cos(a),y=it.cy+it.r*Math.sin(a);line(px,py,x,y);px=x;py=y;}
     }else if(it.kind==="fill"&&Array.isArray(it.pts)&&it.pts.length>=6){
       usedItems++;for(let k=0;k+3<it.pts.length;k+=2)line(it.pts[k],it.pts[k+1],it.pts[k+2],it.pts[k+3]);
       line(it.pts[it.pts.length-2],it.pts[it.pts.length-1],it.pts[0],it.pts[1]);
     }
   }
-  return {wall,usedItems,usedSegments,skippedHidden};
+  // Heal only tiny drafting gaps between distinct line endpoints. Tolerance is
+  // raster-relative (1.6 cells), so normal door openings remain open.
+  const bins=new Map(),tol=1.6,tol2=tol*tol;
+  for(const [x,y] of endpoints){
+    const bx=Math.floor(x/2),by=Math.floor(y/2);
+    for(let oy=-1;oy<=1;oy++)for(let ox=-1;ox<=1;ox++){
+      const bucket=bins.get((bx+ox)+":"+ (by+oy));if(!bucket)continue;
+      for(const [px,py] of bucket){const dx=x-px,dy=y-py,d2=dx*dx+dy*dy;if(d2>0.01&&d2<=tol2){
+        const steps=Math.max(1,Math.ceil(Math.sqrt(d2)*2));
+        for(let k=0;k<=steps;k++){const t=k/steps,xx=Math.round(px+dx*t),yy=Math.round(py+dy*t);if(xx>=0&&xx<nx&&yy>=0&&yy<ny)wall[yy*nx+xx]=1;}
+      }}
+    }
+    const key=bx+":"+by;if(!bins.has(key))bins.set(key,[]);bins.get(key).push([x,y]);
+  }
+  return {wall,usedItems,usedSegments,skippedHidden,endpointCount:endpoints.length};
 }
 function floodRegions(wall,nx,ny){
   const N=nx*ny,seen=new Uint8Array(N),queue=new Int32Array(N),regionAt=new Int32Array(N),regions=[];regionAt.fill(-1);let rid=0;
@@ -79,8 +94,10 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
   const allNames=selectedLayers?.length?new Set([...selected,...classified.all]):classified.all;
   if(!allNames.size)throw new Error("壁・図形候補レイヤーを自動判定できませんでした。図面の線分レイヤーを確認してください。");
   const supplemental=new Set([...allNames].filter(n=>!selected.has(n)));
-  const aspect=width/height,nx=Math.max(260,Math.min(1000,Math.round(820*Math.sqrt(aspect))));
-  const ny=Math.max(260,Math.min(1000,Math.round(820/Math.sqrt(aspect))));
+  const aspect=width/height;
+  const target=Math.max(900,Math.min(1500,Math.round(1100*Math.sqrt(Math.min(1.8,Math.max(.55,aspect))))));
+  const nx=Math.max(320,Math.min(1500,Math.round(target*Math.sqrt(aspect))));
+  const ny=Math.max(320,Math.min(1500,Math.round(target/Math.sqrt(aspect))));
   const cw=width/nx,ch=height/ny,N=nx*ny;
   const parentTrace=traceItems(items,selected,hidden,width,height,nx,ny,cw,ch);
   const childTrace=traceItems(items,allNames,hidden,width,height,nx,ny,cw,ch);
@@ -119,6 +136,6 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
     rooms:displayRooms.map((r,i)=>({...r,id:i,drawingAreaCm2:r.area*cw*ch/100})),
     parents:parentRooms.map(p=>({...p,children:p.children.map(c=>c.name)})),
     grid:{ids,nx,ny,cw,ch},
-    diagnostics:{selectedLayers:selected.size,supplementalLayers:supplemental.size,autoMode:classified.mode,parentLayerNames:[...selected],wallLayerNames:[...allNames],parentRegions:parents.inner.length,childRegions:children.inner.length,parentsKept:parentRooms.length,childrenKept:childRooms.length,unassignedChildren,minParentCells:parents.minCells,minChildCells:children.minCells,usedItems:childTrace.usedItems,usedSegments:childTrace.usedSegments,skippedHidden:childTrace.skippedHidden}
+    diagnostics:{selectedLayers:selected.size,supplementalLayers:supplemental.size,autoMode:classified.mode,parentLayerNames:[...selected],wallLayerNames:[...allNames],parentRegions:parents.inner.length,childRegions:children.inner.length,parentsKept:parentRooms.length,childrenKept:childRooms.length,unassignedChildren,minParentCells:parents.minCells,minChildCells:children.minCells,usedItems:childTrace.usedItems,usedSegments:childTrace.usedSegments,skippedHidden:childTrace.skippedHidden,endpointCount:childTrace.endpointCount}
   };
 }
