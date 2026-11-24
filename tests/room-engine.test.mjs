@@ -47,3 +47,17 @@ test("separate parent spaces keep their own child-room ownership and label point
     assert.equal(result.grid.ids[cellY*result.grid.nx+cellX],room.id);
   }
 });
+
+test("door opening in a partition stays open and does not create a false room split",()=>{
+  const items=[
+    line("外壁",100,100,900,100),line("外壁",900,100,900,900),
+    line("外壁",900,900,100,900),line("外壁",100,900,100,100),
+    // The 120 mm gap represents a doorway; it must not be bridged by cleanup.
+    line("間仕切壁",500,100,500,440),
+    line("間仕切壁",500,560,500,900)
+  ];
+  const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
+  assert.equal(result.parents.length,1);
+  assert.equal(result.rooms.length,1);
+  assert.equal(result.diagnostics.childrenKept,0);
+});
