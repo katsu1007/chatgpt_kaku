@@ -42,7 +42,7 @@ function detectRooms(){
   const result=extractRoomHierarchy({
    items:state.sheet.items,width:state.sheet.size.w,height:state.sheet.size.h,
    layers:state.layers,
-   hiddenLayers:[]
+   hiddenLayers:state.layers.filter((layer,index)=>state.hidden[index]===1).map(layer=>layer.name)
   });
   state.rooms=result.rooms;
   state.roomGrid=result.grid;
