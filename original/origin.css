@@ -13,3 +13,14 @@
 .layer-panel,.boundary-panel{display:none!important}
 .layout{grid-template-columns:260px minmax(0,1fr)}
 @media(max-width:850px){.layout{grid-template-rows:minmax(150px,22vh) minmax(420px,1fr)}.rail{display:flex;max-height:22vh;overflow:auto}.rail .panel:first-child,.rail .panel:last-child{display:block;grid-column:auto}}
+
+/* Mobile portrait layout: prevent the desktop two-column override from leaking into phones. */
+@media(max-width:850px){
+  html,body{width:100%;min-width:0;min-height:100%;overflow-x:hidden}
+  .layout{width:100%;height:calc(100dvh - 58px);min-height:0;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,auto) minmax(0,1fr);gap:8px;padding:8px}
+  .rail{display:flex;flex-direction:column;min-width:0;max-height:27dvh;overflow:auto}
+  .rail .panel:first-child,.rail .panel:last-child{display:block;grid-column:auto}
+  .workspace{min-width:0;min-height:0;grid-template-rows:48px minmax(0,1fr) 24px}
+  .canvas-wrap{min-width:0;min-height:0}
+  .canvas-wrap svg{min-width:0;min-height:0}
+}
