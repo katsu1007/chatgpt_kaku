@@ -370,6 +370,7 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
   if(!(width>0&&height>0))throw new Error("図面サイズを取得できません");
   const hidden=new Set(hiddenLayers);
   const classified=classifyLayers(layers,items,hidden);
+  const layerMetadata=new Map((layers||[]).filter(x=>x&&typeof x==="object").map(x=>[String(x.name),x]));
   // An explicit wall-candidate selection filters the geometry used for room
   // extraction; it must not promote every interior partition to an outer boundary.
   // Prefer semantically named exterior layers for the parent pass, while all
