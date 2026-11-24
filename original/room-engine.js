@@ -76,7 +76,7 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
     if(!parent)continue;
     // Avoid duplicating an unchanged parent as its own child.
     if(child.area>=parent.area*.985)continue;
-    const room={...child,name:"中・小部屋 "+(parent.children.length+1),level:2,parentId:parent.id,parentName:parent.name,children:[]};
+    const room={...child,name:parent.name+"-"+(parent.children.length+1),level:2,parentId:parent.id,parentName:parent.name,children:[]};
     parent.children.push(room);childRooms.push(room);
   }
   // Prefer the finer partition for rendering, falling back to parent spaces if no inner walls were found.
