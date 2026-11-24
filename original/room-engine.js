@@ -181,7 +181,7 @@ function floodRegions(wall,nx,ny){
   }
   return {regions,regionAt};
 }
-function chooseRegions(regions,N){
+function chooseRegions(regions,N,maxRatio=.82){
   const inner=regions.filter(r=>!r.touchesEdge).sort((a,b)=>b.area-a.area);
   const largest=inner[0]?.area||0,minCells=Math.max(16,Math.floor(largest*.0025));
   const kept=inner.filter(r=>{
@@ -189,7 +189,7 @@ function chooseRegions(regions,N){
     const boxArea=w*h,fill=r.area/boxArea,aspect=Math.max(w,h)/Math.min(w,h),ratio=r.area/N;
     // Reject drafting islands, thin annotation strips and tiny title-block cells.
     // Keep large halls: a high area alone is not enough to discard a real room.
-    return r.area>=minCells&&ratio<=.82&&fill>=.10&&aspect<=24;
+    return r.area>=minCells&&ratio<=maxRatio&&fill>=.10&&aspect<=24;
   }).slice(0,160);
   return {inner,minCells,kept};
 }
@@ -214,7 +214,7 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
   let childTrace=traceItems(childItems,allNames,hidden,width,height,nx,ny,cw,ch);
   let parentFlood=floodRegions(parentTrace.wall,nx,ny);
   let childFlood=floodRegions(childTrace.wall,nx,ny);
-  let parents=chooseRegions(parentFlood.regions,N);
+  let parents=chooseRegions(parentFlood.regions,N,.995);
   let children=chooseRegions(childFlood.regions,N);
   // If semantic wall-layer selection misses the building perimeter, retry with
   // every geometric layer except clearly non-architectural annotation/furniture.
@@ -229,7 +229,7 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
     childTrace=traceItems(childItems,allNames,hidden,width,height,nx,ny,cw,ch);
     parentFlood=floodRegions(parentTrace.wall,nx,ny);
     childFlood=parentFlood;
-    parents=chooseRegions(parentFlood.regions,N);
+    parents=chooseRegions(parentFlood.regions,N,.995);
     children=parents;
   }
   const parentRooms=parents.kept.map((r,i)=>({...r,name:"大部屋 "+(i+1),level:1,children:[]}));
