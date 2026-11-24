@@ -50,7 +50,7 @@ function findBoothFrontClosures(items,names,hidden){
   // perpendicular offset, and <=120 mm projected gap. This is deliberately
   // stricter than raster healing and never joins neighbouring parallel bays.
   const segs=raw.slice();let merged=true,mergePasses=0;
-  while(merged&&mergePasses++<8){
+  while(merged&&mergePasses++<Math.min(256,raw.length*2)){
     merged=false;
     outer:for(let i=0;i<segs.length;i++)for(let j=i+1;j<segs.length;j++){
       const a=segs[i],b=segs[j];if(a.it.layer!==b.it.layer)continue;
