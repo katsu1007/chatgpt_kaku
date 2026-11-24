@@ -24,3 +24,5 @@
   .canvas-wrap{min-width:0;min-height:0}
   .canvas-wrap svg{min-width:0;min-height:0}
 }
+
+#frameSelect{max-width:190px;min-height:36px;padding:6px 9px;border:1px solid #40505d;border-radius:8px;background:#17232d;color:#eaf1f6;font:inherit}#frameSelect:disabled{opacity:.5}
