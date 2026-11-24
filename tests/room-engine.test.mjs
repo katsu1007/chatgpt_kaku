@@ -170,6 +170,26 @@ test("toilet cubicles with door openings are extracted as separate compartments"
   assert.equal(result.diagnostics.bridgedDoorGaps,2);
 });
 
+test("compact filled CAD symbols are ignored as room boundaries",()=>{
+  const items=[
+    line("外壁",100,100,900,100),line("外壁",900,100,900,900),
+    line("外壁",900,900,100,900),line("外壁",100,900,100,100),
+    {kind:"fill",layer:"外壁",pts:[450,450,470,450,470,470,450,470]}
+  ];
+  const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"外壁"}],selectedLayers:[]});
+  assert.equal(result.rooms.length,1);
+  assert.ok(result.diagnostics.skippedNonWallFills>0);
+});
+test("long thin filled wall bands remain usable as partition boundaries",()=>{
+  const items=[
+    line("外壁",100,100,900,100),line("外壁",900,100,900,900),
+    line("外壁",900,900,100,900),line("外壁",100,900,100,100),
+    {kind:"fill",layer:"間仕切壁",pts:[490,100,510,100,510,900,490,900]}
+  ];
+  const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
+  assert.equal(result.rooms.length,2);
+});
+
 test("wall layer suggestions exclude dimensions, furniture, equipment and annotations",()=>{
   assert.deepEqual(
     suggestWallLayers(["外壁","間仕切壁","A-WALL","建築寸法","壁注記","設備","FURNITURE","DIM","HATCH","A-WALL-HATCH"]),

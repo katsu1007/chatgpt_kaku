@@ -151,8 +151,25 @@ function findBoothFrontClosures(items,names,hidden){
   }
   return closures.map((c,i)=>({kind:"line",layer:c.layer,pts:[c.x1,c.y1,c.x2,c.y2],virtualBoothClosure:true,virtualId:i}));
 }
+function isWallLikeFill(pts,cw,ch){
+  if(!Array.isArray(pts)||pts.length<6||pts.length%2)return false;
+  const n=pts.length/2;let mx=0,my=0;
+  for(let i=0;i<pts.length;i+=2){if(!Number.isFinite(pts[i])||!Number.isFinite(pts[i+1]))return false;mx+=pts[i];my+=pts[i+1];}
+  mx/=n;my/=n;
+  let xx=0,xy=0,yy=0;
+  for(let i=0;i<pts.length;i+=2){const x=pts[i]-mx,y=pts[i+1]-my;xx+=x*x;xy+=x*y;yy+=y*y;}
+  xx/=n;xy/=n;yy/=n;
+  const trace=xx+yy,disc=Math.sqrt(Math.max(0,(xx-yy)*(xx-yy)+4*xy*xy));
+  const major=Math.sqrt(Math.max(0,(trace+disc)/2));
+  const minor=Math.sqrt(Math.max(0,(trace-disc)/2));
+  const ratio=major/Math.max(minor,1e-6);
+  // JWW SOLID may also encode circular markers, arrows and compact symbols.
+  // Only long, thin filled polygons are plausible wall bands; ordinary line
+  // geometry remains the primary source for wall boundaries.
+  return ratio>=3.5&&major*2>=Math.max(cw,ch)*12;
+}
 function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
-  const wall=new Uint8Array(nx*ny); let usedItems=0,usedSegments=0,skippedHidden=0,skippedDimensionSegments=0; const endpoints=[]; const doorEndpoints=[]; const dimAnchors=dimensionTextAnchors(items);
+  const wall=new Uint8Array(nx*ny); let usedItems=0,usedSegments=0,skippedHidden=0,skippedDimensionSegments=0,skippedNonWallFills=0; const endpoints=[]; const doorEndpoints=[]; const dimAnchors=dimensionTextAnchors(items);
   const mark=(x,y)=>{
     const ix=Math.round(x/cw),iy=Math.round(y/ch);
     // 8-neighbour raster stroke reduces diagonal leaks.
@@ -256,7 +273,7 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
     }
     const key=bx+":"+by;if(!bins.has(key))bins.set(key,[]);bins.get(key).push([x,y]);
   }
-  return {wall,usedItems,usedSegments,skippedHidden,skippedDimensionSegments,endpointCount:endpoints.length,bridgedDoorGaps};
+  return {wall,usedItems,usedSegments,skippedHidden,skippedDimensionSegments,skippedNonWallFills,endpointCount:endpoints.length,bridgedDoorGaps};
 }
 function floodRegions(wall,nx,ny){
   const N=nx*ny,seen=new Uint8Array(N),queue=new Int32Array(N),regionAt=new Int32Array(N),regions=[];regionAt.fill(-1);let rid=0;
@@ -387,6 +404,6 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
     rooms:displayRooms.map((r,i)=>({...r,id:i,drawingAreaCm2:r.area*cw*ch/100})),
     parents:parentRooms.map(p=>({...p,children:p.children.map(c=>c.name)})),
     grid:{ids,nx,ny,cw,ch},
-    diagnostics:{selectedLayers:selected.size,supplementalLayers:supplemental.size,autoMode:classified.mode+(fallbackUsed?" → 全図形レイヤー再判定":""),fallbackUsed,parentLayerNames:[...selected],wallLayerNames:[...allNames],parentRegions:parents.inner.length,childRegions:children.inner.length,parentsKept:parentRooms.length,childrenKept:childRooms.length,unassignedChildren,minParentCells:parents.minCells,minChildCells:children.minCells,minChildSpanCells:children.minSpanCells,minParentSpanCells:parents.minSpanCells,usedItems:childTrace.usedItems,usedSegments:childTrace.usedSegments,skippedHidden:childTrace.skippedHidden,skippedDimensionSegments:childTrace.skippedDimensionSegments,bridgedDoorGaps:childTrace.bridgedDoorGaps,virtualBoothClosures:boothClosures.length,endpointCount:childTrace.endpointCount}
+    diagnostics:{selectedLayers:selected.size,supplementalLayers:supplemental.size,autoMode:classified.mode+(fallbackUsed?" → 全図形レイヤー再判定":""),fallbackUsed,parentLayerNames:[...selected],wallLayerNames:[...allNames],parentRegions:parents.inner.length,childRegions:children.inner.length,parentsKept:parentRooms.length,childrenKept:childRooms.length,unassignedChildren,minParentCells:parents.minCells,minChildCells:children.minCells,minChildSpanCells:children.minSpanCells,minParentSpanCells:parents.minSpanCells,usedItems:childTrace.usedItems,usedSegments:childTrace.usedSegments,skippedHidden:childTrace.skippedHidden,skippedDimensionSegments:childTrace.skippedDimensionSegments,skippedNonWallFills:childTrace.skippedNonWallFills,bridgedDoorGaps:childTrace.bridgedDoorGaps,virtualBoothClosures:boothClosures.length,endpointCount:childTrace.endpointCount}
   };
 }
