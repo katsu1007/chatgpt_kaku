@@ -120,3 +120,31 @@ test("dimension line on the same layer is ignored when a numeric dimension label
   assert.equal(result.rooms.length,1);
   assert.ok(result.diagnostics.skippedDimensionSegments>0);
 });
+
+test("normal doorway openings are bridged so adjacent rooms remain separate",()=>{
+  const items=[
+    line("外壁",100,100,1400,100),line("外壁",1400,100,1400,1400),
+    line("外壁",1400,1400,100,1400),line("外壁",100,1400,100,100),
+    // 800 mm doorway gap in a continuous partition wall.
+    line("間仕切壁",750,100,750,400),
+    line("間仕切壁",750,1200,750,1400)
+  ];
+  const result=extractRoomHierarchy({items,width:1500,height:1500,layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
+  assert.equal(result.parents.length,1);
+  assert.equal(result.rooms.length,2);
+  assert.ok(result.diagnostics.bridgedDoorGaps>=1);
+});
+
+test("toilet cubicles with door openings are extracted as separate compartments",()=>{
+  const items=[
+    line("外壁",100,100,1400,100),line("外壁",1400,100,1400,1400),
+    line("外壁",1400,1400,100,1400),line("外壁",100,1400,100,100),
+    // Two cubicle partitions, each with a 600 mm door opening.
+    line("間仕切壁",500,100,500,500),line("間仕切壁",500,1100,500,1400),
+    line("間仕切壁",900,100,900,500),line("間仕切壁",900,1100,900,1400)
+  ];
+  const result=extractRoomHierarchy({items,width:1500,height:1500,layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
+  assert.equal(result.parents.length,1);
+  assert.equal(result.rooms.length,3);
+  assert.ok(result.diagnostics.bridgedDoorGaps>=2);
+});
