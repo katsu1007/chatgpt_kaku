@@ -244,3 +244,19 @@ test("fragmented JWW partition strokes are merged before six-booth detection",()
   // are covered by the continuous-wall cubicle fixture above.
   assert.equal(result.diagnostics.virtualBoothClosures,6);
 });
+
+
+test("six-booth detection stays correct with many unrelated distant CAD segments",()=>{
+  const items=[
+    line("外壁",100,100,6200,100),line("外壁",6200,100,6200,2400),
+    line("外壁",6200,2400,100,2400),line("外壁",100,2400,100,100),
+    line("間仕切壁",300,2000,5700,2000),
+    ...Array.from({length:7},(_,i)=>line("間仕切壁",300+i*900,500,300+i*900,2000)),
+    ...Array.from({length:1200},(_,i)=>{
+      const x=20000+(i%40)*200,y=20000+Math.floor(i/40)*200;
+      return line("雑線",x,y,x+80,y+30);
+    })
+  ];
+  const result=extractRoomHierarchy({items,width:6300,height:2500,layers:[{name:"外壁"},{name:"間仕切壁"},{name:"雑線"}],selectedLayers:["外壁"]});
+  assert.equal(result.diagnostics.virtualBoothClosures,6);
+});

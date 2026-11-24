@@ -82,9 +82,18 @@ function findBoothFrontClosures(items,names,hidden){
     return Math.hypot(p.x-(s.x1+t*vx),p.y-(s.y1+t*vy));
   };
   const closures=[];
-  // Only compare partition ends that are physically close enough to form a
-  // cubicle front. Dense CAD plans may contain thousands of unrelated strokes;
-  // an endpoint spatial index avoids testing every segment pair.
+  // Index rear-wall segments by sampled points along their length. The previous
+  // implementation scanned every segment again for every candidate booth pair;
+  // this spatial index keeps the confirmation step local even on dense plans.
+  const rearCell=550,rearBins=new Map(),rearKey=(x,y)=>Math.floor(x/rearCell)+":"+Math.floor(y/rearCell);
+  for(let i=0;i<segs.length;i++){
+    const s=segs[i],steps=Math.max(1,Math.ceil(s.len/rearCell));
+    for(let k=0;k<=steps;k++){
+      const q=k/steps,key=rearKey(s.x1+(s.x2-s.x1)*q,s.y1+(s.y2-s.y1)*q);
+      if(!rearBins.has(key))rearBins.set(key,new Set());
+      rearBins.get(key).add(i);
+    }
+  }
   const endpointCell=1100,nearbySegments=new Map();
   const bucketKey=(x,y)=>Math.floor(x/endpointCell)+":"+Math.floor(y/endpointCell);
   for(let i=0;i<segs.length;i++){
@@ -119,8 +128,19 @@ function findBoothFrontClosures(items,names,hidden){
       if(Math.abs(ux*a.dx+uy*a.dy)>.22||Math.abs(ux*b.dx+uy*b.dy)>.22)continue;
       // Both opposite ends must land on the same cross-wall, confirming a U shape.
       const ba=ea.back,bb=eb.back;
-      const rear=segs.some((s,k)=>k!==i&&k!==j&&s.len>gap*.8&&
-        Math.abs(s.dx*ux+s.dy*uy)>.92&&pointLineDistance(ba,s)<80&&pointLineDistance(bb,s)<80);
+      const rearCandidates=new Set();
+      for(const p of [ba,bb]){
+        const bx=Math.floor(p.x/rearCell),by=Math.floor(p.y/rearCell);
+        for(let oy=-1;oy<=1;oy++)for(let ox=-1;ox<=1;ox++){
+          for(const k of rearBins.get((bx+ox)+":"+(by+oy))||[])rearCandidates.add(k);
+        }
+      }
+      let rear=false;
+      for(const k of rearCandidates){
+        const s=segs[k];
+        if(k!==i&&k!==j&&s.len>gap*.8&&Math.abs(s.dx*ux+s.dy*uy)>.92&&
+          pointLineDistance(ba,s)<80&&pointLineDistance(bb,s)<80){rear=true;break;}
+      }
       if(rear){found={x1:ea.x,y1:ea.y,x2:eb.x,y2:eb.y,layer:a.it.layer};break;}
     }
     if(found&&!closures.some(c=>Math.hypot(c.x1-found.x1,c.y1-found.y1)<80&&Math.hypot(c.x2-found.x2,c.y2-found.y2)<80))closures.push(found);
