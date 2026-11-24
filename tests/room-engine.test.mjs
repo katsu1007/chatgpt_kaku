@@ -276,3 +276,18 @@ test("room extraction retains more than 160 valid rooms in a large floor plan",(
   assert.equal(result.rooms.length,180);
   assert.equal(result.diagnostics.childrenKept,180);
 });
+
+
+test("small valid room is retained beside a much larger hall",()=>{
+  const items=[
+    line("外壁",100,100,19900,100),line("外壁",19900,100,19900,19900),
+    line("外壁",19900,19900,100,19900),line("外壁",100,19900,100,100),
+    // A 600 x 1200 mm enclosed room at the lower-right corner.
+    line("間仕切壁",19300,18700,19300,19900),
+    line("間仕切壁",18700,18700,19300,18700)
+  ];
+  const result=extractRoomHierarchy({items,width:20000,height:20000,layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
+  assert.equal(result.parents.length,1);
+  assert.equal(result.rooms.length,2);
+  assert.ok(result.rooms.some(r=>r.drawingAreaCm2>0&&r.drawingAreaCm2<100000));
+});
