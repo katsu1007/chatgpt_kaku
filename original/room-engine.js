@@ -37,12 +37,36 @@ function findBoothFrontClosures(items,names,hidden){
   // common rear wall, while their free ends face the same open corridor.
   // Close only the open front between those side partitions; ordinary door gaps
   // are collinear with their wall and therefore do not satisfy this geometry.
-  const segs=[];
+  const raw=[];
   for(const it of items){
     if(it.kind!=="line"||!names.has(it.layer)||hidden.has(it.layer)||!Array.isArray(it.pts))continue;
     for(let k=0;k+3<it.pts.length;k+=2){
       const x1=it.pts[k],y1=it.pts[k+1],x2=it.pts[k+2],y2=it.pts[k+3],dx=x2-x1,dy=y2-y1,len=Math.hypot(dx,dy);
-      if(len>=350)segs.push({it,x1,y1,x2,y2,dx:dx/len,dy:dy/len,len});
+      if(len>1)raw.push({it,x1,y1,x2,y2,dx:dx/len,dy:dy/len,len});
+    }
+  }
+  // JWW commonly stores one physical partition as many short collinear strokes.
+  // Join only same-layer fragments with near-identical direction, <=45 mm
+  // perpendicular offset, and <=120 mm projected gap. This is deliberately
+  // stricter than raster healing and never joins neighbouring parallel bays.
+  const segs=raw.slice();let merged=true,mergePasses=0;
+  while(merged&&mergePasses++<8){
+    merged=false;
+    outer:for(let i=0;i<segs.length;i++)for(let j=i+1;j<segs.length;j++){
+      const a=segs[i],b=segs[j];if(a.it.layer!==b.it.layer)continue;
+      if(Math.abs(a.dx*b.dy-a.dy*b.dx)>.035)continue;
+      const ux=a.dx,uy=a.dy,nx=-uy,ny=ux;
+      const perp1=Math.abs((b.x1-a.x1)*nx+(b.y1-a.y1)*ny);
+      const perp2=Math.abs((b.x2-a.x1)*nx+(b.y2-a.y1)*ny);
+      if(Math.max(perp1,perp2)>45)continue;
+      const pa1=0,pa2=a.len;
+      const pb1=(b.x1-a.x1)*ux+(b.y1-a.y1)*uy;
+      const pb2=(b.x2-a.x1)*ux+(b.y2-a.y1)*uy;
+      const blo=Math.min(pb1,pb2),bhi=Math.max(pb1,pb2);
+      if(Math.max(pa1,blo)-Math.min(pa2,bhi)>120)continue;
+      const lo=Math.min(pa1,blo),hi=Math.max(pa2,bhi);
+      const mergedSeg={it:a.it,x1:a.x1+ux*lo,y1:a.y1+uy*lo,x2:a.x1+ux*hi,y2:a.y1+uy*hi,dx:ux,dy:uy,len:hi-lo};
+      segs.splice(j,1);segs.splice(i,1,mergedSeg);merged=true;break outer;
     }
   }
   const pointLineDistance=(p,s)=>{

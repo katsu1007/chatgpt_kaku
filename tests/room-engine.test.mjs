@@ -210,3 +210,30 @@ test("automatic all-layer fallback preserves six virtual toilet cubicle closures
   });
   assert.ok(boothRooms.length>=6);
 });
+
+
+test("fragmented JWW partition strokes are merged before six-booth detection",()=>{
+  const items=[
+    line("外壁",100,100,6200,100),line("外壁",6200,100,6200,2400),
+    line("外壁",6200,2400,100,2400),line("外壁",100,2400,100,100),
+    // Rear wall is fragmented; each piece alone is shorter than the booth width.
+    line("間仕切壁",300,2000,2050,2000),line("間仕切壁",2090,2000,3850,2000),
+    line("間仕切壁",3890,2000,5700,2000),
+    // Each side partition is also stored as two short pieces with a drafting gap.
+    ...Array.from({length:7},(_,i)=>{
+      const x=300+i*900;
+      return [
+        line("間仕切壁",x,500,x,1180),
+        line("間仕切壁",x,1210,x,2000)
+      ];
+    }).flat()
+  ];
+  const result=extractRoomHierarchy({items,width:6300,height:2500,layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
+  assert.equal(result.diagnostics.virtualBoothClosures,6);
+  assert.ok(result.rooms.length>=6);
+  const bays=result.rooms.filter(r=>{
+    const x=r.cx*result.grid.cw,y=r.cy*result.grid.ch;
+    return x>300&&x<5700&&y>500&&y<2000;
+  });
+  assert.ok(bays.length>=6);
+});
