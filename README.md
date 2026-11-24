@@ -1,5 +1,44 @@
-# ChatGPT KAKU
+# KAKU NEXT
 
-Initial repository setup. The source repository `kaku_generation` is preserved unchanged.
+現場調査から改修工事の数量拾い・積算・見積までを一つにつなぐ、ブラウザ対応の建築設備・改修積算アプリです。
 
-Browser build: GitHub Pages, deployed from the `main` branch.
+## 開発方針
+
+- このリポジトリを KAKU NEXT の開発・検証拠点とする。
+- 既存の `kaku_generation` と `muse_kaku` は参照元として扱い、直接変更しない。
+- 既存の計算・図面解析・保存機能を、回帰テストと実図面で確認せずに削除しない。
+- 画面だけのモックではなく、実際に操作・保存・再読込できる機能を優先する。
+- iPhoneを含むブラウザ利用を前提に、タッチ操作と狭い画面を確認する。
+- 自動判定できない寸法・開口・部屋境界は、推測値を確定値として表示せず、根拠と確認状態を残す。
+
+## 現在の構成
+
+- `index.html`：ブラウザアプリの入口
+- `css/app.css`：画面スタイル
+- `js/`：画面、案件、計算、図面、電気設備、保存、出力などの機能
+- `js/reader2/`：図面内の図枠・文字・区画候補の読み取り補助
+- `js/kaku-engine.html`：図面・作図系の統合エンジン
+- `js/master-data.js`：工事項目・単価等のマスターデータ
+- `tests/`：計算・図面読み取り等の回帰テスト
+- `vendor/`：同梱ライブラリ
+- `old/`：旧版保管。依存・復旧用途を確認するまで削除しない
+
+## 起動・公開
+
+GitHub Pages で公開するブラウザ版です。通常の確認はリポジトリの Pages URL を開いてください。
+
+## テスト
+
+Node.js 22 で次を実行します。
+
+```sh
+node --experimental-default-type=module --test tests/*.test.mjs
+```
+
+GitHub Actions の Regression Tests でも同じテストを実行します。
+
+## 開発ロードマップ
+
+優先順位と未実装範囲は [docs/NEXT_ROADMAP.md](docs/NEXT_ROADMAP.md)、構成と変更時の注意は [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) を参照してください。
+
+> このアプリの計算結果は、入力値・図面品質・施工条件に依存します。現場提出前には寸法、控除、施工範囲、単価、諸経費を確認してください。
