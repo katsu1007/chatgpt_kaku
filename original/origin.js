@@ -58,8 +58,14 @@ function detectRooms(){
   for(let k=0;k<=steps;k++){const t=k/steps;mark(x1+(x2-x1)*t,y1+(y2-y1)*t);}
  };
  let usedItems=0,usedLines=0,skippedHidden=0;
+ // 選択レイヤーに加え、名前から壁・間仕切りと明確に判断できるレイヤーを補助境界として使う。
+ // 家具・寸法・文字レイヤーを無条件に混ぜない。曖昧な名前のレイヤーは自動追加しない。
+ const wallNameRe=/(壁|間仕切|躯体|外壁|内壁|壁芯|建築|wall|partition)/i;
+ const selectedNames=new Set(state.boundaryLayers);
+ const supplementalNames=new Set(state.layers.filter(l=>wallNameRe.test(String(l.name))&&!selectedNames.has(l.name)).map(l=>l.name));
+ const acceptedNames=new Set([...selectedNames,...supplementalNames]);
  for(const it of s.items){
-  if(!state.boundaryLayers.has(it.layer))continue;
+  if(!acceptedNames.has(it.layer))continue;
   if(it.layer!=null){const li=state.layers.findIndex(x=>x.name===it.layer);if(li>=0&&state.hidden[li]){skippedHidden++;continue;}}
   if(it.kind==="line"&&it.pts?.length>=4){
    usedItems++;for(let k=0;k+3<it.pts.length;k+=2){drawLine(it.pts[k],it.pts[k+1],it.pts[k+2],it.pts[k+3]);usedLines++;}
@@ -108,7 +114,7 @@ function detectRooms(){
  renderRooms();
  const list=state.rooms.map(r=>"<li>"+esc(r.name)+"："+r.drawingAreaCm2.toFixed(1)+" cm²（図面上）</li>").join("");
  const biggest=inside.slice(0,5).map(r=>r.area+"セル"+(r.touchesEdge?"・外周接触":"")).join(" / ")||"なし";
- $("inspection").insertAdjacentHTML("beforeend","<p><strong>区画抽出："+state.rooms.length+"件（小領域を除外）</strong></p>"+(list?"<ol>"+list+"</ol>":"")+"<p>診断：境界候補 "+usedItems.toLocaleString()+"要素／線分 "+usedLines.toLocaleString()+"本、非表示スキップ "+skippedHidden.toLocaleString()+"要素。内部領域 "+inside.length+"件のうち、"+minRegionCells+"セル未満を除外。表示上限100件。境界指定 "+state.boundaryLayers.size+"レイヤー。</p><p>※選択レイヤー内に家具・寸法線が混在している場合は誤分割します。候補レイヤーを見直してください。</p>");
+ $("inspection").insertAdjacentHTML("beforeend","<p><strong>区画抽出："+state.rooms.length+"件（小領域を除外）</strong></p>"+(list?"<ol>"+list+"</ol>":"")+"<p>診断：境界候補 "+usedItems.toLocaleString()+"要素／線分 "+usedLines.toLocaleString()+"本、非表示スキップ "+skippedHidden.toLocaleString()+"要素。内部領域 "+inside.length+"件のうち、"+minRegionCells+"セル未満を除外。表示上限100件。境界指定 "+state.boundaryLayers.size+"レイヤー（壁系名称の自動追加 "+supplementalNames.size+"件を含む）。</p><p>※壁系レイヤー名が付いていない内部間仕切りは自動判定できません。必要なレイヤーを境界レイヤーに追加選択してください。家具・寸法線が同じレイヤーに混在する場合は誤分割の可能性があります。</p>");
 }
 function renderRooms(){
  const svg=$("canvas").querySelector("svg");if(!svg||!state.roomGrid)return;const old=svg.querySelector("#roomOverlay");if(old)old.remove();const oldLabels=svg.querySelector("#roomLabels");if(oldLabels)oldLabels.remove();
