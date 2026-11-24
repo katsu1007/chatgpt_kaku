@@ -34,7 +34,8 @@ function isDimensionSegment(x1,y1,x2,y2,anchors){
 }
 export function suggestWallLayers(layers=[]){
   const names=(layers||[]).map(layer=>typeof layer==="string"?layer:layer?.name);
-  const metadata=new Map((layers||[]).filter(x=>x&&typeof x==="object").map(x=>[String(x.name),x]));\n  return [...new Set(names.filter(name=>name!=null&&WALL_NAME.test(layerSemanticText(metadata.get(String(name))||name))&&!isNonBoundaryLayer(metadata.get(String(name))||name)).map(String))];
+  const metadata=new Map((layers||[]).filter(x=>x&&typeof x==="object").map(x=>[String(x.name),x]));
+  return [...new Set(names.filter(name=>name!=null&&WALL_NAME.test(layerSemanticText(metadata.get(String(name))||name))&&!isNonBoundaryLayer(metadata.get(String(name))||name)).map(String))];
 }
 function classifyLayers(layers,items,hidden){
   const visible=(layers||[]).filter(l=>!hidden.has(l.name));
