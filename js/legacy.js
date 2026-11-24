@@ -15,13 +15,14 @@ export function getReader() {
     f.src = './old/index.html?reader=1';
     document.body.appendChild(f);
     let n = 0;
+    f.onerror = () => { clearInterval(t); readerPromise = null; reject(new Error('JWW読み取り画面を開けませんでした')); };
     const t = setInterval(() => {
       try {
         const W = f.contentWindow;
         const ef = W && W.document && W.document.getElementById('engineFrame');
         if (ef && ef.contentWindow && ef.contentWindow.KakuEngine && typeof W.runDrawingImport === 'function') { clearInterval(t); resolve(W); return; }
       } catch (e) { clearInterval(t); readerPromise = null; reject(new Error('器具の読み取りの部品を開けませんでした：' + e.message)); return; }
-      if (++n > 300) { clearInterval(t); readerPromise = null; reject(new Error('器具の読み取りの部品が起動しませんでした')); }
+      if (++n > 1200) { clearInterval(t); readerPromise = null; reject(new Error('JWW読み取りエンジンの起動が120秒以内に完了しませんでした')); }
     }, 100);
   });
   return readerPromise;
@@ -49,9 +50,16 @@ export async function readWithFixtures(file, opt = {}) {
     W.document.getElementById('file').files = dt.files;
     await step('線を読んで、部屋の区画を探しています');
     G('KAKU_plan=null;KAKU_fix=null;runDrawingImport()');
-    const ok = await wait(() => G('KAKU_plan'), 90000);
-    if (!ok) throw new Error('図面を読めませんでした（時間切れ）');
-    await wait(() => G('KAKU_fix'), 8000);
+    const outcome = await wait(() => {
+      const plan = G('KAKU_plan');
+      if (plan) return { plan: true };
+      const status = W.document.getElementById('drawingStatus')?.textContent?.trim() || '';
+      if (status && !/解析中|読み込み中|準備しています/.test(status)) return { error: status };
+      return null;
+    }, 120000);
+    if (!outcome) throw new Error('JWWの解析が120秒以内に完了しませんでした。ファイル形式・容量・図面データを確認してください');
+    if (outcome.error) throw new Error('JWW/DXFの読み込み結果：' + outcome.error);
+    await wait(() => G('KAKU_fix'), 15000);
     await step('器具・ドア・開口を調べています');
     const R = G(`(()=>{const P=KAKU_plan,F=KAKU_fix,q=v=>Math.round(v*1000)/1000;
       const plan={segs:P.segs.map(s=>s.map(q)),dsegs:(P.dsegs||[]).map(s=>s.map(q)),gsegs:(P.gsegs||[]).map(s=>s.map(q)),
