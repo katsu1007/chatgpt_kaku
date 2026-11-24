@@ -2,8 +2,8 @@
 // Grid-space topology engine. Coordinates are sheet mm; thresholds are relative to grid,
 // never interpreted as real-world m² without scale conversion.
 const OUTER_WALL_NAME=/(外壁|躯体|外周|建物外形|外形壁|exterior|outer.?wall)/i;
-const WALL_NAME=/(壁|間仕切|躯体|外壁|内壁|壁芯|wall|partition)/i;
-const NON_WALL_NAME=/(寸法|寸法線|寸法補助|寸法記入|寸法記号|引出線|引出|補助線|中心線|通り芯|グリッド|文字|注記|注釈|家具|什器|設備|器具|照明|電気|コンセント|記号|ハッチ|dimension|\\bdim\\b|measure|annotation|leader|extension|center.?line|grid|axis|furniture|fixture|text|symbol)/i;
+const WALL_NAME=/(壁|間仕切|躯体|外壁|内壁|壁芯|(?:^|[-_ ])(?:a-)?wall(?:$|[-_ ])|wall|partition)/i;
+const NON_WALL_NAME=/(寸法|寸法線|寸法補助|寸法記入|寸法記号|引出線|引出|補助線|中心線|通り芯|グリッド|文字|注記|注釈|家具|什器|設備|器具|照明|電気|コンセント|記号|ハッチ|dimension|\bdim\b|measure|annotation|leader|extension|center.?line|grid|axis|furniture|fixture|text|symbol)/i;
 // Numeric dimension labels help identify dimension strokes even when they share a wall layer.
 const DIMENSION_LABEL=/^\s*[+-]?\d[\d,]*(?:\.\d+)?\s*(?:mm|ｍｍ|m|ｍ|cm|㎜|㎝|φ|ø)?\s*$/i;
 function dimensionTextAnchors(items){
@@ -144,8 +144,15 @@ function floodRegions(wall,nx,ny){
 }
 function chooseRegions(regions,N){
   const inner=regions.filter(r=>!r.touchesEdge).sort((a,b)=>b.area-a.area);
-  const largest=inner[0]?.area||0,minCells=Math.max(12,Math.floor(largest*.0008));
-  return {inner,minCells,kept:inner.filter(r=>r.area>=minCells&&r.area<=N*.8).slice(0,160)};
+  const largest=inner[0]?.area||0,minCells=Math.max(16,Math.floor(largest*.0025));
+  const kept=inner.filter(r=>{
+    const w=Math.max(1,r.maxx-r.minx+1),h=Math.max(1,r.maxy-r.miny+1);
+    const boxArea=w*h,fill=r.area/boxArea,aspect=Math.max(w,h)/Math.min(w,h),ratio=r.area/N;
+    // Reject drafting islands, thin annotation strips and tiny title-block cells.
+    // Keep large halls: a high area alone is not enough to discard a real room.
+    return r.area>=minCells&&ratio<=.82&&fill>=.10&&aspect<=24;
+  }).slice(0,160);
+  return {inner,minCells,kept};
 }
 export function extractRoomHierarchy({items,width,height,layers,selectedLayers,hiddenLayers=[]}){
   if(!(width>0&&height>0))throw new Error("図面サイズを取得できません");
