@@ -359,7 +359,7 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
     selected=new Set([...allNames,...geometryNames]);
     allNames=new Set([...allNames,...geometryNames]);
     parentTrace=traceItems(items,selected,hidden,width,height,nx,ny,cw,ch);
-    boothClosures=findBoothFrontClosures(items,allNames,hidden);
+    boothClosures=findBoothFrontClosures(items,new Set([...allNames].filter(name=>!OUTER_WALL_NAME.test(String(name)))),hidden);
     childItems=boothClosures.length?[...items,...boothClosures]:items;
     childTrace=traceItems(childItems,allNames,hidden,width,height,nx,ny,cw,ch);
     parentFlood=floodRegions(parentTrace.wall,nx,ny);
