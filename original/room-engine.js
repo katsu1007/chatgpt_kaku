@@ -1,0 +1,101 @@
+// KAKU ORIGIN room extraction engine
+// Grid-space topology engine. Coordinates are sheet mm; thresholds are relative to grid,
+// never interpreted as real-world m² without scale conversion.
+const WALL_NAME=/(壁|間仕切|躯体|外壁|内壁|壁芯|建築|wall|partition)/i;
+function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
+  const wall=new Uint8Array(nx*ny); let usedItems=0,usedSegments=0,skippedHidden=0;
+  const mark=(x,y)=>{
+    const ix=Math.round(x/cw),iy=Math.round(y/ch);
+    // 8-neighbour raster stroke reduces diagonal leaks.
+    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+      const xx=ix+dx,yy=iy+dy;
+      if(xx>=0&&xx<nx&&yy>=0&&yy<ny)wall[yy*nx+xx]=1;
+    }
+  };
+  const line=(x1,y1,x2,y2)=>{
+    if(![x1,y1,x2,y2].every(Number.isFinite))return;
+    const steps=Math.max(1,Math.ceil(Math.hypot((x2-x1)/cw,(y2-y1)/ch)*2));
+    for(let k=0;k<=steps;k++){const t=k/steps;mark(x1+(x2-x1)*t,y1+(y2-y1)*t);}
+    usedSegments++;
+  };
+  for(const it of items){
+    if(!names.has(it.layer))continue;
+    if(hidden.has(it.layer)){skippedHidden++;continue;}
+    if(it.kind==="line"&&Array.isArray(it.pts)&&it.pts.length>=4){
+      usedItems++;for(let k=0;k+3<it.pts.length;k+=2)line(it.pts[k],it.pts[k+1],it.pts[k+2],it.pts[k+3]);
+    }else if(it.kind==="arc"&&Number.isFinite(it.r)&&it.r>0){
+      usedItems++;const sweep=it.a1-it.a0,n=Math.max(16,Math.ceil(Math.abs(sweep)*it.r/Math.min(cw,ch)*2));
+      let px=it.cx+it.r*Math.cos(it.a0),py=it.cy+it.r*Math.sin(it.a0);
+      for(let k=1;k<=n;k++){const a=it.a0+sweep*k/n,x=it.cx+it.r*Math.cos(a),y=it.cy+it.r*Math.sin(a);line(px,py,x,y);px=x;py=y;}
+    }else if(it.kind==="fill"&&Array.isArray(it.pts)&&it.pts.length>=6){
+      usedItems++;for(let k=0;k+3<it.pts.length;k+=2)line(it.pts[k],it.pts[k+1],it.pts[k+2],it.pts[k+3]);
+      line(it.pts[it.pts.length-2],it.pts[it.pts.length-1],it.pts[0],it.pts[1]);
+    }
+  }
+  return {wall,usedItems,usedSegments,skippedHidden};
+}
+function floodRegions(wall,nx,ny){
+  const N=nx*ny,seen=new Uint8Array(N),queue=new Int32Array(N),regions=[];let rid=0;
+  for(let p=0;p<N;p++){
+    if(wall[p]||seen[p])continue;
+    let head=0,tail=0;queue[tail++]=p;seen[p]=1;
+    let area=0,sx=0,sy=0,minx=nx,miny=ny,maxx=0,maxy=0;
+    while(head<tail){
+      const q=queue[head++],x=q%nx,y=(q/nx)|0;area++;sx+=x;sy+=y;
+      if(x<minx)minx=x;if(x>maxx)maxx=x;if(y<miny)miny=y;if(y>maxy)maxy=y;
+      const ns=[x?q-1:-1,x<nx-1?q+1:-1,y?q-nx:-1,y<ny-1?q+nx:-1];
+      for(const z of ns)if(z>=0&&!wall[z]&&!seen[z]){seen[z]=1;queue[tail++]=z;}
+    }
+    regions.push({id:rid++,seed:p,area,cx:sx/area,cy:sy/area,minx,miny,maxx,maxy,touchesEdge:minx===0||miny===0||maxx===nx-1||maxy===ny-1});
+  }
+  return regions;
+}
+function chooseRegions(regions,N){
+  const inner=regions.filter(r=>!r.touchesEdge).sort((a,b)=>b.area-a.area);
+  const largest=inner[0]?.area||0,minCells=Math.max(12,Math.floor(largest*.0008));
+  return {inner,minCells,kept:inner.filter(r=>r.area>=minCells&&r.area<=N*.8).slice(0,160)};
+}
+export function extractRoomHierarchy({items,width,height,layers,selectedLayers,hiddenLayers=[]}){
+  if(!(width>0&&height>0))throw new Error("図面サイズを取得できません");
+  const selected=new Set(selectedLayers||[]);
+  if(!selected.size)throw new Error("境界レイヤーを選択してください");
+  const wallNames=new Set((layers||[]).filter(l=>WALL_NAME.test(String(l.name))).map(l=>l.name));
+  const supplemental=new Set([...wallNames].filter(n=>!selected.has(n)));
+  const allNames=new Set([...selected,...supplemental]),hidden=new Set(hiddenLayers);
+  const aspect=width/height,nx=Math.max(260,Math.min(1000,Math.round(820*Math.sqrt(aspect))));
+  const ny=Math.max(260,Math.min(1000,Math.round(820/Math.sqrt(aspect))));
+  const cw=width/nx,ch=height/ny,N=nx*ny;
+  const parentTrace=traceItems(items,selected,hidden,width,height,nx,ny,cw,ch);
+  const childTrace=traceItems(items,allNames,hidden,width,height,nx,ny,cw,ch);
+  const parents=chooseRegions(floodRegions(parentTrace.wall,nx,ny),N);
+  const children=chooseRegions(floodRegions(childTrace.wall,nx,ny),N);
+  const parentRooms=parents.kept.map((r,i)=>({...r,name:"大部屋 "+(i+1),level:1,children:[]}));
+  const childRooms=[];
+  for(const child of children.kept){
+    const parent=parentRooms.find(p=>child.cx>=p.minx&&child.cx<=p.maxx&&child.cy>=p.miny&&child.cy<=p.maxy);
+    if(!parent)continue;
+    // Avoid duplicating an unchanged parent as its own child.
+    if(child.area>=parent.area*.985)continue;
+    const room={...child,name:"中・小部屋 "+(parent.children.length+1),level:2,parentId:parent.id,parentName:parent.name,children:[]};
+    parent.children.push(room);childRooms.push(room);
+  }
+  // Prefer the finer partition for rendering, falling back to parent spaces if no inner walls were found.
+  const displayRooms=childRooms.length?childRooms:parentRooms;
+  const ids=new Int32Array(N);ids.fill(-1);
+  for(let ri=0;ri<displayRooms.length;ri++){
+    const r=displayRooms[ri],map=childRooms.length?childTrace.wall:parentTrace.wall;
+    const seen=new Uint8Array(N),q=new Int32Array(r.area);let head=0,tail=0;
+    q[tail++]=r.seed;seen[r.seed]=1;ids[r.seed]=ri;
+    while(head<tail){const z=q[head++],x=z%nx,y=(z/nx)|0;
+      for(const n of [x?z-1:-1,x<nx-1?z+1:-1,y?z-nx:-1,y<ny-1?z+nx:-1]){
+        if(n>=0&&!seen[n]&&!map[n]){seen[n]=1;ids[n]=ri;q[tail++]=n;}
+      }
+    }
+  }
+  return {
+    rooms:displayRooms.map((r,i)=>({...r,id:i,drawingAreaCm2:r.area*cw*ch/100})),
+    parents:parentRooms.map(p=>({...p,children:p.children.map(c=>c.name)})),
+    grid:{ids,nx,ny,cw,ch},
+    diagnostics:{selectedLayers:selected.size,supplementalLayers:supplemental.size,parentRegions:parents.inner.length,childRegions:children.inner.length,parentsKept:parentRooms.length,childrenKept:childRooms.length,minParentCells:parents.minCells,minChildCells:children.minCells,usedItems:childTrace.usedItems,usedSegments:childTrace.usedSegments,skippedHidden:childTrace.skippedHidden}
+  };
+}
