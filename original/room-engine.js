@@ -201,9 +201,7 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
   // accidentally connect nearby parallel walls, T-junctions, or adjacent cubicles.
   // Mutual nearest-neighbour matching makes each endpoint participate in at most
   // one doorway bridge and prefers the most plausible local opening.
-  // Door openings are room boundaries, not passages that merge two room regions.
-  // Bridge aligned wall-end pairs from 60 mm upward; sub-60 mm gaps remain drafting noise.
-  const bridgeMin=60,bridgeMax=1200,bucketSize=bridgeMax;
+  const bridgeMin=350,bridgeMax=1200,bucketSize=bridgeMax;
   const endpointBins=new Map();
   for(let i=0;i<doorEndpoints.length;i++){
     const ep=doorEndpoints[i],bx=Math.floor(ep.x/bucketSize),by=Math.floor(ep.y/bucketSize),key=bx+":"+by;
