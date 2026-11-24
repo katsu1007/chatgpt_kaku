@@ -46,7 +46,7 @@ function floodRegions(wall,nx,ny){
       const ns=[x?q-1:-1,x<nx-1?q+1:-1,y?q-nx:-1,y<ny-1?q+nx:-1];
       for(const z of ns)if(z>=0&&!wall[z]&&!seen[z]){seen[z]=1;regionAt[z]=regionId;queue[tail++]=z;}
     }
-    regions.push({id:rid++,seed:p,area,cx:sx/area,cy:sy/area,minx,miny,maxx,maxy,touchesEdge:minx===0||miny===0||maxx===nx-1||maxy===ny-1});
+    regions.push({id:regionId,seed:p,area,cx:sx/area,cy:sy/area,minx,miny,maxx,maxy,touchesEdge:minx===0||miny===0||maxx===nx-1||maxy===ny-1});
   }
   return {regions,regionAt};
 }
@@ -80,7 +80,6 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
     const parentRegionId=parentFlood.regionAt[child.seed];
     const parent=parentByRegion.get(parentRegionId);
     if(!parent){unassignedChildren++;continue;}
-    if(!parent)continue;
     // Avoid duplicating an unchanged parent as its own child.
     if(child.area>=parent.area*.985)continue;
     const room={...child,name:parent.name+"-"+(parent.children.length+1),level:2,parentId:parent.id,parentName:parent.name,children:[]};
