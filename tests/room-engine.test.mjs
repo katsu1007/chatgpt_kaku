@@ -182,6 +182,6 @@ test("six open-front toilet cubicles are virtually closed as six separate bays",
   const result=extractRoomHierarchy({items,width:6300,height:2500,layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
   assert.equal(result.diagnostics.virtualBoothClosures,6);
   assert.ok(result.rooms.length>=6);
-  const boothSeeds=result.rooms.filter(r=>r.cx>300&&r.cx<5700&&r.cy>500&&r.cy<2000);
+  const boothSeeds=result.rooms.filter(r=>r.cx*result.grid.cw>300&&r.cx*result.grid.cw<5700&&r.cy*result.grid.ch>500&&r.cy*result.grid.ch<2000);
   assert.ok(boothSeeds.length>=6);
 });
