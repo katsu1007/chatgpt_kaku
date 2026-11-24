@@ -11,7 +11,26 @@ const presets=[
 ];
 let projects=[],activeId='',page='home',step='site',toastTimer;
 const fresh=()=>({id:uid(),name:'新しい改修工事',customer:'',address:'',date:new Date().toISOString().slice(0,10),status:'見積中',note:'',rooms:[],items:[],overhead:8,tax:10,updated:Date.now()});
-function load(){try{projects=JSON.parse(localStorage.getItem(STORE)||'[]')}catch{projects=[]}activeId=localStorage.getItem(ACTIVE)||'';if(!projects.length){const p=fresh();p.name='サンプル：事務所改修';p.customer='サンプル建設';p.rooms=[{id:uid(),name:'事務室',w:6.4,d:4.8,h:2.4,doors:1,windows:2},{id:uid(),name:'会議室',w:3.6,d:3.2,h:2.4,doors:1,windows:1}];p.items=[{id:uid(),cat:'解体',name:'既存床材撤去',unit:'㎡',basis:'floor',qty:44.16,price:1200},{id:uid(),cat:'仕上',name:'フローリング張り',unit:'㎡',basis:'floor',qty:44.16,price:7800},{id:uid(),cat:'仕上',name:'クロス貼り',unit:'㎡',basis:'wall',qty:96,price:1250}];projects=[p];activeId=p.id;save()}if(!projects.some(p=>p.id===activeId))activeId=projects[0]?.id||''}
+function load(){
+ let stored=[];
+ try{stored=JSON.parse(localStorage.getItem(STORE)||'[]')}catch{stored=[]}
+ projects=Array.isArray(stored)?stored.filter(p=>p&&typeof p==='object').map(p=>({
+  ...p,id:String(p.id||uid()),name:String(p.name||'名称未設定の現場'),
+  customer:p.customer||'',address:p.address||'',date:p.date||new Date().toISOString().slice(0,10),
+  status:p.status||'見積中',note:p.note||'',rooms:Array.isArray(p.rooms)?p.rooms:[],
+  items:Array.isArray(p.items)?p.items:[],overhead:Number.isFinite(Number(p.overhead))?Number(p.overhead):8,
+  tax:Number.isFinite(Number(p.tax))?Number(p.tax):10,updated:Number(p.updated)||Date.now()
+ })): [];
+ try{activeId=localStorage.getItem(ACTIVE)||''}catch{activeId=''}
+ if(!projects.length){
+  const p=fresh();p.name='サンプル：事務所改修';p.customer='サンプル建設';
+  p.rooms=[{id:uid(),name:'事務室',w:6.4,d:4.8,h:2.4,doors:1,windows:2},{id:uid(),name:'会議室',w:3.6,d:3.2,h:2.4,doors:1,windows:1}];
+  p.items=[{id:uid(),cat:'解体',name:'既存床材撤去',unit:'㎡',basis:'floor',qty:44.16,price:1200},{id:uid(),cat:'仕上',name:'フローリング張り',unit:'㎡',basis:'floor',qty:44.16,price:7800},{id:uid(),cat:'仕上',name:'クロス貼り',unit:'㎡',basis:'wall',qty:96,price:1250}];
+  projects=[p];activeId=p.id;
+ }
+ if(!projects.some(p=>p.id===activeId))activeId=projects[0]?.id||'';
+ try{save()}catch(err){console.warn('Local storage unavailable; changes may not persist.',err)}
+}
 function save(){localStorage.setItem(STORE,JSON.stringify(projects));localStorage.setItem(ACTIVE,activeId)}
 function current(){return projects.find(p=>p.id===activeId)}
 function toast(s){const t=$('#toast');t.textContent=s;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2100)}
@@ -75,5 +94,5 @@ async function importDrawing(file){
  }catch(err){out.textContent='読み込みエラー：'+err.message;toast('ファイルを読み込めませんでした')}
 }
 document.addEventListener('change',e=>{if(e.target?.id==='drawing-file')importDrawing(e.target.files?.[0])});
-function init(){load();shell()}
+function init(){try{load();shell()}catch(err){console.error('KAKU FIELD startup failed:',err);const app=$('#app');if(app)app.innerHTML='<main style="padding:24px;font:15px sans-serif"><h2>起動時にエラーが発生しました</h2><p>ページを再読み込みしてください。改善しない場合は、この画面をチャピニオンに送ってください。</p><pre style="white-space:pre-wrap;color:#a22"></pre></main>';const detail=$('#app pre');if(detail)detail.textContent=String(err?.stack||err)}}
 init();
