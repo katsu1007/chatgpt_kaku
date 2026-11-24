@@ -54,7 +54,7 @@ function detectRooms(){
    const ns=[x?q-1:-1,x<nx-1?q+1:-1,y?q-nx:-1,y<ny-1?q+nx:-1];
    for(const z of ns)if(z>=0&&!wall[z]&&!seen[z]){seen[z]=1;queue[tail++]=z;}
   }
-  regions.push({id:rid++,area,cx:sx/area,cy:sy/area,minx,miny,maxx,maxy,touchesEdge:minx===0||miny===0||maxx===nx-1||maxy===ny-1});
+  regions.push({id:rid++,seed:p,area,cx:sx/area,cy:sy/area,minx,miny,maxx,maxy,touchesEdge:minx===0||miny===0||maxx===nx-1||maxy===ny-1});
  }
  const inside=regions.filter(r=>!r.touchesEdge).sort((a,b)=>b.area-a.area);
  // 旧条件の「0.25m²」は縮尺図面に対して不適切。格子セル数で小さなノイズだけを除外する。
@@ -63,19 +63,15 @@ function detectRooms(){
  state.roomGrid={ids:null,nx,ny,cw,ch,regions:viable.map(r=>r.id),regionMap:null};
  // region IDs are kept in a compact grid for rendering; rerun flood-fill IDs in one pass.
  const regionMap=new Int32Array(N);regionMap.fill(-1);
- for(let i=0;i<viable.length;i++){
-  const r=viable[i];let head=0,tail=0;const q=new Int32Array(r.area);
-  const seed=Math.round(r.cy)*nx+Math.round(r.cx);q[tail++]=seed;regionMap[seed]=r.id;
-  while(head<tail){const z=q[head++],x=z%nx,y=(z/nx)|0;for(const n of [x?z-1:-1,x<nx-1?z+1:-1,y?z-nx:-1,y<ny-1?z+nx:-1])if(n>=0&&regionMap[n]===-1&&!wall[n]&&!seen[n]){regionMap[n]=r.id;q[tail++]=n;}}
- }
- // The first flood-fill's seen map cannot be reused for region reconstruction; retain a fresh flood-fill map.
- regionMap.fill(-1);
  for(const r of viable){
   let head=0,tail=0;const q=new Int32Array(r.area);
-  const seed=Math.round(r.cy)*nx+Math.round(r.cx);
-  if(seed<0||seed>=N||wall[seed])continue;
-  q[tail++]=seed;regionMap[seed]=r.id;
-  while(head<tail){const z=q[head++],x=z%nx,y=(z/nx)|0;for(const n of [x?z-1:-1,x<nx-1?z+1:-1,y?z-nx:-1,y<ny-1?z+nx:-1])if(n>=0&&regionMap[n]===-1&&!wall[n]){regionMap[n]=r.id;q[tail++]=n;}}
+  q[tail++]=r.seed;regionMap[r.seed]=r.id;
+  while(head<tail){
+   const z=q[head++],x=z%nx,y=(z/nx)|0;
+   for(const n of [x?z-1:-1,x<nx-1?z+1:-1,y?z-nx:-1,y<ny-1?z+nx:-1]){
+    if(n>=0&&regionMap[n]===-1&&!wall[n]){regionMap[n]=r.id;q[tail++]=n;}
+   }
+  }
  }
  state.roomGrid={ids:regionMap,nx,ny,cw,ch};
  renderRooms();
