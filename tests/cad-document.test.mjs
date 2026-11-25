@@ -131,3 +131,32 @@ test("attaches Jw_cad layer-group scale to each entity without altering sheet co
   assert.deepEqual(doc.diagnostics.layerScaleCounts,{"10":1,"50":1,unknown:1});
   assert.equal(doc.diagnostics.unscaledEntities,1);
 });
+
+
+test("warns when JWW source dimensions are flattened into unclassified geometry", () => {
+  const doc = createCadDocument({items:[
+    {kind:"line",layer:"0-1 平面図 / 寸法",pts:[0,0,100,0]},
+    {kind:"text",layer:"0-1 平面図 / 寸法",x:50,y:5,text:"1000"}
+  ]}, {sourceFormat:"JWW",sourceTypeCounts:{"count.CDataSunpou":12}});
+  assert.equal(doc.diagnostics.rawSourceTypeCounts["count.CDataSunpou"],12);
+  assert.equal(doc.diagnostics.dimensionGraphics,0);
+  assert.equal(doc.diagnostics.sourceWarnings.length,1);
+  assert.match(doc.diagnostics.sourceWarnings[0],/寸法オブジェクト/);
+});
+
+test("warns when JWW block references lose their instance identity after expansion", () => {
+  const doc = createCadDocument({items:[
+    {kind:"line",layer:"0-1 平面図 / 記号",pts:[0,0,10,0]}
+  ]}, {sourceFormat:"JWW",sourceTypeCounts:{"count.CDataBlock":4}});
+  assert.equal(doc.diagnostics.blockInstances,0);
+  assert.equal(doc.diagnostics.sourceWarnings.length,1);
+  assert.match(doc.diagnostics.sourceWarnings[0],/ブロック参照/);
+});
+
+test("does not warn when source semantics are retained", () => {
+  const doc = createCadDocument({items:[
+    {type:"sunpou",layer:"0-1 平面図 / 寸法"},
+    {type:"block",layer:"0-1 平面図 / 記号"}
+  ]}, {sourceFormat:"JWW",sourceTypeCounts:{"count.CDataSunpou":1,"count.CDataBlock":1}});
+  assert.deepEqual(doc.diagnostics.sourceWarnings,[]);
+});
