@@ -446,10 +446,22 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
       if(displayIndex>=0)ids[cell]=displayIndex;
     }
   }
+  // Diagnostic-only inventory: preserve every source item and expose which
+  // primitive and source/block metadata survives the CAD reader.
+  const layerStats=new Map();
+  for(const it of items){
+    const name=String(it.layer??"(レイヤーなし)");
+    if(!layerStats.has(name))layerStats.set(name,{name,total:0,line:0,arc:0,fill:0,text:0,other:0,sourceTagged:0,blockTagged:0});
+    const stat=layerStats.get(name);stat.total++;
+    if(["line","arc","fill","text"].includes(it.kind))stat[it.kind]++;else stat.other++;
+    if(["sourceType","entityType","sourceId","objectId","blockName","blockId","blockNum","handle"].some(k=>it[k]!=null))stat.sourceTagged++;
+    if(["blockName","blockId","blockNum"].some(k=>it[k]!=null))stat.blockTagged++;
+  }
+  const layerInventory=[...layerStats.values()].sort((a,b)=>b.total-a.total);
   return {
     rooms:displayRooms.map((r,i)=>({...r,id:i,drawingAreaCm2:r.area*cw*ch/100})),
     parents:parentRooms.map(p=>({...p,children:p.children.map(c=>c.name)})),
     grid:{ids,nx,ny,cw,ch},
-    diagnostics:{selectedLayers:selected.size,supplementalLayers:supplemental.size,autoMode:classified.mode+(fallbackUsed?" → 全図形レイヤー再判定":""),fallbackUsed,parentLayerNames:[...selected],wallLayerNames:[...allNames],parentRegions:parents.inner.length,childRegions:children.inner.length,parentsKept:parentRooms.length,childrenKept:childRooms.length,unassignedChildren,minParentCells:parents.minCells,minChildCells:children.minCells,minChildSpanCells:children.minSpanCells,minParentSpanCells:parents.minSpanCells,usedItems:childTrace.usedItems,usedSegments:childTrace.usedSegments,skippedHidden:childTrace.skippedHidden,skippedDimensionSegments:childTrace.skippedDimensionSegments,skippedNonWallFills:childTrace.skippedNonWallFills,bridgedDoorGaps:childTrace.bridgedDoorGaps,snappedTJunctions:childTrace.snappedTJunctions,virtualBoothClosures:boothClosures.length,endpointCount:childTrace.endpointCount}
+    diagnostics:{selectedLayers:selected.size,supplementalLayers:supplemental.size,autoMode:classified.mode+(fallbackUsed?" → 全図形レイヤー再判定":""),fallbackUsed,parentLayerNames:[...selected],wallLayerNames:[...allNames],layerInventory,parentRegions:parents.inner.length,childRegions:children.inner.length,parentsKept:parentRooms.length,childrenKept:childRooms.length,unassignedChildren,minParentCells:parents.minCells,minChildCells:children.minCells,minChildSpanCells:children.minSpanCells,minParentSpanCells:parents.minSpanCells,usedItems:childTrace.usedItems,usedSegments:childTrace.usedSegments,skippedHidden:childTrace.skippedHidden,skippedDimensionSegments:childTrace.skippedDimensionSegments,skippedNonWallFills:childTrace.skippedNonWallFills,bridgedDoorGaps:childTrace.bridgedDoorGaps,snappedTJunctions:childTrace.snappedTJunctions,virtualBoothClosures:boothClosures.length,endpointCount:childTrace.endpointCount}
   };
 }

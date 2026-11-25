@@ -387,3 +387,19 @@ test("endpoint-to-wall repair does not bridge a normal 120 mm doorway",()=>{
   const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
   assert.equal(result.rooms.length,1);
 });
+
+test("layer inventory reports primitive counts and surviving source metadata",()=>{
+  const items=[
+    {...line("外壁",100,100,900,100),sourceType:"sen",blockName:"WALL-A"},
+    line("外壁",900,100,900,900),
+    {kind:"text",layer:"文字",x:200,y:200,size:10,text:"会議室",entityType:"moji"}
+  ];
+  const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"外壁"},{name:"文字"}],selectedLayers:[]});
+  const wall=result.diagnostics.layerInventory.find(x=>x.name==="外壁");
+  const textLayer=result.diagnostics.layerInventory.find(x=>x.name==="文字");
+  assert.equal(wall.line,2);
+  assert.equal(wall.sourceTagged,1);
+  assert.equal(wall.blockTagged,1);
+  assert.equal(textLayer.text,1);
+  assert.ok(result.diagnostics.usedSegments>0);
+});
