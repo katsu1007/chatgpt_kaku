@@ -81,3 +81,19 @@ test("renders transformed block line, arc and point primitives with source refer
  assert.equal(items[1].kind,"arc");assert.equal(items[1].cx,50);assert.equal(items[1].cy,50);
  assert.equal(items[2].kind,"point");assert.equal(items[2].x,80);assert.equal(items[2].y,20);
 });
+
+test("maps HATCH polyline and arc boundaries without losing hatch metadata",()=>{
+ const drawing=createR2004DwgDrawing({units:{known:true,code:4,name:"millimeters",scaleToMm:1},entities:[
+  entity("A-HATCH",220n,{kind:"hatch",name:"SOLID",solidFill:true,patternType:1,elevation:0,paths:[
+   {kind:"polyline",flags:2,closed:true,vertices:[{x:0,y:0},{x:100,y:0},{x:100,y:50},{x:0,y:50}],bulges:[0,0,0,0]},
+   {kind:"edges",flags:1,edges:[{kind:"line",start:{x:200,y:0},end:{x:250,y:0}},{kind:"arc",center:{x:250,y:25},radius:25,startAngle:0,endAngle:Math.PI,counterClockwise:true}]}
+  ]},"C1")
+ ],layers:[]});
+ const items=drawing.sheets[0].items;
+ assert.equal(items.length,6);
+ assert.ok(items.every(item=>item.hatchBoundary===true));
+ assert.equal(items[0].hatchName,"SOLID");assert.equal(items[0].hatchPathIndex,0);
+ assert.equal(items[5].kind,"arc");assert.equal(items[5].r,25);
+ assert.equal(drawing.meta.info.hatches,1);
+ assert.ok(drawing.meta.warnings.some(w=>w.includes("HATCH")));
+});

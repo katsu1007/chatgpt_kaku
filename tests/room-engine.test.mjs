@@ -403,3 +403,16 @@ test("layer inventory reports primitive counts and surviving source metadata",()
   assert.equal(textLayer.text,1);
   assert.ok(result.diagnostics.usedSegments>0);
 });
+
+test("HATCH boundary outlines are excluded from room detection",()=>{
+  const input=fixture();
+  const hatch=[
+    {kind:"line",layer:"外壁",pts:[150,150,350,150],hatchBoundary:true},
+    {kind:"line",layer:"外壁",pts:[350,150,350,350],hatchBoundary:true},
+    {kind:"line",layer:"外壁",pts:[350,350,150,350],hatchBoundary:true},
+    {kind:"line",layer:"外壁",pts:[150,350,150,150],hatchBoundary:true}
+  ];
+  const result=extractRoomHierarchy({...input,items:[...input.items,...hatch]});
+  assert.equal(result.rooms.length,4);
+  assert.equal(result.parents.length,1);
+});

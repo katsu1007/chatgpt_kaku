@@ -1,7 +1,7 @@
 // KAKU-owned R2004 common entity data reader and geometry dispatcher.
 import { DwgBitReader } from "./dwg-bitstream.js";
 import { parseR2004ObjectRecordEnvelope } from "./dwg-r2004-object-record.js";
-import { decodeR2004Geometry } from "./dwg-r2004-geometry.js";
+import { decodeR2004Geometry } from "./dwg-r2004-geometry.js?v=20261125-hatch1";
 import { readR2004SectionByName } from "./dwg-r2004-section-reader.js";
 import { readR2004ObjectMap } from "./dwg-r2004-object-map.js";
 import { readR2004SectionMaps } from "./dwg-r2004-sections.js";
