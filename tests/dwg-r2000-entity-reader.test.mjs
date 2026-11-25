@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { dwgR13Crc16, parseR13R15DwgHeader } from "../original/dwg-r13-container.js";
 import { parseR2000EntityRecord, readR2000DrawingEntities } from "../original/dwg-r2000-entity-reader.js";
+import { DwgBitReader } from "../original/dwg-bitstream.js";
+import { decodeR2004LineGeometry } from "../original/dwg-r2004-geometry.js";
 const bits=(v,n=8)=>Array.from({length:n},(_,i)=>(v>>(n-1-i))&1);
 const bytesBits=a=>a.flatMap(v=>bits(v));
 const bs=v=>v===0?[1,0]:[0,1,...bits(v)];
@@ -56,4 +58,12 @@ test("reads R2000 entity records from absolute object-map file offsets",()=>{
  const file=makeR2000File(lineRecord()),header=parseR13R15DwgHeader(file),result=readR2000DrawingEntities(file,header);
  assert.equal(result.records.length,1);assert.equal(result.records[0].geometry.kind,"line");
  assert.equal(result.records[0].objectMapOffset,0x100n);assert.equal(result.textEncoding,"shift_jis");
+});
+
+test("R2000 synthetic LINE payload is independently readable at the expected bit offset",()=>{
+ const reader=new DwgBitReader(lineRecord(),{bitOffset:108});
+ assert.equal(reader.readBit(),1);assert.equal(reader.readRawDouble(),100);assert.equal(reader.readBits(2),0);
+ assert.equal(reader.readRawDouble(),200);assert.equal(reader.readBits(2),0);assert.equal(reader.readBit(),1);assert.equal(reader.readBit(),1);
+ const geometry=decodeR2004LineGeometry(new DwgBitReader(lineRecord(),{bitOffset:108}));
+ assert.equal(geometry.zIsZero,true);assert.equal(geometry.pts[0].x,100);assert.equal(geometry.pts[0].y,200);
 });
