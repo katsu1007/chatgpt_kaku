@@ -497,3 +497,19 @@ test("automatic wall discovery ignores non-plan Jw_cad groups even when their la
   assert.ok(!result.diagnostics.wallLayerNames.includes("2-1 展開図 / 躯体"));
   assert.deepEqual(suggestWallLayers(layers).sort(),["0-1 平面図 / 外壁","0-2 平面図 / 間仕切壁"]);
 });
+
+
+test("real-world Jw_cad architectural layer names distinguish wall structure from finish and guide layers",()=>{
+  const names=[
+    "0-1 平面図 / 躯体","0-1 平面図 / 壁","0-1 平面図 / 袖壁",
+    "0-1 平面図 / 耐力壁","0-1 平面図 / 改修壁","0-1 平面図 / トイレブース",
+    "0-2 平面図 / パーティション","0-1 平面図 / 壁塗りつぶし",
+    "0-1 平面図 / 外壁仕上","0-1 平面図 / 内壁仕上",
+    "0-1 平面図 / 壁仕上ライン","0-1 平面図 / 壁部分目地",
+    "0-1 平面図 / 外装ルーバー","0-1 平面図 / 基準線",
+    "0-1 平面図 / 床仕上","0-1 平面図 / タイル","0-1 平面図 / 寸法"
+  ];
+  const actual=suggestWallLayers(names);
+  for(const name of ["0-1 平面図 / 躯体","0-1 平面図 / 壁","0-1 平面図 / 袖壁","0-1 平面図 / 耐力壁","0-1 平面図 / 改修壁","0-1 平面図 / トイレブース","0-2 平面図 / パーティション","0-1 平面図 / 壁塗りつぶし"]) assert.ok(actual.includes(name),name+" should remain a wall candidate");
+  for(const name of ["0-1 平面図 / 外壁仕上","0-1 平面図 / 内壁仕上","0-1 平面図 / 壁仕上ライン","0-1 平面図 / 壁部分目地","0-1 平面図 / 外装ルーバー","0-1 平面図 / 基準線","0-1 平面図 / 床仕上","0-1 平面図 / タイル","0-1 平面図 / 寸法"]) assert.ok(!actual.includes(name),name+" must not become a wall boundary layer");
+});
