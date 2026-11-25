@@ -65,7 +65,7 @@ export function parseR2004EntityRecord(input,offset=0,{maxEedBytes=1024*1024,max
   diagnostics:{...envelope.diagnostics,commonEntityDecoded:true,geometryDecoded:geometry.kind!=="unsupported",handleReferencesDecoded:true}};
 }
 export function readR2004EntityRecords(sectionBytes,objectMap,options){
- const records=[],skippedObjects=[],supported=new Set([1,2,3,7,8,10,11,15,16,17,18,19,20,21,22,23,24,25,26,27,31,44,77,78]);
+ const records=[],skippedObjects=[],supported=new Set([1,2,3,7,8,10,11,15,16,17,18,19,20,21,22,23,24,25,26,27,31,35,36,44,77,78]);
  for(const item of objectMap.entries){
   const offset=Number(item.offset),envelope=parseR2004ObjectRecordEnvelope(sectionBytes,offset);
   if(envelope.handle!==BigInt(item.handle))throw new Error("Object-map handle mismatch at entity offset "+item.offset);
