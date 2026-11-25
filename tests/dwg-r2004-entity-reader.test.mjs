@@ -158,7 +158,7 @@ function legacyEntityRecord(type,geometry,handle,owned=[]){
 }
 test("reads R2004 legacy POLYLINE vertex ownership and assembles a bulged closed path",()=>{
  const poly=legacyEntityRecord(15,[...bs(1),...bs(0),...bd(0),...bd(0),1,...bd(5),1,...bl(2)],900,[501,502,600]);
- const v1=legacyEntityRecord(10,[...bits(0),...bd(0),...bd(0),...bd(0),...bd(0),...bd(0),...bd(0),...bd(1)],501);
+ const v1=legacyEntityRecord(10,[...bits(0),...bd(0),...bd(0),...bd(0),...bd(0),...bd(0),...bd(1),...bd(0)],501);
  const v2=legacyEntityRecord(10,[...bits(0),...bd(100),...bd(0),...bd(0),...bd(0),...bd(0),...bd(0),...bd(0)],502);
  assert.equal(parseR2004EntityRecord(poly).geometry.kind,"polyline2d");
  assert.equal(parseR2004EntityRecord(v1).geometry.kind,"vertex2d");
