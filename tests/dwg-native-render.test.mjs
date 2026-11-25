@@ -38,3 +38,14 @@ test("normalizes common AutoCAD MTEXT controls without losing separate lines",()
  assert.match(svg,/Ω ° ± Ø/);
  assert.match(svg,/A &lt;B&gt; &amp; C/);
 });
+test("renders native linear dimension extension and dimension lines",()=>{
+ const prepared=prepareNativeDwgSheet({size:{w:200,h:120},items:[
+  {kind:"dimension",layer:"DIM",dimensionType:"linear",actualMeasurement:100,x:50,y:35,
+   points:{point13:[10,10,0],point14:[110,10,0],point10:[10,35,0]}}
+ ]},[{name:"DIM",color:"#222222"}]);
+ const svg=renderNativeDwgSvg(prepared);
+ assert.match(svg,/<line x1="10" y1="10" x2="10" y2="37"/);
+ assert.match(svg,/<line x1="110" y1="10" x2="110" y2="37"/);
+ assert.match(svg,/<line x1="10" y1="35" x2="110" y2="35"/);
+ assert.match(svg,/>100<\/text>/);
+});
