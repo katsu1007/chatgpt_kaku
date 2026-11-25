@@ -23,9 +23,9 @@ function makeHeader(insunits=4){
    default:throw new Error("Unknown fixture field "+field.type);
   }
  }
- const dataBytes=pack(data),sectionSize=dataBytes.length+2,file=new Uint8Array(16+4+sectionSize+16);
+ const dataBytes=pack(data),sectionSize=dataBytes.length,file=new Uint8Array(16+4+sectionSize+2+16);
  file.set(START,0);new DataView(file.buffer).setUint32(16,sectionSize,true);file.set(dataBytes,20);
- new DataView(file.buffer).setUint16(20+dataBytes.length,0x1234,true);file.set(END,20+sectionSize);return file;
+ new DataView(file.buffer).setUint16(20+dataBytes.length,0x1234,true);file.set(END,20+sectionSize+2);return file;
 }
 test("R2000 header field order excludes R2004-only fields and retains INSUNITS",()=>{
  const names=R2000_HEADER_FIELDS.map(x=>x.name);
