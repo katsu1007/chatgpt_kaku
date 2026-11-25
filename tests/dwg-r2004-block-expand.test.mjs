@@ -36,3 +36,13 @@ test("keeps original model-space geometry when block expansion has no model-spac
  const r=expandR2004BlockReferences(entities,[]);
  assert.equal(r.entities,entities);assert.equal(r.diagnostics.expanded,false);
 });
+
+test("expands text annotations nested inside positioned block references",()=>{
+ const text={selfHandle:3n,layerName:"A-TEXT",geometry:{kind:"text",insertion:{x:1,y:0,z:0},alignment:{x:1,y:0,z:0},rotation:0,height:10,widthFactor:1,text:"ROOM"}};
+ const entities=[insert(1,100,100,200),text];
+ const blocks=[block(90,"*Model_Space",[1]),block(100,"LABEL",[3])];
+ const r=expandR2004BlockReferences(entities,blocks);
+ assert.equal(r.entities.length,1);assert.equal(r.entities[0].geometry.kind,"text");
+ assert.deepEqual(r.entities[0].geometry.insertion,{x:101,y:200,z:0});
+ assert.equal(r.entities[0].geometry.text,"ROOM");
+});
