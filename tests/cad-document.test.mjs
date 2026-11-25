@@ -75,3 +75,39 @@ test("affine transform handles rotation, scale and translation", () => {
 test("invalid transform input fails explicitly", () => {
   assert.throws(() => transformCadPoint([1,2],[1,0,0]),/変換行列/);
 });
+
+
+test("preserves explicit source semantics and decodes Jw_cad group/layer indices", () => {
+  const doc = createCadDocument({items:[
+    {type:"sunpou",layer:"2-1 展開図 / 寸法",dimensionGraphic:true,sourceIndex:17},
+    {type:"block",layer:"0-3 平面図 / 記号",blockName:"TOILET"},
+    {kind:"line",layer:"0-2 平面図 / 躯体",pts:[0,0,100,0]}
+  ]}, {sourceFormat:"JWW"});
+  const [dimension, block, plainLine] = doc.sheets[0].entities;
+  assert.equal(dimension.semantic.role,"dimension");
+  assert.equal(dimension.semantic.dimensionGraphic,true);
+  assert.equal(dimension.semantic.groupIndex,2);
+  assert.equal(dimension.semantic.layerIndex,1);
+  assert.equal(dimension.source.sourceIndex,17);
+  assert.equal(block.semantic.role,"block-instance");
+  assert.equal(block.semantic.blockInstance,true);
+  assert.equal(plainLine.semantic.role,"unclassified");
+  assert.equal(plainLine.semantic.dimensionGraphic,false);
+  assert.deepEqual(doc.diagnostics.semanticCounts, {
+    dimension:1,
+    "block-instance":1,
+    unclassified:1
+  });
+  assert.equal(doc.diagnostics.dimensionGraphics,1);
+  assert.equal(doc.diagnostics.blockInstances,1);
+});
+
+test("does not invent dimension provenance for flattened ordinary line geometry", () => {
+  const doc = createCadDocument({items:[
+    {kind:"line",layer:"0-1 平面図 / 寸法",pts:[0,0,100,0]}
+  ]}, {sourceFormat:"JWW"});
+  const entity = doc.sheets[0].entities[0];
+  assert.equal(entity.semantic.role,"unclassified");
+  assert.equal(entity.semantic.dimensionGraphic,false);
+  assert.equal(doc.diagnostics.dimensionGraphics,0);
+});
