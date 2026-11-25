@@ -41,3 +41,21 @@ test("converts native drawing units to millimeters when INSUNITS is known",()=>{
  assert.equal(sheet.size.w,254);assert.equal(sheet.size.h,254);
  assert.equal(sheet.nativeOrigin.x,10);assert.equal(sheet.nativeOrigin.y,20);
 });
+
+test("expands LWPOLYLINE bulges into native line and arc segments",()=>{
+ const drawing=createR2004DwgDrawing({entities:[entity("A-WALL",200n,{kind:"polyline",closed:true,vertices:[
+  {x:0,y:0,z:0},{x:10,y:0,z:0},{x:10,y:10,z:0}
+ ],bulges:[1,0,0],extrusion:[0,0,1]})],layers:[]});
+ const sheet=drawing.sheets[0];
+ assert.equal(sheet.items.length,3);assert.equal(sheet.items[0].kind,"arc");
+ assert.equal(sheet.items[0].cx,5);assert.equal(sheet.items[0].cy,0);assert.equal(sheet.items[0].r,5);
+ assert.equal(sheet.items[0].a1-sheet.items[0].a0,Math.PI);
+ assert.equal(sheet.items[1].kind,"line");assert.equal(sheet.items[2].kind,"line");
+ assert.equal(drawing.meta.info.polylines,1);assert.equal(drawing.meta.info.unsupported,0);
+});
+test("does not guess geometry for tilted LWPOLYLINE extrusion planes",()=>{
+ const drawing=createR2004DwgDrawing({entities:[entity("A",1n,{kind:"polyline",closed:true,vertices:[
+  {x:0,y:0,z:0},{x:10,y:0,z:0}
+ ],bulges:[0,0],extrusion:[1,0,0]})],layers:[]});
+ assert.throws(()=>drawing.sheets[0].items.length===0,/./);
+});
