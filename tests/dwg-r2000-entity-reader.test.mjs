@@ -14,7 +14,7 @@ const handleBits=v=>{if(v===0)return [...bits(0,4),...bits(0,4)];const a=[];let 
 function lineRecord({handle=5,layer=200,noLinks=true,previous=0,next=0,owner=100}={}){
  const geometry=[1,...raw(100),0,0,...raw(200),0,0,1,1];
  const base=[0,1,...bits(19),...bytesBits([0,0,0,0]),...handleBits(handle),...bs(0),0,
-  0,0,1,0,1,...bs(7),0,1,0,0,0,0,1,0,...bits(0),...geometry];
+  0,0,1,0,noLinks?1:0,...bs(7),0,1,0,0,0,0,1,0,...bits(0),...geometry];
  const handleStartBit=16+base.length,rl=[handleStartBit&255,(handleStartBit>>>8)&255,(handleStartBit>>>16)&255,(handleStartBit>>>24)&255];
  base.splice(10,32,...bytesBits(rl));
  const refs=[...handleBits(owner),...handleBits(0)];
