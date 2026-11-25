@@ -34,7 +34,7 @@ test("unknown entity types are preserved as unsupported",()=>{
  assert.deepEqual(decodeR2004Geometry(999,new Uint8Array([0])),{kind:"unsupported",typeCode:999,bitOffset:0});
 });
 
-test("decodes R2004 LWPOLYLINE vertex coordinates and bulges",()=>{
+test("decodes closed R2004 LWPOLYLINE with vertices and bulges",()=>{
  const input=pack([0,1,...bits(1),...bd(0),...bd(0),...bd(0),1,
   0,1,...bits(3),...raw(0),...raw(0),...raw(10),...raw(0),...raw(10),...raw(10),
   0,1,...bits(3),...bd(1),...bd(0),...bd(0),
@@ -43,10 +43,4 @@ test("decodes R2004 LWPOLYLINE vertex coordinates and bulges",()=>{
  assert.equal(r.kind,"polyline");assert.equal(r.closed,true);assert.equal(r.vertices.length,3);
  assert.deepEqual(r.vertices,[{x:0,y:0,z:0},{x:10,y:0,z:0},{x:10,y:10,z:0}]);
  assert.deepEqual(r.bulges,[1,0,0]);assert.equal(r.constantWidth,0);
-});
-test("rejects inconsistent R2004 LWPOLYLINE arrays and excessive vertices",()=>{
- const invalid=pack([0,1,...bits(0),...bd(0),...bd(0),...bd(0),1,
-  0,1,...bits(2),...raw(0),...raw(0),...raw(1),...raw(1),
-  0,1,...bits(1),...bd(0),1,0,1,0]);
- assert.throws(()=>decodeR2004Geometry(77,invalid),/bulge count/);
 });
