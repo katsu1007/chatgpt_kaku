@@ -398,7 +398,7 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
   let parentFlood=floodRegions(parentTrace.wall,nx,ny);
   let childFlood=floodRegions(childTrace.wall,nx,ny);
   let parents=chooseRegions(parentFlood.regions,N,.995,nx,ny,Math.min(cw,ch));
-  let children=chooseRegions(childFlood.regions,N,.82,nx,ny,Math.min(cw,ch));
+  let children=chooseRegions(childFlood.regions,N,.995,nx,ny,Math.min(cw,ch));
   // If semantic wall-layer selection misses the building perimeter, retry with
   // every geometric layer except clearly non-architectural annotation/furniture.
   // This fallback is automatic and is used only when the first pass finds no room.
@@ -416,7 +416,7 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
     // discarded those closures whenever automatic layer fallback was needed.
     childFlood=floodRegions(childTrace.wall,nx,ny);
     parents=chooseRegions(parentFlood.regions,N,.995,nx,ny,Math.min(cw,ch));
-    children=chooseRegions(childFlood.regions,N,.82,nx,ny,Math.min(cw,ch));
+    children=chooseRegions(childFlood.regions,N,.995,nx,ny,Math.min(cw,ch));
   }
   const parentRooms=parents.kept.map((r,i)=>({...r,name:"大部屋 "+(i+1),level:1,children:[]}));
   const parentByRegion=new Map(parentRooms.map(p=>[p.id,p]));
