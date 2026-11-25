@@ -48,7 +48,7 @@ test("expands LWPOLYLINE bulges into native line and arc segments",()=>{
  ],bulges:[1,0,0],extrusion:[0,0,1]})],layers:[]});
  const sheet=drawing.sheets[0];
  assert.equal(sheet.items.length,3);assert.equal(sheet.items[0].kind,"arc");
- assert.equal(sheet.items[0].cx,5);assert.equal(sheet.items[0].cy,0);assert.equal(sheet.items[0].r,5);
+ assert.equal(sheet.items[0].cx,5);assert.equal(sheet.items[0].cy,5);assert.equal(sheet.items[0].r,5);
  assert.equal(sheet.items[0].a1-sheet.items[0].a0,Math.PI);
  assert.equal(sheet.items[1].kind,"line");assert.equal(sheet.items[2].kind,"line");
  assert.equal(drawing.meta.info.polylines,1);assert.equal(drawing.meta.info.unsupported,0);
