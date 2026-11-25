@@ -1,10 +1,10 @@
 // KAKU-owned R2004 BLOCK_HEADER object decoder.
 import { DwgBitReader } from "./dwg-bitstream.js";
 import { parseR2004ObjectRecordEnvelope } from "./dwg-r2004-object-record.js";
-export function parseR2004BlockHeaderRecord(input,offset=0,{maxEedBytes=1024*1024,maxPreviewBytes=16*1024*1024,maxOwnedObjects=100000,maxInserts=100000}={}){
+export function parseR2004BlockHeaderRecord(input,offset=0,{maxEedBytes=1024*1024,maxPreviewBytes=16*1024*1024,maxOwnedObjects=100000,maxInserts=100000,textEncoding="windows-1252"}={}){
  const bytes=input instanceof Uint8Array?input:new Uint8Array(input||0),env=parseR2004ObjectRecordEnvelope(bytes,offset);
  if(env.objectType!==49)throw new Error("R2004 block-header parser requires object type 49");
- const r=new DwgBitReader(bytes,{bitOffset:offset*8});
+ const r=new DwgBitReader(bytes,{bitOffset:offset*8,textEncoding});
  r.readModularShort();r.readBitShort();const objectDataBits=r.readRawLong(),selfHandle=r.readHandle();
  const eedSize=r.readBitShort();if(eedSize<0||eedSize>maxEedBytes)throw new RangeError("Invalid R2004 BLOCK_HEADER EED size");
  const eed=r.readBytes(eedSize),reactorCount=r.readBitLong(),xdictionaryMissing=r.readBit()===1;
