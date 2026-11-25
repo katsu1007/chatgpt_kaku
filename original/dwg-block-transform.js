@@ -27,12 +27,11 @@ export function createMInsertTransforms(insert,{basePoint={x:0,y:0},parentMatrix
  const columnSpacing=num(insert?.columnSpacing??0,"column spacing"),rowSpacing=num(insert?.rowSpacing??0,"row spacing");
  if(columns<1||rows<1||columns*rows>maxInstances)throw new RangeError("Invalid or excessive MINSERT array size");
  const base=createInsertTransform(insert,{basePoint,parentMatrix}),[a,b,c,d,e,f]=base,out=[];
- for(let row=0;row<rows;row++)for(let column=0;column<columns;column++)
-  out.push([a,b,c,d,e+a*0+ c*0 + a*0 + c*0 + (a*0),f]); // replaced below with transformed spacing
- return out.map((_,index)=>{
-  const row=Math.floor(index/columns),column=index%columns,dx=column*columnSpacing,dy=row*rowSpacing;
-  return [a,b,c,d,e+a*dx+c*dy,f+b*dx+d*dy];
- });
+ for(let row=0;row<rows;row++)for(let column=0;column<columns;column++){
+  const dx=column*columnSpacing,dy=row*rowSpacing;
+  out.push([a,b,c,d,e+a*dx+c*dy,f+b*dx+d*dy]);
+ }
+ return out;
 }
 export function transformBlockGeometry(geometry,matrix){
  if(!geometry||typeof geometry!=="object")throw new TypeError("Block geometry is required");
@@ -41,7 +40,9 @@ export function transformBlockGeometry(geometry,matrix){
   return {...geometry,pts};
  }
  if(geometry.kind==="polyline"&&Array.isArray(geometry.vertices)){
-  return {...geometry,vertices:geometry.vertices.map(p=>({...p,...applyAffine2D(matrix,p)}))};
+  const [a,b,c,d]=matrix,det=a*d-b*c,scaleX=Math.hypot(a,b),scaleY=Math.hypot(c,d),orthogonality=a*c+b*d;
+  if((geometry.bulges||[]).some(v=>Math.abs(v)>1e-10)&&(Math.abs(scaleX-scaleY)>1e-8*Math.max(1,scaleX,scaleY)||Math.abs(orthogonality)>1e-8*Math.max(1,scaleX*scaleY)))return {kind:"unsupported",sourceGeometry:geometry,reason:"Bulged polyline under non-uniform scale requires ellipse tessellation"};
+  return {...geometry,bulges:det<0?(geometry.bulges||[]).map(v=>-v):geometry.bulges,vertices:geometry.vertices.map(p=>({...p,...applyAffine2D(matrix,p)}))};
  }
  if(geometry.kind==="point")return {...geometry,...applyAffine2D(matrix,geometry)};
  if(geometry.kind==="arc"||geometry.kind==="circle"){
@@ -50,7 +51,7 @@ export function transformBlockGeometry(geometry,matrix){
    return {kind:"ellipse",sourceGeometry:geometry,transform:matrix,requiresTessellation:true};
   const center=applyAffine2D(matrix,{x:geometry.center?.x??geometry.cx,y:geometry.center?.y??geometry.cy});
   const reflected=a*d-b*c<0,angle=Math.atan2(b,a),start=geometry.startAngle??geometry.a0??0,end=geometry.endAngle??geometry.a1??Math.PI*2;
-  return {kind:"arc",cx:center.x,cy:center.y,r:(geometry.radius??geometry.r)*scaleX,a0:angle+(reflected?-end:start),a1:angle+(reflected?-start:end),sourceGeometry:geometry};
+  return {kind:"arc",cx:center.x,cy:center.y,r:(geometry.radius??geometry.r)*scaleX,a0:angle+(reflected?-start:start),a1:angle+(reflected?-end:end),sourceGeometry:geometry};
  }
  return {kind:"unsupported",sourceGeometry:geometry,reason:"Geometry type requires a dedicated block transform"};
 }
