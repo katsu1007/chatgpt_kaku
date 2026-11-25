@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { dwgR13Crc16, parseR13R15DwgHeader } from "../original/dwg-r13-container.js";
 import { parseR2000EntityRecord, readR2000DrawingEntities } from "../original/dwg-r2000-entity-reader.js";
+import { assembleR2004LegacyPolylines } from "../original/dwg-r2004-entity-reader.js";
 import { DwgBitReader } from "../original/dwg-bitstream.js";
 import { decodeR2004LineGeometry } from "../original/dwg-r2004-geometry.js";
 const bits=(v,n=8)=>Array.from({length:n},(_,i)=>(v>>(n-1-i))&1);
@@ -159,4 +160,33 @@ test("expands an R2000 model-space INSERT through BLOCK_HEADER ownership",()=>{
  assert.equal(result.entities.length,1);assert.deepEqual(result.entities[0].geometry.pts,[100,200,150,200]);
  assert.equal(result.entities[0].sourceInsertHandle,500n);assert.deepEqual(result.entities[0].blockPath,["SYMBOL"]);
  assert.equal(result.entities[0].layerName,"A-WALL");
+});
+
+function legacyR2000EntityRecord(type,geometry,handle,owned=[]){
+ const base=[0,1,...bits(type),...bytesBits([0,0,0,0]),...handleBits(handle),...bs(0),0,
+  0,0,1,0,1,...bs(7),0,1,0,0,0,0,1,0,...bits(0),...geometry];
+ const handleStartBit=16+base.length,rl=[handleStartBit&255,(handleStartBit>>>8)&255,(handleStartBit>>>16)&255,(handleStartBit>>>24)&255];
+ base.splice(10,32,...bytesBits(rl));
+ const refs=[...handleBits(100),...handleBits(0),...handleBits(200),...owned.flatMap(handleBits)];
+ const body=pack([...base,...refs]),out=new Uint8Array(2+body.length+2);
+ out[0]=body.length&255;out[1]=body.length>>8;out.set(body,2);out.set([0x34,0x12],out.length-2);return out;
+}
+test("reads and assembles R2000 legacy POLYLINE/VERTEX ownership",()=>{
+ const poly=legacyR2000EntityRecord(15,[...bs(1),...bs(0),...bd(0),...bd(0),1,...bd(5),1,...bl(2)],900,[501,502,600]);
+ const v1=legacyR2000EntityRecord(10,[...bits(0),...bd(0),...bd(0),...bd(0),...bd(0),...bd(0),...bd(1),...bd(0)],501);
+ const v2=legacyR2000EntityRecord(10,[...bits(0),...bd(100),...bd(0),...bd(0),...bd(0),...bd(0),...bd(0),...bd(0)],502);
+ assert.equal(parseR2000EntityRecord(poly).geometry.kind,"polyline2d");
+ assert.equal(parseR2000EntityRecord(v1).geometry.kind,"vertex2d");
+ const bytes=new Uint8Array(poly.length+v1.length+v2.length);bytes.set(poly);bytes.set(v1,poly.length);bytes.set(v2,poly.length+v1.length);
+ const result=readR2000EntityRecords(bytes,{entries:[{handle:900n,offset:0n},{handle:501n,offset:BigInt(poly.length)},{handle:502n,offset:BigInt(poly.length+v1.length)}]});
+ const header=result.records.find(x=>x.selfHandle===900n);
+ assert.equal(header.polylineHandles.vertices.length,2);
+ assert.equal(header.polylineHandles.seqend.value,600n);
+ const assembled=assembleR2004LegacyPolylines(result.records);
+ assert.equal(assembled.diagnostics.assembled,1);
+ assert.equal(assembled.entities.length,1);
+ assert.equal(assembled.entities[0].geometry.kind,"polyline");
+ assert.equal(assembled.entities[0].geometry.closed,true);
+ assert.deepEqual(assembled.entities[0].geometry.vertices,[{x:0,y:0,z:5},{x:100,y:0,z:5}]);
+ assert.deepEqual(assembled.entities[0].geometry.bulges,[1,0]);
 });
