@@ -5,7 +5,7 @@ const bits=(v,n=8)=>Array.from({length:n},(_,i)=>(v>>(n-1-i))&1),bytesBits=a=>a.
 const bs=v=>v===0?[1,0]:[0,1,...bits(v)];
 const pack=a=>{const out=new Uint8Array(Math.ceil(a.length/8));a.forEach((v,i)=>{if(v)out[i>>3]|=1<<(7-(i&7));});return out;};
 const handleBits=v=>{if(v===0)return [...bits(0,4),...bits(0,4)];const a=[];let n=v;while(n>0){a.unshift(n&255);n=Math.floor(n/256);}return [...bits(0,4),...bits(a.length,4),...bytesBits(a)];};
-function layerRecord({handle=200,name="A-WALL",values=18,color=7,layerControl=50,plotstyle=15,linetype=6}={}){
+function layerRecord({handle=200,name="A-WALL",values=26,color=7,layerControl=50,plotstyle=15,linetype=6}={}){
  const base=[0,1,...bits(51),...bytesBits([0,0,0,0]),...handleBits(handle),...bs(0),1,0,
   ...bs(name.length),...bytesBits([...name].map(c=>c.charCodeAt(0))),0,...bs(0),0,...bs(values),...bs(color)];
  const handleStart=16+base.length,rl=[handleStart&255,(handleStart>>>8)&255,(handleStart>>>16)&255,(handleStart>>>24)&255];
