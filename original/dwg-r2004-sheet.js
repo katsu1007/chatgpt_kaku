@@ -90,7 +90,7 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
  for(const item of mapped){
   if(item.kind==="line"||item.kind==="fill")for(let i=0;i<item.pts.length;i+=2){item.pts[i]-=minX;item.pts[i+1]-=minY;}
   else if(item.kind==="arc"){item.cx-=minX;item.cy-=minY;}
-  else if(item.kind==="point"){item.x-=minX;item.y-=minY;}
+  else if(item.kind==="point"||item.kind==="text"){item.x-=minX;item.y-=minY;}
  }
  const unsupported=entities.length-convertedEntities;
  const warnings=["DWG R2004の試験読込です。",units.known?"INSUNITS："+units.name+"。座標をmmへ換算しました。":"INSUNITS（図面単位）を確定できないため、座標はDWG元単位のままです。mm換算・面積・概算数量の計算は行いません。","現時点で変換できる図形はLINE・ARC・CIRCLE・LWPOLYLINE・POINT・SOLIDと、対応図形を含むINSERT/MINSERTブロックです。寸法・文字・HATCH等は未対応。"];
