@@ -35,6 +35,7 @@ export function expandR2004BlockReferences(entities,blocks,{maxDepth=12,maxInsta
   }catch{diagnostics.skippedGeometry++;return;}
   const nextPath=[...path,block.name],nextStack=[...stack,blockKey];
   for(let instanceIndex=0;instanceIndex<matrices.length;instanceIndex++){
+   if(diagnostics.expandedInstanceCount>=maxInstances){diagnostics.limitReached=true;return;}
    diagnostics.expandedInstanceCount++;
    const matrix=matrices[instanceIndex];
    for(const childRef of block.ownedHandles||[]){
