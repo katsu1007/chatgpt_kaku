@@ -10,8 +10,8 @@ function lineRecord({handle=5,eed=[],graphic=null,colorBits=[0,1,...bits(7)]}={}
  const graphicBits=graphic===null?[0]:[1,...bytesBits([graphic.length,0,0,0]),...bytesBits(graphic)];
  const geometry=[1,...raw(100),0,0,...raw(200),0,0,1,1];
  const body=pack([0,1,...bits(19),...bytesBits([0xff,0xff,0xff,0x7f]),...bits(0,4),...bits(1,4),...bits(handle),
-  1,0,...bytesBits([eed.length]),...bytesBits(eed),...graphicBits,
-  0,0,1,0,1,...colorBits,0,1,0,0,1,0,...bits(0),...geometry]);
+  ...bs(eed.length),...bytesBits(eed),...graphicBits,
+  0,0,1,0,1,1,...colorBits,0,1,0,0,0,0,1,0,...bits(0),...geometry]);
  const out=new Uint8Array(2+body.length+2);out[0]=body.length&255;out[1]=body.length>>8;out.set(body,2);out[out.length-2]=0x12;out[out.length-1]=0x34;return out;
 }
 test("decodes common R2004 entity attributes and LINE geometry",()=>{
