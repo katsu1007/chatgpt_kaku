@@ -1,13 +1,13 @@
 // KAKU-owned R2004 common entity data reader and geometry dispatcher.
-import { DwgBitReader, dwgTextEncoding } from "./dwg-bitstream.js";
+import { DwgBitReader, dwgTextEncoding } from "./dwg-bitstream.js?v=20261125-codepage1";
 import { parseR2004ObjectRecordEnvelope } from "./dwg-r2004-object-record.js";
 import { decodeR2004Geometry } from "./dwg-r2004-geometry.js?v=20261125-text1";
 import { readR2004SectionByName } from "./dwg-r2004-section-reader.js";
 import { readR2004ObjectMap } from "./dwg-r2004-object-map.js";
 import { readR2004SectionMaps } from "./dwg-r2004-sections.js";
-import { readR2004LayerRecords, resolveR2004EntityLayers } from "./dwg-r2004-layer-reader.js";
+import { readR2004LayerRecords, resolveR2004EntityLayers } from "./dwg-r2004-layer-reader.js?v=20261125-codepage1";
 import { parseR2004HeaderVariables } from "./dwg-r2004-header-vars.js";
-import { readR2004BlockHeaders } from "./dwg-r2004-block-reader.js";
+import { readR2004BlockHeaders } from "./dwg-r2004-block-reader.js?v=20261125-codepage1";
 import { expandR2004BlockReferences } from "./dwg-r2004-block-expand.js";
 function readEntityColor(reader){
  const colorNumber=reader.readBitShort(),flags=colorNumber&0xe000;
