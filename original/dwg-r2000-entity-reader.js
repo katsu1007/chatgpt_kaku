@@ -5,6 +5,7 @@ import { DwgBitReader, dwgTextEncoding } from "./dwg-bitstream.js?v=20261125-cod
 import { parseR2004ObjectRecordEnvelope } from "./dwg-r2004-object-record.js";
 import { decodeR2004Geometry } from "./dwg-r2004-geometry.js";
 import { readR13R15ObjectMap } from "./dwg-r13-container.js";
+import { readR2000LayerRecords, resolveR2000EntityLayers } from "./dwg-r2000-layer-reader.js?v=20261125-codepage1";
 const SUPPORTED=new Set([1,17,18,19,20,21,22,23,24,25,26,27,31,35,36,44,77]);
 function readR2000EntityHandles(reader,selfHandle,reactorCount,noLinks,linetypeFlags,plotstyleFlags,maxReactors=100000){
  if(!Number.isSafeInteger(reactorCount)||reactorCount<0||reactorCount>maxReactors)throw new RangeError("Invalid R2000 reactor count");
@@ -66,6 +67,7 @@ export function readR2000DrawingEntities(input,header,options={}){
  const bytes=input instanceof Uint8Array?input:new Uint8Array(input||0),objectMap=readR13R15ObjectMap(bytes,header,options.objectMap);
  const encoding=options.textEncoding||dwgTextEncoding(header.fileHeader?.codePage);
  const entities=readR2000EntityRecords(bytes,objectMap,{...options,textEncoding:encoding});
- return {...entities,objectMap,version:header.version,versionCode:header.versionCode,codePage:header.fileHeader?.codePage,textEncoding:encoding,
-  diagnostics:{...entities.diagnostics,objectMapEntries:objectMap.entries.length,formatFamily:"R2000-flat"}};
+ const layers=readR2000LayerRecords(bytes,objectMap,{textEncoding:encoding}),resolved=resolveR2000EntityLayers(entities.records,layers);
+ return {...entities,entities:resolved.entities,layers:layers.layers,objectMap,version:header.version,versionCode:header.versionCode,codePage:header.fileHeader?.codePage,textEncoding:encoding,
+  layerDiagnostics:layers.diagnostics,diagnostics:{...entities.diagnostics,...layers.diagnostics,...resolved.diagnostics,objectMapEntries:objectMap.entries.length,formatFamily:"R2000-flat"}};
 }
