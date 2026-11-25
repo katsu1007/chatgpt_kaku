@@ -13,7 +13,7 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
   const layerName=entity.layerName||"DWG:UNRESOLVED:"+String(entity.layerHandle??"0");
   if(!layerMap.has(layerName)){const layer={name:layerName,color:"#808080",visible:true,items:0,actualItems:0,unresolved:true};layers.push(layer);layerMap.set(layerName,layer);}
   item.layer=layerName;item.handle=entity.handleHex||String(entity.selfHandle??"");item.layerHandle=String(entity.layerHandle??"");
-  item.sourceFormat="DWG-R2004";item.sourceGeometry=geometry;
+  item.sourceFormat="DWG-R2004";item.sourceGeometry=entity.sourceGeometry||geometry;if(entity.blockPath)item.blockPath=entity.blockPath;if(entity.blockTransform)item.blockTransform=entity.blockTransform;if(entity.sourceInsertHandle!==undefined)item.sourceInsertHandle=String(entity.sourceInsertHandle);if(entity.sourceBlockHandle!==undefined)item.sourceBlockHandle=String(entity.sourceBlockHandle);if(entity.sourceEntityHandle!==undefined)item.sourceEntityHandle=String(entity.sourceEntityHandle);if(entity.blockInstanceIndex!==undefined)item.blockInstanceIndex=entity.blockInstanceIndex;
   layerMap.get(layerName).items++;layerMap.get(layerName).actualItems++;mapped.push(item);
  };
  for(const entity of entities){
@@ -30,15 +30,16 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
    if(mapped.length>before)polylineEntities++;
   }
   if(g.kind==="line"){
-   add(entity,g,{kind:"line",pts:[g.pts[0].x*scale,g.pts[0].y*scale,g.pts[1].x*scale,g.pts[1].y*scale],z0:g.pts[0].z*scale,z1:g.pts[1].z*scale});
+   const pts=Array.isArray(g.pts)&&typeof g.pts[0]==="number"?g.pts:Array.isArray(g.pts)?g.pts.flatMap(p=>[p.x,p.y]):[];
+   if(pts.length>=4)add(entity,g,{kind:"line",pts:pts.slice(0,4).map(v=>v*scale),z0:(g.pts[0]?.z??0)*scale,z1:(g.pts[1]?.z??0)*scale});
   }else if(g.kind==="arc"){
-   add(entity,g,{kind:"arc",cx:g.center.x*scale,cy:g.center.y*scale,r:g.radius*scale,a0:g.startAngle,a1:g.endAngle});
+   add(entity,g,{kind:"arc",cx:(g.center?.x??g.cx)*scale,cy:(g.center?.y??g.cy)*scale,r:(g.radius??g.r)*scale,a0:g.startAngle??g.a0,a1:g.endAngle??g.a1});
   }else if(g.kind==="circle"){
    add(entity,g,{kind:"arc",cx:g.center.x*scale,cy:g.center.y*scale,r:g.radius*scale,a0:0,a1:Math.PI*2,isCircle:true});
   }else if(g.kind==="solid"){
    add(entity,g,{kind:"fill",pts:g.points.flatMap(p=>[p.x*scale,p.y*scale]),elevation:g.elevation*scale});
   }else if(g.kind==="point"){
-   add(entity,g,{kind:"point",x:g.point.x*scale,y:g.point.y*scale,z:g.point.z*scale});
+   add(entity,g,{kind:"point",x:(g.point?.x??g.x)*scale,y:(g.point?.y??g.y)*scale,z:(g.point?.z??g.z??0)*scale});
   }
   if(mapped.length>before)convertedEntities++;
  }
@@ -58,10 +59,14 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
   else if(item.kind==="point"){item.x-=minX;item.y-=minY;}
  }
  const unsupported=entities.length-convertedEntities;
- const warnings=["DWG R2004の試験読込です。",units.known?"INSUNITS："+units.name+"。座標をmmへ換算しました。":"INSUNITS（図面単位）を確定できないため、座標はDWG元単位のままです。mm換算・面積・概算数量の計算は行いません。","現時点で変換できる図形はLINE・ARC・CIRCLE・LWPOLYLINE・POINT・SOLIDです。INSERT/ブロック変換、寸法、文字、HATCH等は未対応です。"];
+ const warnings=["DWG R2004の試験読込です。",units.known?"INSUNITS："+units.name+"。座標をmmへ換算しました。":"INSUNITS（図面単位）を確定できないため、座標はDWG元単位のままです。mm換算・面積・概算数量の計算は行いません。","現時点で変換できる図形はLINE・ARC・CIRCLE・LWPOLYLINE・POINT・SOLIDと、対応図形を含むINSERT/MINSERTブロックです。寸法・文字・HATCH等は未対応。"];
  if(unsupported)warnings.push("未変換オブジェクト："+unsupported+"件");
  if(result?.diagnostics?.unresolvedLayerCount)warnings.push("レイヤー名未解決："+result.diagnostics.unresolvedLayerCount+"件");
  if(result?.headerWarning)warnings.push(result.headerWarning);
+ if(result?.blockExpansion?.reason)warnings.push("DWGブロック展開保留："+result.blockExpansion.reason);
+ if(result?.blockExpansion?.skippedGeometry)warnings.push("ブロック変換できない図形："+result.blockExpansion.skippedGeometry+"件");
+ if(result?.blockExpansion?.unresolvedBlockReferences)warnings.push("参照先ブロック未解決："+result.blockExpansion.unresolvedBlockReferences+"件");
+ if(result?.blockExpansion?.limitReached)warnings.push("安全上限に達したためブロック展開を途中で停止しました。");
  const sheet={name:fileName,items:mapped,size:{w:Math.max(1,maxX-minX),h:Math.max(1,maxY-minY)},origin,nativeOrigin:{x:minX/scale,y:minY/scale},warnings,coordinateSpace:units.known?"sheet-mm":"dwg-native"};
  return {kind:"2d",sheets:[sheet],layers,meta:{format:"DWG",label:"DWG R2004（試験読込）",units:units.known?"mm":"unknown",coordinateSpace:units.known?"sheet-mm":"dwg-native",unitInfo:units,info:{items:mapped.length,figures:convertedEntities,polylines:polylineEntities,version:"R2004",layers:layers.length,units:units.name,scaleToMm:scale,headerWarning:result?.headerWarning||null,unsupported,skippedObjects:result?.diagnostics?.skippedObjectCount??0},warnings}};
 }
