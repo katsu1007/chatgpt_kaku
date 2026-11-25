@@ -173,3 +173,14 @@ test("exposes only closed straight external solid HATCH paths as wall-fill candi
  assert.equal(drawing.meta.info.hatchFillCandidates,1);
  assert.ok(drawing.meta.warnings.some(w=>w.includes("細長さを判定")));
 });
+
+test("DWG capability warning reflects decoded entity families without claiming full rendering",()=>{
+ const drawing=createR2004DwgDrawing({units:{known:true,code:4,name:"millimeters",scaleToMm:1},entities:[
+  entity("A-WALL",290n,{kind:"line",pts:[{x:0,y:0,z:0},{x:100,y:0,z:0}]})
+ ],layers:[]});
+ const warning=drawing.meta.warnings.join(" ");
+ assert.match(warning,/旧式POLYLINE\/VERTEX/);
+ assert.match(warning,/DIMENSION計測情報/);
+ assert.match(warning,/HATCH境界/);
+ assert.doesNotMatch(warning,/寸法・文字・HATCH等は未対応/);
+});
