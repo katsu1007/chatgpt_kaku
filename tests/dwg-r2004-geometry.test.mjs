@@ -27,7 +27,7 @@ test("decodes ARC and CIRCLE center, radius and angle fields",()=>{
 test("decodes POINT and SOLID geometry",()=>{
  const point=decodeR2004Geometry(27,pack([...bd(1),...bd(2),...bd(3),1,1,...bd(0)]));
  assert.deepEqual(point.point,{x:1,y:2,z:3});
- const solid=decodeR2004Geometry(31,pack([1,...bd(0),...raw(0),...raw(0),...raw(10),...raw(0),...raw(10),...raw(10),...raw(0),...raw(10),...raw(10),...raw(0),...raw(10),1]));
+ const solid=decodeR2004Geometry(31,pack([1,...bd(0),...raw(0),...raw(0),...raw(10),...raw(0),...raw(10),...raw(10),...raw(0),...raw(10),1]));
  assert.equal(solid.points.length,4);assert.equal(solid.points[2].x,10);assert.equal(solid.elevation,0);
 });
 test("unknown entity types are preserved as unsupported",()=>{
