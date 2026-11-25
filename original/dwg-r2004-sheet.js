@@ -42,6 +42,49 @@ function sampleSpline(g){
  if(g.closed&&vertices.length>2)vertices.pop();
  return {vertices,closed:!!g.closed};
 }
+function sampleHatchEllipse(edge){
+ const center=edge.center,axis=edge.majorAxis,ratio=Number(edge.minorMajorRatio);
+ if(!center||!axis||!Number.isFinite(ratio)||ratio<=0)return null;
+ let start=Number(edge.startAngle),end=Number(edge.endAngle);
+ if(!Number.isFinite(start)||!Number.isFinite(end))return null;
+ if(edge.counterClockwise&&end<start)end+=Math.PI*2;
+ if(!edge.counterClockwise&&end>start)end-=Math.PI*2;
+ const sweep=end-start;if(!Number.isFinite(sweep)||Math.abs(sweep)<1e-10||Math.abs(sweep)>Math.PI*2+1e-6)return null;
+ const minor={x:-axis.y*ratio,y:axis.x*ratio};
+ const steps=Math.max(8,Math.min(512,Math.ceil(Math.abs(sweep)/(Math.PI/48))));
+ const points=[];
+ for(let i=0;i<=steps;i++){
+  const t=start+sweep*i/steps,c=Math.cos(t),v=Math.sin(t);
+  points.push({x:center.x+axis.x*c+minor.x*v,y:center.y+axis.y*c+minor.y*v});
+ }
+ return points;
+}
+function sampleHatchSpline(edge){
+ const cp=edge.controlPoints||[],knots=edge.knots||[],degree=Number(edge.degree),n=cp.length-1;
+ if(!Number.isInteger(degree)||degree<1||cp.length<degree+1||knots.length<n+degree+2)return null;
+ const start=knots[degree],end=knots[n+1];
+ if(!Number.isFinite(start)||!Number.isFinite(end)||!(end>start))return null;
+ const evaluate=t=>{
+  let k=n;
+  if(t<end){k=degree;while(k<n&&!(t>=knots[k]&&t<knots[k+1]))k++;}
+  const d=[];
+  for(let j=0;j<=degree;j++){
+   const q=cp[k-degree+j],w=edge.rational?(Number(q.weight)||0):1;
+   if(!q||![q.x,q.y,w].every(Number.isFinite))return null;
+   d[j]=[q.x*w,q.y*w,w];
+  }
+  for(let r=1;r<=degree;r++)for(let j=degree;j>=r;j--){
+   const i=k-degree+j,den=knots[i+degree-r+1]-knots[i],alpha=den===0?0:(t-knots[i])/den;
+   for(let z=0;z<3;z++)d[j][z]=(1-alpha)*d[j-1][z]+alpha*d[j][z];
+  }
+  const w=d[degree][2];return Math.abs(w)>1e-12?{x:d[degree][0]/w,y:d[degree][1]/w}:null;
+ };
+ const steps=Math.max(24,Math.min(512,cp.length*24)),points=[];
+ for(let i=0;i<=steps;i++){
+  const point=evaluate(start+(end-start)*i/steps);if(!point)return null;points.push(point);
+ }
+ return points;
+}
 export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
  const units=result?.units||{known:false,name:"unknown",scaleToMm:null},scale=units.known?units.scaleToMm:1;
  const entities=result?.entities||[],layers=(result?.layers||[]).map(layer=>({name:layer.name,color:rgbHex(layer.color?.rgb),visible:!!layer.flags?.on&&!layer.flags?.frozen,items:0,actualItems:0,dwgHandle:layer.handle}));
@@ -135,6 +178,16 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
        if(edge.counterClockwise&&a1<a0)a1+=Math.PI*2;
        if(!edge.counterClockwise&&a1>a0)a1-=Math.PI*2;
        add(entity,g,{kind:"arc",...meta,cx:edge.center.x*scale,cy:edge.center.y*scale,r:edge.radius*scale,a0,a1});hatchSegments++;
+      }else if(edge.kind==="ellipse"||edge.kind==="spline"){
+       const points=edge.kind==="ellipse"?sampleHatchEllipse(edge):sampleHatchSpline(edge);
+       if(!points||points.length<2){unsupportedHatchEdges++;continue;}
+       for(let pointIndex=0;pointIndex+1<points.length;pointIndex++){
+        const a=points[pointIndex],b=points[pointIndex+1];
+        add(entity,g,{kind:"line",...meta,pts:[a.x*scale,a.y*scale,b.x*scale,b.y*scale],
+         z0:(g.elevation||0)*scale,z1:(g.elevation||0)*scale,
+         hatchCurveApproximation:edge.kind,hatchEdgeIndex:pointIndex});
+        hatchSegments++;
+       }
       }else unsupportedHatchEdges++;
      }
     }
@@ -181,7 +234,7 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
   else if(item.kind==="point"||item.kind==="text"){item.x-=minX;item.y-=minY;}
  }
  const unsupported=entities.length-convertedEntities;
- const warnings=["DWG R2004の試験読込です。",units.known?"INSUNITS："+units.name+"。座標をmmへ換算しました。":"INSUNITS（図面単位）を確定できないため、座標はDWG元単位のままです。mm換算・面積・概算数量の計算は行いません。","読み取り対象：LINE・ARC・CIRCLE・LWPOLYLINE・旧式POLYLINE/VERTEX・POINT・SOLID・INSERT/MINSERT・TEXT/MTEXT/ATTRIB・DIMENSION計測情報・HATCH境界・ELLIPSE/SPLINE近似・MLINE。寸法線/矢印、HATCH模様/グラデーション、HATCHの楕円/スプライン境界などは未対応。"];
+ const warnings=["DWG R2004の試験読込です。",units.known?"INSUNITS："+units.name+"。座標をmmへ換算しました。":"INSUNITS（図面単位）を確定できないため、座標はDWG元単位のままです。mm換算・面積・概算数量の計算は行いません。","読み取り対象：LINE・ARC・CIRCLE・LWPOLYLINE・旧式POLYLINE/VERTEX・POINT・SOLID・INSERT/MINSERT・TEXT/MTEXT/ATTRIB・DIMENSION計測情報・HATCH境界・ELLIPSE/SPLINE近似・MLINE。寸法線/矢印、HATCH模様/グラデーション、HATCHのパターン模様/グラデーション塗り表示は未対応。"];
  if(unsupported)warnings.push("未変換オブジェクト："+unsupported+"件");
  if(result?.diagnostics?.unresolvedLayerCount)warnings.push("レイヤー名未解決："+result.diagnostics.unresolvedLayerCount+"件");
  if(result?.headerWarning)warnings.push(result.headerWarning);
@@ -197,7 +250,7 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
  if(unsupportedCurves)warnings.push("平面外・不正データ等で近似できない曲線："+unsupportedCurves+"件");
  if(result?.diagnostics?.missingMLineStyleCount)warnings.push("MLINESTYLE未解決："+result.diagnostics.missingMLineStyleCount+"件。二重線境界は生成していません。");
  if(mlineEntities)warnings.push("MLINEはMLINESTYLEのオフセットから境界線を生成しました。");
- if(unsupportedHatchEdges)warnings.push("未描画のHATCH楕円・スプライン境界："+unsupportedHatchEdges+"件");
+ if(unsupportedHatchEdges)warnings.push("近似描画できないHATCH曲線境界："+unsupportedHatchEdges+"件");
  const sheet={name:fileName,items:mapped,size:{w:Math.max(1,maxX-minX),h:Math.max(1,maxY-minY)},origin,nativeOrigin:{x:minX/scale,y:minY/scale},warnings,coordinateSpace:units.known?"sheet-mm":"dwg-native"};
  return {kind:"2d",sheets:[sheet],layers,meta:{format:"DWG",label:"DWG R2004（試験読込）",units:units.known?"mm":"unknown",coordinateSpace:units.known?"sheet-mm":"dwg-native",unitInfo:units,info:{items:mapped.length,figures:convertedEntities,polylines:polylineEntities,hatches:hatchEntities,hatchBoundarySegments:hatchSegments,hatchFillCandidates,textEntities,dimensionEntities,attributeEntities,ellipseEntities,splineEntities,curveSegments,unsupportedCurves,mlineEntities,mlineBoundarySegments,codePage:result?.codePage??null,textEncoding:result?.textEncoding??"windows-1252",version:"R2004",layers:layers.length,units:units.name,scaleToMm:scale,headerWarning:result?.headerWarning||null,unsupported,skippedObjects:result?.diagnostics?.skippedObjectCount??0},warnings}};
 }

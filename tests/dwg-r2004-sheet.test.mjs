@@ -184,3 +184,35 @@ test("DWG capability warning reflects decoded entity families without claiming f
  assert.match(warning,/HATCH境界/);
  assert.doesNotMatch(warning,/寸法・文字・HATCH等は未対応/);
 });
+
+test("approximates HATCH ellipse and spline edges as source-linked boundary segments",()=>{
+ const drawing=createR2004DwgDrawing({units:{known:true,code:4,name:"millimeters",scaleToMm:1},entities:[
+  entity("A-HATCH",310n,{kind:"hatch",name:"CURVES",solidFill:false,elevation:0,paths:[
+   {kind:"edges",flags:1,edges:[
+    {kind:"ellipse",center:{x:0,y:0},majorAxis:{x:50,y:0},minorMajorRatio:0.5,startAngle:0,endAngle:Math.PI*2,counterClockwise:true},
+    {kind:"spline",degree:2,rational:false,periodic:false,knots:[0,0,0,1,1,1],
+     controlPoints:[{x:100,y:0},{x:150,y:100},{x:200,y:0}]}
+   ]}
+  ]},"HATCH-CURVES")
+ ],layers:[]});
+ const items=drawing.sheets[0].items;
+ assert.ok(items.length>100);
+ assert.ok(items.every(item=>item.kind==="line"&&item.hatchBoundary===true));
+ assert.ok(items.some(item=>item.hatchCurveApproximation==="ellipse"));
+ assert.ok(items.some(item=>item.hatchCurveApproximation==="spline"));
+ assert.equal(drawing.meta.info.hatches,1);
+ assert.equal(drawing.meta.info.hatchBoundarySegments,items.length);
+ assert.ok(!drawing.meta.warnings.some(w=>w.includes("未描画のHATCH")));
+});
+test("reports malformed HATCH spline boundaries without aborting the drawing",()=>{
+ const drawing=createR2004DwgDrawing({units:{known:true,code:4,name:"millimeters",scaleToMm:1},entities:[
+  entity("A-HATCH",311n,{kind:"hatch",name:"BAD-CURVE",solidFill:false,elevation:0,paths:[
+   {kind:"edges",flags:1,edges:[
+    {kind:"line",start:{x:0,y:0},end:{x:100,y:0}},
+    {kind:"spline",degree:3,rational:false,knots:[0,1],controlPoints:[{x:0,y:0},{x:1,y:1}]}
+   ]}
+  ]},"HATCH-BAD")
+ ],layers:[]});
+ assert.equal(drawing.sheets[0].items.length,1);
+ assert.ok(drawing.meta.warnings.some(w=>w.includes("近似描画できないHATCH曲線境界：1件")));
+});
