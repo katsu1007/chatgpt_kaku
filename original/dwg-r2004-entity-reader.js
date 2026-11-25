@@ -54,6 +54,8 @@ export function parseR2004EntityRecord(input,offset=0,{maxEedBytes=1024*1024,max
   const seqend=geometry.hasAttributes?reader.readHandle(selfHandle.value):null;
   insertHandles={blockHeader,attributes,seqend};
  }
+ let boundaryHandles=[];
+ if(geometry.kind==="hatch")for(let i=0;i<geometry.boundaryObjectCount;i++)boundaryHandles.push(reader.readHandle(selfHandle.value));
  return {...envelope,objectDataBits,selfHandle:selfHandle.value,entityMode,reactorCount,xdictionaryMissing,noLinks,color,linetypeScale,linetypeFlags,plotstyleFlags,invisibility,lineweight,
   eed,graphic,geometry,geometryBitOffset,geometryEndBit,declaredHandleBitOffset:handleBitOffset,handles,insertHandles,boundaryHandles,ownerHandle:handles.owner.value,layerHandle:handles.layer.value,
   diagnostics:{...envelope.diagnostics,commonEntityDecoded:true,geometryDecoded:geometry.kind!=="unsupported",handleReferencesDecoded:true}};
