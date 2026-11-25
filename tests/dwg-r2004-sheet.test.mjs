@@ -121,3 +121,12 @@ test("preserves dimension measurement, annotation text and referenced block hand
  assert.equal(items[1].kind,"text");assert.equal(items[1].text,"L=100 mm");assert.equal(items[1].dimensionText,true);
  assert.equal(drawing.meta.info.dimensionEntities,1);
 });
+
+test("maps ATTRIB values into tagged text sheet items",()=>{
+ const drawing=createR2004DwgDrawing({units:{known:true,code:4,name:"millimeters",scaleToMm:1},entities:[
+  entity("A-ANNO",250n,{kind:"attrib",insertion:{x:100,y:200,z:0},alignment:{x:100,y:200,z:0},text:"ROOM A",tag:"ROOM_NAME",rotation:0,height:12,widthFactor:1,attributeFlags:0})
+ ],layers:[]});
+ const item=drawing.sheets[0].items[0];
+ assert.equal(item.kind,"text");assert.equal(item.text,"ROOM A");assert.equal(item.attribute,true);assert.equal(item.attributeTag,"ROOM_NAME");
+ assert.equal(drawing.meta.info.attributeEntities,1);
+});
