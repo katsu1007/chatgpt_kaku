@@ -61,9 +61,8 @@ export function expandR2004BlockReferences(entities,blocks,{maxDepth=12,maxInsta
     if(attribute.geometry?.kind!=="attrib"){diagnostics.unresolvedAttributes++;continue;}
     let attributeGeometry=attribute.geometry;
     if(depth>0){
-     try{attributeGeometry={...transformBlockGeometry({...attributeGeometry,kind:"text"},parentMatrix),kind:"attrib"};}
+     try{const transformed=transformBlockGeometry({...attributeGeometry,kind:"text"},parentMatrix);if(!transformed||transformed.kind==="unsupported"){diagnostics.skippedGeometry++;continue;}attributeGeometry={...transformed,kind:"attrib"};}
      catch{diagnostics.skippedGeometry++;continue;}
-     if(attributeGeometry.kind==="unsupported"){diagnostics.skippedGeometry++;continue;}
     }
     if(!append({...attribute,sourceGeometry:attribute.geometry,geometry:attributeGeometry,sourceEntityHandle:attribute.selfHandle,
      sourceInsertHandle:rootInsertHandle??insert.selfHandle,sourceBlockHandle:block.handle,blockPath:nextPath,blockInstanceIndex:instanceIndex,blockTransform:parentMatrix,attributeTag:attribute.geometry.tag}))return;
