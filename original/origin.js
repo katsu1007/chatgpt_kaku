@@ -1,5 +1,6 @@
 import { extractRoomHierarchy, suggestWallLayers } from "./room-engine.js?v=20261125-provenance1";
 import { createCadDocument } from "./cad-document.js?v=20261125-model1";
+import { analyzePlanarRoomCandidates } from "./planar-room-candidates.js?v=20261125-planar-room1";
 import { makeDrawingChoices, sliceSheetForFrame } from "./drawing-split.js?v=20261124-split2";
 let openCad,prepare,toSvg,findFrames;
 let cadImportPromise;
@@ -74,11 +75,12 @@ function detectRooms(){
   state.roomGrid=result.grid;
   renderRooms();
   const d=result.diagnostics;
+  const planarCheck=analyzePlanarRoomCandidates({items:state.sheet.items,wallLayerNames:d.wallLayerNames,hiddenLayers:state.layers.filter((layer,index)=>state.hidden[index]===1).map(layer=>layer.name)});
   status("自動区画抽出："+state.rooms.length+"区画");
   if(!state.rooms.length){$("fileHint").textContent="自動判定を実行しましたが、閉じた区画を検出できませんでした。";$("canvas").insertAdjacentHTML("beforeend","<div id=\"roomNotice\" style=\"position:absolute;z-index:5;top:12px;left:12px;right:12px;background:#5b2020;color:white;padding:10px;border-radius:8px\">区画を検出できませんでした。診断情報を確認してください。</div>");}
   const parentText=result.parents.map(p=>p.name+"："+p.children.length+"区画").join(" / ")||"親区画を検出できません";
   const list=state.rooms.map(r=>"<li>"+esc(r.name)+"："+r.drawingAreaCm2.toFixed(1)+" cm²（図面上）</li>").join("");
-  $("inspection").insertAdjacentHTML("beforeend","<section class=\"room-diagnostics\"><p><strong>自動区画抽出："+state.rooms.length+"件</strong></p><p>親区画："+esc(parentText)+"</p>"+(list?"<ol>"+list+"</ol>":"")+"<p>自動判定："+esc(d.autoMode)+"／壁候補レイヤー "+d.wallLayerNames.length+"件／親領域 "+d.parentRegions+"件／内部壁込み領域 "+d.childRegions+"件／線分 "+d.usedSegments.toLocaleString()+"本／寸法線候補除外 "+d.skippedDimensionSegments.toLocaleString()+"本／小型・非壁状塗り除外 "+d.skippedNonWallFills.toLocaleString()+"個／ドア開口補完 "+d.bridgedDoorGaps.toLocaleString()+"箇所／トイレブース前面補完 "+d.virtualBoothClosures.toLocaleString()+"箇所／端点 "+d.endpointCount.toLocaleString()+"点／広域再判定 "+(d.fallbackUsed?"実行":"未実行")+"。</p><details><summary>レイヤー別の読み込み内訳（原因調査用）</summary><ul>"+(d.layerInventory||[]).map(x=>"<li>"+esc(x.name)+"：合計 "+x.total+"／線 "+x.line+"／円弧 "+x.arc+"／塗り "+x.fill+"／文字 "+x.text+"／元要素情報 "+x.sourceTagged+"／ブロック情報 "+x.blockTagged+"</li>").join("")+"</ul></details></section>");
+  $("inspection").insertAdjacentHTML("beforeend","<section class=\"room-diagnostics\"><p><strong>自動区画抽出："+state.rooms.length+"件</strong></p><p>親区画："+esc(parentText)+"</p>"+(list?"<ol>"+list+"</ol>":"")+"<p>自動判定："+esc(d.autoMode)+"／壁候補レイヤー "+d.wallLayerNames.length+"件／親領域 "+d.parentRegions+"件／内部壁込み領域 "+d.childRegions+"件／線分 "+d.usedSegments.toLocaleString()+"本／寸法線候補除外 "+d.skippedDimensionSegments.toLocaleString()+"本／小型・非壁状塗り除外 "+d.skippedNonWallFills.toLocaleString()+"個／ドア開口補完 "+d.bridgedDoorGaps.toLocaleString()+"箇所／トイレブース前面補完 "+d.virtualBoothClosures.toLocaleString()+"箇所／端点 "+d.endpointCount.toLocaleString()+"点／広域再判定 "+(d.fallbackUsed?"実行":"未実行")+"。</p><details><summary>新方式・平面グラフ照合（診断専用）</summary><p>壁候補線分 "+planarCheck.diagnostics.inputSegments+"本／交点 "+planarCheck.diagnostics.intersectionCount+"箇所／分割後辺 "+planarCheck.diagnostics.graphEdges+"本／閉領域候補 "+planarCheck.diagnostics.boundedFaces+"件。</p><p class='muted'>幾何形状だけの比較値です。寸法線・ドア開口・什器・円弧の意味判定は未適用のため、現行区画の置き換えには使用しません。</p></details><details><summary>レイヤー別の読み込み内訳（原因調査用）</summary><ul>"+(d.layerInventory||[]).map(x=>"<li>"+esc(x.name)+"：合計 "+x.total+"／線 "+x.line+"／円弧 "+x.arc+"／塗り "+x.fill+"／文字 "+x.text+"／元要素情報 "+x.sourceTagged+"／ブロック情報 "+x.blockTagged+"</li>").join("")+"</ul></details></section>");
  }catch(error){
   state.rooms=[];state.roomGrid=null;status("区画抽出エラー");
   $("fileHint").textContent="区画抽出エラー："+(error?.message||error);
