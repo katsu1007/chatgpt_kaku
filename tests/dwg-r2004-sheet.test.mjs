@@ -28,5 +28,5 @@ test("retains unresolved layer handles and reports unsupported objects",()=>{
  assert.equal(drawing.meta.info.unsupported,1);assert.ok(drawing.layers[0].unresolved);
 });
 test("rejects drawings with no supported geometry",()=>{
- assert.throws(()=>createR2004DwgDrawing({entities:[],layers:[]}),/displayable/);
+ assert.throws(()=>createR2004DwgDrawing({entities:[],layers:[]}),/表示可能/);
 });
