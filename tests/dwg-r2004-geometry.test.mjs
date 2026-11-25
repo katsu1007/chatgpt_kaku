@@ -159,3 +159,11 @@ test("decodes 2D VERTEX bulge and compressed width fields",()=>{
  const v3=decodeR2004Geometry(11,pack([...bits(0),...bd(1),...bd(2),...bd(3)]));
  assert.equal(v3.kind,"vertex3d");assert.deepEqual(v3.point,[1,2,3]);
 });
+
+test("decodes ATTRIB and ATTDEF tags, flags and prompts",()=>{
+ const text=[...bits(255),...raw(10),...raw(20),1,1,...raw(15),...tv("VALUE"),...tv("ROOM_NAME"),...bs(12),...bits(1)];
+ const a=decodeR2004Geometry(2,pack(text));
+ assert.equal(a.kind,"attrib");assert.equal(a.text,"VALUE");assert.equal(a.tag,"ROOM_NAME");assert.equal(a.fieldLength,12);assert.equal(a.invisible,true);
+ const d=decodeR2004Geometry(3,pack([...text,...tv("Room name")]));
+ assert.equal(d.kind,"attdef");assert.equal(d.prompt,"Room name");assert.equal(d.tag,"ROOM_NAME");
+});
