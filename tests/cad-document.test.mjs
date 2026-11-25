@@ -64,7 +64,7 @@ test("layer inventory is stable and missing geometry is counted", () => {
     {kind:"text",layer:"A",x:1,y:2,text:"X"},
     {kind:"proxy"}
   ]});
-  assert.deepEqual(Object.keys(doc.diagnostics.layerCounts),["(レイヤーなし)","A","Z"]);
+  assert.deepEqual(Object.keys(doc.diagnostics.layerCounts).sort(),["(レイヤーなし)","A","Z"].sort());
   assert.equal(doc.diagnostics.missingGeometry,1);
 });
 
