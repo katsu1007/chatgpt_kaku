@@ -447,8 +447,8 @@ test("small toilet cubicles survive when the drawing covers a large warehouse fl
   const items=[
     line("外壁",100,100,62900,100),line("外壁",62900,100,62900,24900),
     line("外壁",62900,24900,100,24900),line("外壁",100,24900,100,100),
-    line("間仕切壁",3000,20000,8400,20000),
-    ...Array.from({length:7},(_,i)=>line("間仕切壁",3000+i*900,5000,3000+i*900,20000))
+    line("間仕切壁",3000,6500,8400,6500),
+    ...Array.from({length:7},(_,i)=>line("間仕切壁",3000+i*900,5000,3000+i*900,6500))
   ];
   const result=extractRoomHierarchy({items,width:63000,height:25000,layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
   assert.equal(result.diagnostics.virtualBoothClosures,6);
