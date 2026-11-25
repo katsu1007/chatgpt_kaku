@@ -1,7 +1,7 @@
 // KAKU-owned R2000 entity common-data reader.
 // The R2000 container is flat (absolute object-map offsets); geometry payload
 // decoders are shared only where the published entity layouts match R2004.
-import { DwgBitReader, dwgTextEncoding } from "./dwg-bitstream.js";
+import { DwgBitReader, dwgTextEncoding } from "./dwg-bitstream.js?v=20261125-codepage1";
 import { parseR2004ObjectRecordEnvelope } from "./dwg-r2004-object-record.js";
 import { decodeR2004Geometry } from "./dwg-r2004-geometry.js";
 import { readR13R15ObjectMap } from "./dwg-r13-container.js";
@@ -29,8 +29,10 @@ export function parseR2000EntityRecord(input,offset=0,{maxEedBytes=1024*1024,max
  const colorNumber=reader.readBitShort(),color={colorNumber,aci:colorNumber&0x01ff};
  const linetypeScale=reader.readBitDouble(),linetypeFlags=reader.readBits(2),plotstyleFlags=reader.readBits(2);
  const invisibility=reader.readBitShort(),lineweight=reader.readRawChar();
- const geometryBitOffset=reader.bitOffset,geometry=SUPPORTED.has(envelope.objectType)
-  ?decodeR2004Geometry(envelope.objectType,reader):{kind:"unsupported",typeCode:envelope.objectType,reason:"R2000 entity family not yet implemented"};
+ const geometryBitOffset=reader.bitOffset,geometryAvailableBits=reader.remainingBits;
+ let geometry;
+ try{geometry=SUPPORTED.has(envelope.objectType)?decodeR2004Geometry(envelope.objectType,reader):{kind:"unsupported",typeCode:envelope.objectType,reason:"R2000 entity family not yet implemented"};}
+ catch(error){throw new Error("R2000 "+envelope.typeName+" geometry decode failed at bit "+geometryBitOffset+" with "+geometryAvailableBits+" bits remaining: "+error.message);}
  const geometryEndBit=reader.bitOffset,handleBitOffset=offset*8+objectDataBits;
  if(geometryEndBit>envelope.recordEnd*8-16)throw new Error("R2000 geometry payload crosses record CRC boundary");
  if(!Number.isSafeInteger(handleBitOffset)||handleBitOffset<geometryEndBit||handleBitOffset>envelope.recordEnd*8-16)throw new Error("Invalid R2000 declared handle-stream offset");
@@ -39,7 +41,7 @@ export function parseR2000EntityRecord(input,offset=0,{maxEedBytes=1024*1024,max
  const styleHandle=["text","mtext"].includes(geometry.kind)?reader.readHandle(selfHandle.value):null;
  const dimensionHandles=geometry.kind==="dimension"?{dimStyle:reader.readHandle(selfHandle.value),anonymousBlock:reader.readHandle(selfHandle.value)}:null;
  return {...envelope,objectDataBits,selfHandle:selfHandle.value,entityMode,reactorCount,noLinks,color,linetypeScale,linetypeFlags,plotstyleFlags,invisibility,lineweight,
-  eed,graphic,geometry,geometryBitOffset,geometryEndBit,declaredHandleBitOffset:handleBitOffset,handles,styleHandle,dimensionHandles,
+  eed,graphic,geometry,geometryBitOffset,geometryAvailableBits,geometryEndBit,declaredHandleBitOffset:handleBitOffset,handles,styleHandle,dimensionHandles,
   ownerHandle:handles.owner.value,layerHandle:handles.layer.value,
   diagnostics:{...envelope.diagnostics,commonEntityDecoded:true,geometryDecoded:geometry.kind!=="unsupported",handleReferencesDecoded:true,formatFamily:"R2000"}};
 }
