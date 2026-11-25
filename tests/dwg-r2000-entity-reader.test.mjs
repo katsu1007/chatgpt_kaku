@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { dwgR13Crc16, parseR13R15DwgHeader } from "../original/dwg-r13-container.js";
-import { parseR2000EntityRecord, readR2000DrawingEntities } from "../original/dwg-r2000-entity-reader.js";
+import { parseR2000EntityRecord, readR2000EntityRecords, readR2000DrawingEntities } from "../original/dwg-r2000-entity-reader.js";
 import { assembleR2004LegacyPolylines } from "../original/dwg-r2004-entity-reader.js";
 import { R2000_HEADER_FIELDS } from "../original/dwg-r2000-header-vars.js";
 import { DwgBitReader } from "../original/dwg-bitstream.js";
