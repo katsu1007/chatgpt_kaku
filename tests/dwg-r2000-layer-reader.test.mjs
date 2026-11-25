@@ -13,6 +13,10 @@ function layerRecord({handle=200,name="A-WALL",values=18,color=7,layerControl=50
  const refs=[...handleBits(layerControl),...handleBits(0),...handleBits(0),...handleBits(0),...handleBits(plotstyle),...handleBits(linetype),...handleBits(0)];
  const body=pack([...base,...refs]),out=new Uint8Array(2+body.length+2);out[0]=body.length&255;out[1]=body.length>>8;out.set(body,2);out.set([0x12,0x34],out.length-2);return out;
 }
+function genericRecord(type,handle){
+ const body=pack([0,1,...bits(type),...bytesBits([0,0,0,0]),...bits(0,4),...bits(1,4),...bits(handle)]);
+ const out=new Uint8Array(2+body.length+2);out[0]=body.length&255;out[1]=body.length>>8;out.set(body,2);return out;
+}
 test("decodes R2000 LAYER name, ACI color, visibility flags and table handles",()=>{
  const r=parseR2000LayerRecord(layerRecord());
  assert.equal(r.handle,200n);assert.equal(r.name,"A-WALL");assert.equal(r.xrefIndex,-1);
@@ -29,7 +33,6 @@ test("indexes R2000 layer records and resolves entity layer handles",()=>{
  assert.equal(resolved.entities[1].layerResolved,false);assert.equal(resolved.diagnostics.unresolvedLayerCount,1);
 });
 test("rejects non-LAYER records and object-map handle mismatches",()=>{
- const record=layerRecord();assert.throws(()=>parseR2000LayerRecord(record,0),/R2000 layer parser/);
- const mismatched=readR2000LayerRecords(layerRecord(),{entries:[{handle:201n,offset:0n}]});
- assert.throws(()=>mismatched,/R2000 layer object-map handle mismatch/);
+ assert.throws(()=>parseR2000LayerRecord(genericRecord(19,5),0),/requires object type 51/);
+ assert.throws(()=>readR2000LayerRecords(layerRecord(),{entries:[{handle:201n,offset:0n}]}),/R2000 layer object-map handle mismatch/);
 });
