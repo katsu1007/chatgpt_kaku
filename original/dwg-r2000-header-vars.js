@@ -47,7 +47,7 @@ export function parseR2000HeaderVariables(input){
   candidate.bitOffset=Math.ceil(candidate.bitOffset/8)*8;
   crc=candidate.readRawShort();endingOffset=candidate.byteOffset;
   const ending=bytes.slice(endingOffset,endingOffset+16);
-  if(endingOffset===dataEnd&&ending.length===16&&ending.every((b,i)=>b===END[i]))endingValid=true;
+  if((endingOffset===dataEnd||endingOffset===dataEnd+2)&&ending.length===16&&ending.every((b,i)=>b===END[i]))endingValid=true;
  }catch{}
  const rawUnits=resolveDwgInsunits(insunits),units=endingValid?rawUnits:{code:insunits,name:"unvalidated-header",scaleToMm:null,known:false};
  return {insunits,units,cepsntype,flags,crc,consumedBits,sectionSize,endingSentinelValid:endingValid,
