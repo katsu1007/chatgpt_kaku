@@ -77,3 +77,27 @@ test("INSERT records are retained by the object-map entity reader",()=>{
  const record=insertRecord(),result=readR2004EntityRecords(record,{entries:[{handle:600n,offset:0n}]});
  assert.equal(result.records.length,1);assert.equal(result.records[0].typeName,"INSERT");
 });
+
+const bl=v=>v===0?[1,0]:v<256?[0,1,...bits(v)]:[0,0,...bytesBits([v&255,(v>>>8)&255,(v>>>16)&255,(v>>>24)&255])];
+const bd=v=>v===0?[1,0]:v===1?[0,1]:[0,0,...raw(v)];
+const tv=v=>[...bs(v.length),...bytesBits([...v].map(c=>c.charCodeAt(0)))];
+function hatchRecord(){
+ const geometry=[...bl(0),...bl(0),...bd(0),...bd(0),...bl(0),...bd(0),...bl(0),...tv(""),
+  ...bd(0),...bd(0),...bd(0),...bd(1),...tv("SOLID"),1,0,...bl(1),
+  ...bl(2),0,1,...bl(4),...raw(0),...raw(0),...raw(100),...raw(0),...raw(100),...raw(50),...raw(0),...raw(50),...bl(1),
+  ...bs(0),...bs(1),...bl(0)];
+ const base=[0,1,...bits(78),...bytesBits([0,0,0,0]),...handleBits(700),...bs(0),0,
+  0,0,1,0,1,1,0,1,...bits(7),0,1,0,0,0,0,1,0,...bits(0),...geometry];
+ const handleStart=16+base.length,rl=[handleStart&255,(handleStart>>>8)&255,(handleStart>>>16)&255,(handleStart>>>24)&255];
+ base.splice(10,32,...bytesBits(rl));
+ const body=pack([...base,...handleBits(100),...handleBits(200),...handleBits(301)]);
+ const out=new Uint8Array(2+body.length+2);out[0]=body.length&255;out[1]=body.length>>8;out.set(body,2);out.set([0x12,0x34],out.length-2);return out;
+}
+test("reads HATCH geometry and its boundary object handle stream",()=>{
+ const r=parseR2004EntityRecord(hatchRecord());
+ assert.equal(r.typeName,"HATCH");assert.equal(r.geometry.kind,"hatch");
+ assert.equal(r.geometry.boundaryObjectCount,1);assert.equal(r.boundaryHandles.length,1);
+ assert.equal(r.boundaryHandles[0].value,301n);assert.equal(r.layerHandle,200n);
+ const records=readR2004EntityRecords(hatchRecord(),{entries:[{handle:700n,offset:0n}]});
+ assert.equal(records.records.length,1);assert.equal(records.records[0].typeName,"HATCH");
+});
