@@ -181,7 +181,7 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
   else if(item.kind==="point"||item.kind==="text"){item.x-=minX;item.y-=minY;}
  }
  const unsupported=entities.length-convertedEntities;
- const warnings=["DWG R2004の試験読込です。",units.known?"INSUNITS："+units.name+"。座標をmmへ換算しました。":"INSUNITS（図面単位）を確定できないため、座標はDWG元単位のままです。mm換算・面積・概算数量の計算は行いません。","現時点で変換できる図形はLINE・ARC・CIRCLE・LWPOLYLINE・POINT・SOLIDと、対応図形を含むINSERT/MINSERTブロックです。寸法・文字・HATCH等は未対応。"];
+ const warnings=["DWG R2004の試験読込です。",units.known?"INSUNITS："+units.name+"。座標をmmへ換算しました。":"INSUNITS（図面単位）を確定できないため、座標はDWG元単位のままです。mm換算・面積・概算数量の計算は行いません。","読み取り対象：LINE・ARC・CIRCLE・LWPOLYLINE・旧式POLYLINE/VERTEX・POINT・SOLID・INSERT/MINSERT・TEXT/MTEXT/ATTRIB・DIMENSION計測情報・HATCH境界・ELLIPSE/SPLINE近似・MLINE。寸法線/矢印、HATCH模様/グラデーション、HATCHの楕円/スプライン境界などは未対応。"];
  if(unsupported)warnings.push("未変換オブジェクト："+unsupported+"件");
  if(result?.diagnostics?.unresolvedLayerCount)warnings.push("レイヤー名未解決："+result.diagnostics.unresolvedLayerCount+"件");
  if(result?.headerWarning)warnings.push(result.headerWarning);
