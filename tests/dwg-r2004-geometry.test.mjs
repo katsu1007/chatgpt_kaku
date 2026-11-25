@@ -100,7 +100,7 @@ test("rejects excessive HATCH path counts and unknown edge types",()=>{
 });
 
 test("decodes R2004 TEXT position, height, string and defaulted style fields",()=>{
- const input=pack([255,...raw(125),...raw(250),1,1,...raw(18),...tv("会議室A")]);
+ const input=pack([...bits(255),...raw(125),...raw(250),1,1,...raw(18),...tv("会議室A")]);
  const r=decodeR2004Geometry(1,input);
  assert.equal(r.kind,"text");assert.equal(r.text,"会議室A");
  assert.deepEqual(r.insertion,{x:125,y:250,z:0});assert.deepEqual(r.alignment,r.insertion);
