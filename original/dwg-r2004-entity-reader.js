@@ -98,12 +98,12 @@ export function assembleR2004LegacyPolylines(records){
    const g=entity.geometry;
    output.push({...entity,geometry:{kind:"polyline",vertices,bulges,closed:g.closed,startWidth:g.startWidth||0,endWidth:g.endWidth||0,
     thickness:g.thickness||0,elevation:g.elevation||0,extrusion:g.extrusion||[0,0,1],flags:g.flags,curveType:g.curveType,
-    sourceVertexHandles,ownedObjectCount:g.ownedObjectCount},polylineSourceHandles:entity.polylineHandles});
+    sourceVertexHandles,ownedObjectCount:g.ownedObjectCount},sourceGeometry:g,polylineSourceHandles:entity.polylineHandles});
    diagnostics.assembled++;
   }else output.push({...entity,geometry:{...entity.geometry,kind:"unsupported",reason:"Legacy POLYLINE has fewer than two valid vertices"}});
  }
  for(const entity of source)if(["vertex2d","vertex3d","vertexMesh","vertexPface"].includes(entity.geometry?.kind)&&!consumed.has(BigInt(entity.selfHandle).toString()))diagnostics.orphanVertices++;
- for(const entity of source)if(!["vertex2d","vertex3d","vertexMesh","vertexPface"].includes(entity.geometry?.kind))output.push(entity);
+ for(const entity of source)if(!["vertex2d","vertex3d","vertexMesh","vertexPface","polyline2d","polyline3d"].includes(entity.geometry?.kind))output.push(entity);
  return {entities:output,diagnostics};
 }
 export function readR2004DrawingEntities(input,fileHeader,options){
@@ -115,5 +115,5 @@ export function readR2004DrawingEntities(input,fileHeader,options){
  let units={code:null,name:"unknown",scaleToMm:null,known:false},headerWarning=null,headerVariables=null;
  try{const headerSection=readR2004SectionByName(input,sections.resolvedSections,"AcDb:Header");headerVariables=parseR2004HeaderVariables(headerSection.data);units=headerVariables.units;if(!headerVariables.endingSentinelValid)headerWarning="DWGヘッダー終端を検証できないため、INSUNITSは採用しません。";else if(!units.known)headerWarning="INSUNITSが未指定または未対応のため、mm換算は保留します。";}
  catch(error){headerWarning="DWG INSUNITSを取得できません："+(error?.message||error);}
- return {entities:expanded.entities,rawEntities:resolved.entities,objectMap,layers:layers.layers,blocks:blocks.blocks,blockExpansion:expanded.diagnostics,textEncoding,codePage:fileHeader?.fileHeader?.codePage??null,units,headerVariables,headerWarning,sections:sections.diagnostics,diagnostics:{...entities.diagnostics,...layers.diagnostics,...blocks.diagnostics,...polylines.diagnostics,...resolved.diagnostics,...expanded.diagnostics,sectionCount:sections.resolvedSections.length,objectMapEntries:objectMap.entries.length}};
+ return {entities:expanded.entities,rawEntities:entities.records,objectMap,layers:layers.layers,blocks:blocks.blocks,blockExpansion:expanded.diagnostics,textEncoding,codePage:fileHeader?.fileHeader?.codePage??null,units,headerVariables,headerWarning,sections:sections.diagnostics,diagnostics:{...entities.diagnostics,...layers.diagnostics,...blocks.diagnostics,...polylines.diagnostics,...resolved.diagnostics,...expanded.diagnostics,sectionCount:sections.resolvedSections.length,objectMapEntries:objectMap.entries.length}};
 }
