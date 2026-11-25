@@ -6,7 +6,7 @@ const bytesBits=a=>a.flatMap(v=>bits(v));
 const bs=v=>v===0?[1,0]:[0,1,...bits(v)];
 const raw=v=>{const b=new Uint8Array(8);new DataView(b.buffer).setFloat64(0,v,true);return bytesBits([...b]);};
 const pack=a=>{const out=new Uint8Array(Math.ceil(a.length/8));a.forEach((v,i)=>{if(v)out[i>>3]|=1<<(7-(i&7));});return out;};
-const handleBits=v=>[...bits(0,4),...bits(1,4),...bits(v)];
+const handleBits=v=>{if(v===0)return [...bits(0,4),...bits(0,4)];const a=[];let n=v;while(n>0){a.unshift(n&255);n=Math.floor(n/256);}return [...bits(0,4),...bits(a.length,4),...bytesBits(a)];};
 function makeEnvelope(type,handle){
  const bodyBits=[0,1,...bits(type),...bytesBits([0,0,0,0]),...handleBits(handle)],body=pack(bodyBits);
  const out=new Uint8Array(2+body.length+2);out[0]=body.length&255;out[1]=body.length>>8;out.set(body,2);return out;
@@ -60,7 +60,7 @@ test("skips non-entity objects in AcDb:AcDbObjects without treating them as enti
 function insertRecord({handle=600,owner=100,layer=200,block=300}={}){
  const geometry=[1,0,1,0,1,0,1,1,1,0,1,0,1,0];
  const base=[0,1,...bits(7),...bytesBits([0,0,0,0]),...handleBits(handle),
-  ...bs(0),0,0,1,0,1,1,0,1,...bits(7),0,1,0,0,0,0,1,0,...bits(0),...geometry];
+  ...bs(0),0,0,0,0,1,0,1,1,...bits(7),0,1,0,0,0,0,1,0,...bits(0),...geometry];
  const handleStart=16+base.length,rl=[handleStart&255,(handleStart>>>8)&255,(handleStart>>>16)&255,(handleStart>>>24)&255];
  base.splice(10,32,...bytesBits(rl));
  const body=pack([...base,...handleBits(owner),...handleBits(layer),...handleBits(block)]);
