@@ -28,7 +28,7 @@ test("respects hidden layers in the native DWG renderer",()=>{
 
 test("normalizes common AutoCAD MTEXT controls without losing separate lines",()=>{
  const prepared=prepareNativeDwgSheet({size:{w:300,h:120},items:[
-  {kind:"text",layer:"NOTES",x:10,y:80,text:"1\\\\P2\\\\S1#2;\\\\U+03A9 %%d %%p %%c",height:10,rotation:0},
+  {kind:"text",layer:"NOTES",x:10,y:80,text:"1\\P2\\S1#2;\\U+03A9 %%d %%p %%c",height:10,rotation:0},
   {kind:"text",layer:"NOTES",x:10,y:40,text:"A <B> & C",height:10,rotation:0}
  ]},[{name:"NOTES",color:"#111111"}]);
  const svg=renderNativeDwgSvg(prepared);
