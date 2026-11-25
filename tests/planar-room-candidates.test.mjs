@@ -33,3 +33,13 @@ test("text, point, block and hatch entities are not room boundaries",()=>{
  const r=analyzePlanarRoomCandidates({items,wallLayerNames:["WALL"]});
  assert.equal(r.diagnostics.boundedFaces,1);assert.equal(r.diagnostics.skippedNonBoundaryKind,4);
 });
+test("native DWG HATCH strokes are excluded while explicit solid-fill candidates remain eligible",()=>{
+ const items=[
+  ...box("WALL",0,0,7000,3000),
+  line("WALL",1000,1000,6000,1000,{hatchBoundary:true}),
+  {kind:"fill",layer:"WALL",pts:[0,0,7000,0,7000,100,0,100],hatchBoundary:true,hatchFillCandidate:true}
+ ];
+ const r=analyzePlanarRoomCandidates({items,wallLayerNames:["WALL"]});
+ assert.equal(r.diagnostics.skippedHatchBoundary,1);
+ assert.equal(r.diagnostics.acceptedWallFills,1);
+});

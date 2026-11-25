@@ -40,6 +40,8 @@ function wallLikeFill(points){
 function entitySegments(item,index,stats,anchors){
  const kind=String(item?.kind||item?.type||"").toLowerCase(),layer=String(item?.layer??"");
  if(NON_WALL_LAYER.test(layer)){stats.skippedSemanticLayer++;return [];}
+ // HATCH loops are fill boundaries, not automatically walls.
+ if(item?.hatchBoundary&&!item?.hatchFillCandidate){stats.skippedHatchBoundary++;return [];}
  if(["dimension","text","point","block","insert","hatch"].includes(kind)){stats.skippedNonBoundaryKind++;return [];}
  let points=pointsOf(item);
  if(kind==="arc"||kind==="circle"){
@@ -115,7 +117,7 @@ function doorwayBridges(items,allowed,hidden,anchors,stats){
 }
 export function analyzePlanarRoomCandidates({items=[],wallLayerNames=[],hiddenLayers=[]}={}){
  const allowed=new Set((wallLayerNames||[]).map(String)),hidden=new Set((hiddenLayers||[]).map(String));
- const stats={inputItems:0,acceptedItems:0,acceptedWallFills:0,approximatedArcs:0,skippedSemanticLayer:0,skippedNonBoundaryKind:0,skippedInvalidArc:0,skippedInvalidGeometry:0,skippedNonWallFill:0,skippedDimensionSegments:0,bridgedDoorGaps:0};
+ const stats={inputItems:0,acceptedItems:0,acceptedWallFills:0,approximatedArcs:0,skippedSemanticLayer:0,skippedNonBoundaryKind:0,skippedInvalidArc:0,skippedInvalidGeometry:0,skippedNonWallFill:0,skippedDimensionSegments:0,skippedHatchBoundary:0,bridgedDoorGaps:0};
  const anchors=dimensionAnchors(items),segments=[];
  (items||[]).forEach((item,index)=>{
   if(!item||!allowed.has(String(item.layer??""))||hidden.has(String(item.layer??"")))return;
