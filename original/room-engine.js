@@ -4,6 +4,14 @@
 const OUTER_WALL_NAME=/(外壁|躯体|外周|建物外形|外形壁|exterior|outer.?wall)/i;
 const WALL_NAME=/(壁|間仕切|ブース|躯体|外壁|内壁|壁芯|(?:^|[-_ ])(?:a-)?wall(?:$|[-_ ])|wall|partition)/i;
 const NON_WALL_NAME=/(寸法|寸法線|寸法補助|寸法記入|寸法記号|引出線|引出|補助線|中心線|通り芯|グリッド|文字|注記|注釈|家具|什器|設備|器具|照明|電気|コンセント|記号|ハッチ|dimension|\bdim\b|measure|annotation|leader|extension|center.?line|grid|axis|furniture|fixture|text|symbol|hatch(?:ing)?)/i;
+// Explicit CAD dimension metadata is stronger evidence than geometric heuristics.
+// Keep this narrow: ordinary lines on a dimension-like layer are already handled
+// by layer semantics, while these flags identify dimension graphics on mixed layers.
+function isDimensionGraphicItem(it){
+  const kind=String(it?.kind||it?.type||"").toLowerCase();
+  const sourceKind=String(it?.sourceGeometry?.kind||it?.sourceGeometry?.type||"").toLowerCase();
+  return kind==="dimension"||sourceKind==="dimension"||it?.dimensionGraphic===true||it?.dimensionLine===true||it?.dimensionExtension===true||it?.dimensionArrow===true||it?.dimensionBoundary===true||it?.isDimension===true||it?.dimensionEntity===true;
+}
 // Numeric dimension labels help identify dimension strokes even when they share a wall layer.
 const DIMENSION_LABEL=/^\s*[+-]?\d[\d,]*(?:\.\d+)?\s*(?:mm|ｍｍ|m|ｍ|cm|㎜|㎝|φ|ø)?\s*$/i;
 function dimensionTextAnchors(items){
@@ -43,7 +51,7 @@ function findBoothFrontClosures(items,names,hidden){
   // are collinear with their wall and therefore do not satisfy this geometry.
   const raw=[];
   for(const it of items){
-    if(it.hatchBoundary||it.kind!=="line"||!names.has(it.layer)||hidden.has(it.layer)||!Array.isArray(it.pts))continue;
+    if(it.hatchBoundary||isDimensionGraphicItem(it)||it.kind!=="line"||!names.has(it.layer)||hidden.has(it.layer)||!Array.isArray(it.pts))continue;
     for(let k=0;k+3<it.pts.length;k+=2){
       const x1=it.pts[k],y1=it.pts[k+1],x2=it.pts[k+2],y2=it.pts[k+3],dx=x2-x1,dy=y2-y1,len=Math.hypot(dx,dy);
       if(len>1)raw.push({it,x1,y1,x2,y2,dx:dx/len,dy:dy/len,len});
@@ -169,7 +177,7 @@ function isWallLikeFill(pts,cw,ch){
   return ratio>=3.5&&major*2>=Math.max(cw,ch)*12;
 }
 function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
-  const wall=new Uint8Array(nx*ny); let usedItems=0,usedSegments=0,skippedHidden=0,skippedDimensionSegments=0,skippedNonWallFills=0,snappedTJunctions=0; const endpoints=[]; const doorEndpoints=[]; const geometrySegments=[]; const dimAnchors=dimensionTextAnchors(items);
+  const wall=new Uint8Array(nx*ny); let usedItems=0,usedSegments=0,skippedHidden=0,skippedDimensionItems=0,skippedDimensionSegments=0,skippedNonWallFills=0,snappedTJunctions=0; const endpoints=[]; const doorEndpoints=[]; const geometrySegments=[]; const dimAnchors=dimensionTextAnchors(items);
   const mark=(x,y)=>{
     const ix=Math.round(x/cw),iy=Math.round(y/ch);
     // 8-neighbour raster stroke reduces diagonal leaks.
@@ -195,6 +203,7 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
   for(const it of items){
     if(it.hatchBoundary||!names.has(it.layer))continue;
     if(hidden.has(it.layer)){skippedHidden++;continue;}
+    if(isDimensionGraphicItem(it)){skippedDimensionItems++;continue;}
     if(it.kind==="line"&&Array.isArray(it.pts)&&it.pts.length>=4){
       usedItems++;
       const segments=[];
@@ -312,7 +321,7 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
     }
     const key=bx+":"+by;if(!bins.has(key))bins.set(key,[]);bins.get(key).push([x,y]);
   }
-  return {wall,usedItems,usedSegments,skippedHidden,skippedDimensionSegments,skippedNonWallFills,endpointCount:endpoints.length,bridgedDoorGaps,snappedTJunctions};
+  return {wall,usedItems,usedSegments,skippedHidden,skippedDimensionItems,skippedDimensionSegments,skippedNonWallFills,endpointCount:endpoints.length,bridgedDoorGaps,snappedTJunctions};
 }
 function floodRegions(wall,nx,ny){
   const N=nx*ny,seen=new Uint8Array(N),queue=new Int32Array(N),regionAt=new Int32Array(N),regions=[];regionAt.fill(-1);let rid=0;
@@ -462,6 +471,6 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
     rooms:displayRooms.map((r,i)=>({...r,id:i,drawingAreaCm2:r.area*cw*ch/100})),
     parents:parentRooms.map(p=>({...p,children:p.children.map(c=>c.name)})),
     grid:{ids,nx,ny,cw,ch},
-    diagnostics:{selectedLayers:selected.size,supplementalLayers:supplemental.size,autoMode:classified.mode+(fallbackUsed?" → 全図形レイヤー再判定":""),fallbackUsed,parentLayerNames:[...selected],wallLayerNames:[...allNames],layerInventory,parentRegions:parents.inner.length,childRegions:children.inner.length,parentsKept:parentRooms.length,childrenKept:childRooms.length,unassignedChildren,minParentCells:parents.minCells,minChildCells:children.minCells,minChildSpanCells:children.minSpanCells,minParentSpanCells:parents.minSpanCells,usedItems:childTrace.usedItems,usedSegments:childTrace.usedSegments,skippedHidden:childTrace.skippedHidden,skippedDimensionSegments:childTrace.skippedDimensionSegments,skippedNonWallFills:childTrace.skippedNonWallFills,bridgedDoorGaps:childTrace.bridgedDoorGaps,snappedTJunctions:childTrace.snappedTJunctions,virtualBoothClosures:boothClosures.length,endpointCount:childTrace.endpointCount}
+    diagnostics:{selectedLayers:selected.size,supplementalLayers:supplemental.size,autoMode:classified.mode+(fallbackUsed?" → 全図形レイヤー再判定":""),fallbackUsed,parentLayerNames:[...selected],wallLayerNames:[...allNames],layerInventory,parentRegions:parents.inner.length,childRegions:children.inner.length,parentsKept:parentRooms.length,childrenKept:childRooms.length,unassignedChildren,minParentCells:parents.minCells,minChildCells:children.minCells,minChildSpanCells:children.minSpanCells,minParentSpanCells:parents.minSpanCells,usedItems:childTrace.usedItems,usedSegments:childTrace.usedSegments,skippedHidden:childTrace.skippedHidden,skippedDimensionItems:childTrace.skippedDimensionItems,skippedDimensionSegments:childTrace.skippedDimensionSegments,skippedNonWallFills:childTrace.skippedNonWallFills,bridgedDoorGaps:childTrace.bridgedDoorGaps,snappedTJunctions:childTrace.snappedTJunctions,virtualBoothClosures:boothClosures.length,endpointCount:childTrace.endpointCount}
   };
 }
