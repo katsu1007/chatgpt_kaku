@@ -41,7 +41,7 @@ function makeR2000File(entity){
  const crcOffset=0x19+27;view.setUint16(crcOffset,(dwgR13Crc16(file.subarray(0,crcOffset))^0xa598)&0xffff,true);file.set(END,crcOffset+2);
  file.set(map,0x80);file.set(entity,0x100);return file;
 }
-test("decodes R2000 common entity data, CMC color and LINE geometry",()=>{
+test("decodes R2000 common entity data, CMC color and LINE geometry",()=>{\n // This fixture pins the R2000 common-data cursor before LINE geometry.
  const r=parseR2000EntityRecord(lineRecord());
  assert.equal(r.typeName,"LINE");assert.equal(r.selfHandle,5n);assert.equal(r.noLinks,true);
  assert.equal(r.color.aci,7);assert.equal(r.layerHandle,200n);assert.equal(r.ownerHandle,100n);
