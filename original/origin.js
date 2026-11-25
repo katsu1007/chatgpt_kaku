@@ -1,4 +1,4 @@
-import { extractRoomHierarchy, suggestWallLayers } from "./room-engine.js?v=20261124-wall-layer-safe1";
+import { extractRoomHierarchy, suggestWallLayers } from "./room-engine.js?v=20261125-provenance1";
 import { makeDrawingChoices, sliceSheetForFrame } from "./drawing-split.js?v=20261124-split2";
 let openCad,prepare,toSvg,findFrames;
 let cadImportPromise;
