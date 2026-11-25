@@ -225,3 +225,12 @@ test("reads MLINE style handle and derives two wall boundaries from style offset
  assert.deepEqual(result.entities[0].geometry.boundaries[0].vertices,[{x:0,y:-0.5,z:0},{x:100,y:-0.5,z:0}]);
  assert.deepEqual(result.entities[0].geometry.boundaries[1].vertices,[{x:0,y:0.5,z:0},{x:100,y:0.5,z:0}]);
 });
+
+test("applies MLINE top and bottom justification to style offsets",()=>{
+ const entity={selfHandle:1n,geometry:{kind:"mline",scale:1,justification:0,vertices:[{point:[0,0,0],miter:[0,1,0]},{point:[100,0,0],miter:[0,1,0]}]},mlineStyleHandle:{value:300n}};
+ const style={handle:300n,name:"WALL",elements:[{offset:-0.5},{offset:0.5}]};
+ const top=resolveR2004MLineStyles([entity],{byHandle:new Map([["300",style]])}).entities[0].geometry.boundaries;
+ assert.equal(top[0].offset,-1);assert.equal(top[1].offset,0);
+ const bottom=resolveR2004MLineStyles([{...entity,geometry:{...entity.geometry,justification:2}}],{byHandle:new Map([["300",style]])}).entities[0].geometry.boundaries;
+ assert.equal(bottom[0].offset,0);assert.equal(bottom[1].offset,1);
+});
