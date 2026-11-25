@@ -153,7 +153,7 @@ export function buildPlanarGraph(inputSegments = [], options = {}) {
     if(reverseIndex<0||!at.outgoing.length)continue;
     h.next=at.outgoing[(reverseIndex-1+at.outgoing.length)%at.outgoing.length];
   }
-  const visited=new Uint8Array(halfEdges.length),faces=[];
+  const visited=new Uint8Array(halfEdges.length),faces=[];\n  const edgeById=new Map([...edgeMap.values()].map(edge=>[edge.id,edge]));
   for(const start of halfEdges){
     if(visited[start.id]||start.next<0)continue;
     const ring=[],edgeIds=[];let current=start.id,guard=0;
@@ -169,7 +169,7 @@ export function buildPlanarGraph(inputSegments = [], options = {}) {
       const uniqueEdgeIds=[...new Set(edgeIds)];
       const sourceRecords=new Map();
       for(const edgeId of uniqueEdgeIds){
-        const edge=[...edgeMap.values()].find(item=>item.id===edgeId);
+        const edge=edgeById.get(edgeId);
         for(const record of edge?.sourceRecords||[])sourceRecords.set(JSON.stringify(record),record);
       }
       faces.push({id:faces.length,area,points:ring.map(p=>({x:p.x,y:p.y})),edgeIds:uniqueEdgeIds,sourceRecords:[...sourceRecords.values()]});
