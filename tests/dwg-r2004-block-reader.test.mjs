@@ -6,7 +6,7 @@ const pack=a=>{const out=new Uint8Array(Math.ceil(a.length/8));a.forEach((v,i)=>
 const bs=v=>v===0?[1,0]:[0,1,...bits(v)];
 const bl=v=>v===0?[1,0]:[0,1,...bits(v)];
 const tv=s=>[...bs(s.length),...bytesBits([...s].map(c=>c.charCodeAt(0)))];
-const handle=v=>[...bits(0,4),...bits(v===0?0:1,4),...(v===0?[]:bits(v))];
+const handle=v=>{if(v===0)return [...bits(0,4),...bits(0,4)];const a=[];let n=v;while(n>0){a.unshift(n&255);n=Math.floor(n/256);}return [...bits(0,4),...bits(a.length,4),...bytesBits(a)];};
 function blockRecord({handleValue=300,name="CHAIR",owned=[501,502],insert=[600],base=[0,0,0]}={}){
  const baseBits=[0,1,...bits(49),...bytesBits([0,0,0,0]),...handle(handleValue),...bs(0),...bl(0),1,...tv(name),
   0,...bs(0),0,0,0,0,0,...bl(owned.length),...base.flatMap(v=>v===0?[1,0]:[0,0,...bytesBits(new Uint8Array(new Float64Array([v]).buffer))]),
