@@ -83,8 +83,8 @@ test("decodes a HATCH edge loop with a circular arc and boundary references",()=
   ...bl(0),...bl(0),...bd(0),...bd(0),...bl(0),...bd(0),...bl(0),...tv(""),
   ...bd(0),...bd(0),...bd(0),...bd(1),...tv("PATTERN"),0,1,...bl(1),
   ...bl(1),...bl(2),
-  1,...rd2(0,0),...rd2(100,0),
-  2,...rd2(100,50),...bd(50),...bd(0),...bd(Math.PI),1,
+  ...bits(1),...rd2(0,0),...rd2(100,0),
+  ...bits(2),...rd2(100,50),...bd(50),...bd(0),...bd(Math.PI),1,
   ...bl(2),...bs(0),...bs(0),...bd(0),...bd(1),0,...bs(0),...bl(0),...bl(0)
  ]);
  const r=decodeR2004Geometry(78,input);
