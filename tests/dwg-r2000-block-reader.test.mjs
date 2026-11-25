@@ -32,12 +32,12 @@ test("decodes R2000 BLOCK_HEADER fields and first/last entity references",()=>{
  assert.equal(r.ownedHandles.length,0);assert.equal(r.flags.loaded,true);
 });
 test("indexes R2000 block headers and assembles owned entities from owner and first/last handles",()=>{
- const a=blockRecord({handleValue:300,name:"CHAIR"}),b=blockRecord({handleValue:301,name:"TABLE",first:601,last:601,insert:[]}),other=otherRecord();
+ const a=blockRecord({handleValue:300,name:"CHAIR",first:501,last:501}),b=blockRecord({handleValue:301,name:"TABLE",blockEntity:302,first:502,last:502,insert:[]}),other=otherRecord();
  const section=new Uint8Array(a.length+b.length+other.length);section.set(a);section.set(b,a.length);section.set(other,a.length+b.length);
  const map={entries:[{handle:300n,offset:0n},{handle:301n,offset:BigInt(a.length)},{handle:999n,offset:BigInt(a.length+b.length)}]};
  const blocks=readR2000BlockHeaders(section,map);assert.equal(blocks.blocks.length,2);assert.equal(blocks.byName.get("TABLE").firstEntity.value,601n);
  const assembled=assembleR2000BlockDefinitions(blocks,[
-  {selfHandle:501n,ownerHandle:300n},{selfHandle:502n,ownerHandle:301n},{selfHandle:503n,ownerHandle:300n}
+  {selfHandle:501n,ownerHandle:300n},{selfHandle:502n,ownerHandle:302n},{selfHandle:503n,ownerHandle:300n}
  ]);
  assert.deepEqual(assembled.byName.get("CHAIR").ownedHandles.map(x=>x.value),[501n]);
  assert.deepEqual(assembled.byName.get("TABLE").ownedHandles.map(x=>x.value),[502n]);
