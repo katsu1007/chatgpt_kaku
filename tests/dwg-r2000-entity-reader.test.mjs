@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { dwgR13Crc16, parseR13R15DwgHeader } from "../original/dwg-r13-container.js";
 import { parseR2000EntityRecord, readR2000DrawingEntities } from "../original/dwg-r2000-entity-reader.js";
+import { R2000_HEADER_FIELDS } from "../original/dwg-r2000-header-vars.js";
 import { DwgBitReader } from "../original/dwg-bitstream.js";
 import { decodeR2004LineGeometry } from "../original/dwg-r2004-geometry.js";
 const bits=(v,n=8)=>Array.from({length:n},(_,i)=>(v>>(n-1-i))&1);
@@ -101,6 +102,38 @@ function makeR2000FileWithObjects(records){
  const crcOffset=0x19+27;view.setUint16(crcOffset,(dwgR13Crc16(file.subarray(0,crcOffset))^0xa598)&0xffff,true);file.set(END,crcOffset+2);
  file.set(map,0x80);for(const item of placed)file.set(item.bytes,item.offset);return file;
 }
+
+function makeHeaderVars(insunits=4){
+ const data=[];
+ for(const field of R2000_HEADER_FIELDS){
+  if(field.name==="INSUNITS"){data.push(...bs(insunits));continue;}
+  if(field.name==="CEPSNTYPE"||field.name==="HEADER_FLAGS"){data.push(...bs(0));continue;}
+  switch(field.type){
+   case "B":data.push(0);break;
+   case "BS":case "BL":case "BD":case "TV":case "CMC":data.push(1,0);break;
+   case "H":data.push(...bits(0,8));break;
+   case "3BD":data.push(1,0,1,0,1,0);break;
+   case "2RD":data.push(...new Array(16).fill(0).flatMap(()=>bits(0)));break;
+   case "RC":data.push(...bits(0));break;
+   case "RS":data.push(...bytesBits([0,0]));break;
+   default:throw new Error("Unknown header fixture field "+field.type);
+  }
+ }
+ const dataBytes=pack(data),sectionSize=dataBytes.length,file=new Uint8Array(20+sectionSize+18);
+ file.set([0xcf,0x7b,0x1f,0x23,0xfd,0xde,0x38,0xa9,0x5f,0x7c,0x68,0xb8,0x4e,0x6d,0x33,0x5f]);
+ new DataView(file.buffer).setUint32(16,sectionSize,true);file.set(dataBytes,20);
+ new DataView(file.buffer).setUint16(20+sectionSize,0x1234,true);
+ file.set([0x30,0x84,0xe0,0xdc,0x02,0x21,0xc7,0x56,0xa0,0x83,0x97,0x47,0xb1,0x92,0xcc,0xa0],22+sectionSize);return file;
+}
+function makeR2000FileWithHeaderVars(entity){
+ const headerVars=makeHeaderVars(4),map=mapBytes([[5,0x200]]),file=new Uint8Array(0x400),view=new DataView(file.buffer);
+ for(let i=0;i<6;i++)file[i]="AC1015".charCodeAt(i);
+ put32(view,0x0d,0x100);view.setUint16(0x13,932,true);put32(view,0x15,3);
+ const locators=[[0,0x50,headerVars.length],[1,0x140,16],[2,0x180,map.length]];
+ for(let i=0;i<3;i++){const [id,at,size]=locators[i],p=0x19+i*9;file[p]=id;put32(view,p+1,at);put32(view,p+5,size);}
+ const crcOffset=0x19+27;view.setUint16(crcOffset,(dwgR13Crc16(file.subarray(0,crcOffset))^0xa598)&0xffff,true);file.set(END,crcOffset+2);
+ file.set(headerVars,0x50);file.set(map,0x180);file.set(entity,0x200);return file;
+}
 test("decodes R2000 common entity data, CMC color and LINE geometry",()=>{
  const r=parseR2000EntityRecord(lineRecord());assert.ok(r);
  assert.equal(r.typeName,"LINE");assert.equal(r.selfHandle,5n);assert.equal(r.noLinks,true);
@@ -159,4 +192,10 @@ test("expands an R2000 model-space INSERT through BLOCK_HEADER ownership",()=>{
  assert.equal(result.entities.length,1);assert.deepEqual(result.entities[0].geometry.pts,[100,200,150,200]);
  assert.equal(result.entities[0].sourceInsertHandle,500n);assert.deepEqual(result.entities[0].blockPath,["SYMBOL"]);
  assert.equal(result.entities[0].layerName,"A-WALL");
+});
+
+test("returns validated R2000 INSUNITS alongside decoded entities",()=>{
+ const file=makeR2000FileWithHeaderVars(lineRecord()),result=readR2000DrawingEntities(file,parseR13R15DwgHeader(file));
+ assert.equal(result.headerVariables.endingSentinelValid,true);assert.equal(result.units.known,true);
+ assert.equal(result.units.code,4);assert.equal(result.units.scaleToMm,1);assert.equal(result.headerWarning,null);
 });

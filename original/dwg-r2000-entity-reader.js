@@ -7,6 +7,7 @@ import { decodeR2004Geometry } from "./dwg-r2004-geometry.js";
 import { readR13R15ObjectMap } from "./dwg-r13-container.js";
 import { readR2000LayerRecords, resolveR2000EntityLayers } from "./dwg-r2000-layer-reader.js?v=20261125-codepage1";
 import { readR2000BlockHeaders, assembleR2000BlockDefinitions } from "./dwg-r2000-block-reader.js?v=20261125-r2000-block1";
+import { parseR2000HeaderVariables } from "./dwg-r2000-header-vars.js?v=20261125-header-vars1";
 import { expandR2004BlockReferences } from "./dwg-r2004-block-expand.js?v=20261125-blockexpand1";
 const SUPPORTED=new Set([1,7,8,17,18,19,20,21,22,23,24,25,26,27,31,35,36,44,77]);
 function bitDoubleDefault(reader,defaultValue){return reader.readBitDoubleWithDefault(defaultValue);}
@@ -86,11 +87,14 @@ export function readR2000EntityRecords(input,objectMap,{maxObjects=2000000,...op
 }
 export function readR2000DrawingEntities(input,header,options={}){
  const bytes=input instanceof Uint8Array?input:new Uint8Array(input||0),objectMap=readR13R15ObjectMap(bytes,header,options.objectMap);
- const encoding=options.textEncoding||dwgTextEncoding(header.fileHeader?.codePage);
+ const encoding=options.textEncoding||dwgTextEncoding(header.fileHeader?.codePage),headerSection=header.sections?.[0];
+ let headerVariables=null,units={code:null,name:"unknown",scaleToMm:null,known:false},headerWarning=null;
+ if(headerSection){try{headerVariables=parseR2000HeaderVariables(bytes.subarray(headerSection.offset,headerSection.offset+headerSection.size));units=headerVariables.units;if(!units.known)headerWarning="DWGのINSUNITSを確定できません。図面単位を確認するまで数量換算は行いません。";}
+  catch(error){headerWarning="DWGヘッダー変数を解析できません："+error.message;}}
  const entities=readR2000EntityRecords(bytes,objectMap,{...options,textEncoding:encoding});
  const layers=readR2000LayerRecords(bytes,objectMap,{textEncoding:encoding}),blocks=readR2000BlockHeaders(bytes,objectMap,{textEncoding:encoding});
  const blockDefinitions=assembleR2000BlockDefinitions(blocks,entities.records),expanded=expandR2004BlockReferences(entities.records,blockDefinitions.blocks,options.blockExpansion);
  const resolved=resolveR2000EntityLayers(expanded.entities,layers);
- return {...entities,entities:resolved.entities,layers:layers.layers,blocks:blockDefinitions.blocks,blockExpansion:expanded.diagnostics,objectMap,version:header.version,versionCode:header.versionCode,codePage:header.fileHeader?.codePage,textEncoding:encoding,
-  layerDiagnostics:layers.diagnostics,blockDiagnostics:blockDefinitions.diagnostics,diagnostics:{...entities.diagnostics,...layers.diagnostics,...resolved.diagnostics,...blockDefinitions.diagnostics,...expanded.diagnostics,objectMapEntries:objectMap.entries.length,formatFamily:"R2000-flat"}};
+ return {...entities,entities:resolved.entities,layers:layers.layers,blocks:blockDefinitions.blocks,blockExpansion:expanded.diagnostics,objectMap,headerVariables,units,headerWarning,version:header.version,versionCode:header.versionCode,codePage:header.fileHeader?.codePage,textEncoding:encoding,
+  layerDiagnostics:layers.diagnostics,blockDiagnostics:blockDefinitions.diagnostics,diagnostics:{...entities.diagnostics,...layers.diagnostics,...resolved.diagnostics,...blockDefinitions.diagnostics,...expanded.diagnostics,headerVariablesParsed:!!headerVariables,unitsKnown:units.known,objectMapEntries:objectMap.entries.length,formatFamily:"R2000-flat"}};
 }
