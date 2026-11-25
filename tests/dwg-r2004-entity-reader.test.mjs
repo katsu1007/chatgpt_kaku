@@ -58,7 +58,7 @@ test("skips non-entity objects in AcDb:AcDbObjects without treating them as enti
 });
 
 function insertRecord({handle=600,owner=100,layer=200,block=300}={}){
- const geometry=[1,0,1,0,1,0,1,1,1,0,0,1,0];
+ const geometry=[1,0,1,0,1,0,1,1,1,0,1,0,1,0];
  const base=[0,1,...bits(7),...bytesBits([0,0,0,0]),...handleBits(handle),
   ...bs(0),0,0,1,0,1,1,0,1,...bits(7),0,1,0,0,0,0,1,0,...bits(0),...geometry];
  const handleStart=16+base.length,rl=[handleStart&255,(handleStart>>>8)&255,(handleStart>>>16)&255,(handleStart>>>24)&255];
