@@ -7,6 +7,7 @@ import { decodeR2004LineGeometry } from "../original/dwg-r2004-geometry.js";
 const bits=(v,n=8)=>Array.from({length:n},(_,i)=>(v>>(n-1-i))&1);
 const bytesBits=a=>a.flatMap(v=>bits(v));
 const bs=v=>v===0?[1,0]:[0,1,...bits(v)];
+const bl=v=>v===0?[1,0]:[0,1,...bits(v)];
 const tv=s=>[...bs(s.length),...bytesBits([...s].map(c=>c.charCodeAt(0)))];
 const raw=v=>{const b=new Uint8Array(8);new DataView(b.buffer).setFloat64(0,v,true);return bytesBits([...b]);};
 const pack=a=>{const out=new Uint8Array(Math.ceil(a.length/8));a.forEach((v,i)=>{if(v)out[i>>3]|=1<<(7-(i&7));});return out;};
@@ -86,7 +87,7 @@ function blockRecord({handleValue=300,name="*MODEL_SPACE",first=500,last=500,blo
   ...tv(""),...insert.flatMap(()=>bits(1)),...bits(0),...tv("Block description"),...bl(0)];
  const handleStart=16+baseBits.length,rl=[handleStart&255,(handleStart>>>8)&255,(handleStart>>>16)&255,(handleStart>>>24)&255];
  baseBits.splice(10,32,...bytesBits(rl));
- const refs=[...handleBits(90),...handleBits(0),...handleBits(0),...handleBits(0),...handleBits(blockEntity),...handleBits(first),...handleBits(last),...handleBits(blockEntity+1),...insert.flatMap(handleBits),...handleBits(blockEntity+2)];
+ const refs=[...handleBits(90),...handleBits(0),...handleBits(0),...handleBits(blockEntity),...handleBits(first),...handleBits(last),...handleBits(blockEntity+1),...insert.flatMap(handleBits),...handleBits(blockEntity+2)];
  const body=pack([...baseBits,...refs]),out=new Uint8Array(2+body.length+2);out[0]=body.length&255;out[1]=body.length>>8;out.set(body,2);out.set([0x12,0x34],out.length-2);return out;
 }
 function makeR2000FileWithObjects(records){
