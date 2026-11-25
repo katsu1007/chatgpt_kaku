@@ -59,11 +59,12 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
   else if(item.kind==="point"){item.x-=minX;item.y-=minY;}
  }
  const unsupported=entities.length-convertedEntities;
- const warnings=["DWG R2004の試験読込です。",units.known?"INSUNITS："+units.name+"。座標をmmへ換算しました。":"INSUNITS（図面単位）を確定できないため、座標はDWG元単位のままです。mm換算・面積・概算数量の計算は行いません。","現時点で変換できる図形はLINE・ARC・CIRCLE・LWPOLYLINE・POINT・SOLIDです。INSERT/ブロック変換、寸法、文字、HATCH等は未対応です。"];
+ const warnings=["DWG R2004の試験読込です。",units.known?"INSUNITS："+units.name+"。座標をmmへ換算しました。":"INSUNITS（図面単位）を確定できないため、座標はDWG元単位のままです。mm換算・面積・概算数量の計算は行いません。","現時点で変換できる図形はLINE・ARC・CIRCLE・LWPOLYLINE・POINT・SOLIDと、対応図形を含むINSERT/MINSERTブロックです。寸法・文字・HATCH等は未対応。"];
  if(unsupported)warnings.push("未変換オブジェクト："+unsupported+"件");
  if(result?.diagnostics?.unresolvedLayerCount)warnings.push("レイヤー名未解決："+result.diagnostics.unresolvedLayerCount+"件");
  if(result?.headerWarning)warnings.push(result.headerWarning);
- if(result?.blockExpansion?.reason)warnings.push("DWGブロック展開保留："+result.blockExpansion.reason);\n if(result?.blockExpansion?.skippedGeometry)warnings.push("ブロック変換できない図形："+result.blockExpansion.skippedGeometry+"件");
+ if(result?.blockExpansion?.reason)warnings.push("DWGブロック展開保留："+result.blockExpansion.reason);
+ if(result?.blockExpansion?.skippedGeometry)warnings.push("ブロック変換できない図形："+result.blockExpansion.skippedGeometry+"件");
  if(result?.blockExpansion?.unresolvedBlockReferences)warnings.push("参照先ブロック未解決："+result.blockExpansion.unresolvedBlockReferences+"件");
  if(result?.blockExpansion?.limitReached)warnings.push("安全上限に達したためブロック展開を途中で停止しました。");
  const sheet={name:fileName,items:mapped,size:{w:Math.max(1,maxX-minX),h:Math.max(1,maxY-minY)},origin,nativeOrigin:{x:minX/scale,y:minY/scale},warnings,coordinateSpace:units.known?"sheet-mm":"dwg-native"};
