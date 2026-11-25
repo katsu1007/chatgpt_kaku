@@ -67,3 +67,17 @@ test("does not guess geometry for tilted LWPOLYLINE extrusion planes",()=>{
   {x:0,y:0,z:0},{x:10,y:0,z:0}
  ],bulges:[0,0],extrusion:[1,0,0]})],layers:[]}),/表示可能/);
 });
+
+test("renders transformed block line, arc and point primitives with source references",()=>{
+ const drawing=createR2004DwgDrawing({units:{known:true,code:4,name:"millimeters",scaleToMm:1},entities:[
+  {...entity("A-WALL",200n,{kind:"line",pts:[100,200,150,200]}, "B1"),blockPath:["DOOR"],sourceInsertHandle:10n,sourceEntityHandle:20n},
+  {...entity("A-FURN",201n,{kind:"arc",cx:150,cy:250,r:10,a0:0,a1:Math.PI}),blockPath:["CHAIR"],sourceInsertHandle:11n},
+  {...entity("A-FURN",201n,{kind:"point",x:180,y:220,z:0}),blockPath:["CHAIR"],sourceInsertHandle:11n}
+ ],layers:[]});
+ const items=drawing.sheets[0].items;
+ assert.deepEqual(items[0].pts,[0,0,50,0]);
+ assert.equal(items[0].sourceInsertHandle,"10");assert.equal(items[0].sourceEntityHandle,"20");
+ assert.deepEqual(items[0].blockPath,["DOOR"]);
+ assert.equal(items[1].kind,"arc");assert.equal(items[1].cx,50);assert.equal(items[1].cy,50);
+ assert.equal(items[2].kind,"point");assert.equal(items[2].x,80);assert.equal(items[2].y,20);
+});
