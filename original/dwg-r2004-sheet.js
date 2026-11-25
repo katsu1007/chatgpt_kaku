@@ -4,11 +4,49 @@ import { polylineToSheetItems } from "./dwg-polyline.js";
 function rgbHex(value){
  const n=Number(value??0x808080)>>>0;return "#"+(n&0xffffff).toString(16).padStart(6,"0");
 }
+function point3(value){return Array.isArray(value)?{x:value[0],y:value[1],z:value[2]||0}:value;}
+function sampleEllipse(g){
+ const c=point3(g.center),a=point3(g.majorAxis),ratio=Number(g.axisRatio);
+ if(!c||!a||!Number.isFinite(ratio)||ratio<=0||Math.abs(a.z||0)>1e-7||Math.abs((g.extrusion||[0,0,1])[0])>1e-7||Math.abs((g.extrusion||[0,0,1])[1])>1e-7)return [];
+ let start=g.startParameter||0,end=g.endParameter??Math.PI*2;
+ while(end<=start)end+=Math.PI*2;
+ const sweep=end-start,closed=Math.abs(sweep-Math.PI*2)<1e-6,steps=Math.max(2,Math.ceil(sweep/(Math.PI/24))),minor={x:-a.y*ratio,y:a.x*ratio};
+ const vertices=[];
+ for(let i=0;i<(closed?steps:steps+1);i++){const t=start+sweep*i/steps,co=Math.cos(t),si=Math.sin(t);vertices.push({x:c.x+a.x*co+minor.x*si,y:c.y+a.y*co+minor.y*si,z:c.z||0});}
+ return {vertices,closed};
+}
+function sampleSpline(g){
+ if(g.scenario===2){
+  const p=(g.fitPoints||[]).map(point3);if(p.length<2)return [];
+  if(p.length===2)return {vertices:p,closed:false};
+  const out=[],steps=8;
+  for(let i=0;i<p.length-1;i++){
+   const p0=p[Math.max(0,i-1)],p1=p[i],p2=p[i+1],p3=p[Math.min(p.length-1,i+2)];
+   for(let j=0;j<steps;j++){const t=j/steps,t2=t*t,t3=t2*t;const calc=k=>0.5*((2*p1[k])+(-p0[k]+p2[k])*t+(2*p0[k]-5*p1[k]+4*p2[k]-p3[k])*t2+(-p0[k]+3*p1[k]-3*p2[k]+p3[k])*t3);out.push({x:calc("x"),y:calc("y"),z:calc("z")});}
+  }
+  out.push(p[p.length-1]);return {vertices:out,closed:false};
+ }
+ const cp=(g.controlPoints||[]).map(point3),u=g.knots||[],p=Number(g.degree),n=cp.length-1;
+ if(cp.length<p+1||u.length<n+p+2||p<1)return [];
+ const weights=g.weightsPresent?(g.weights||[]):[],start=u[p],end=u[n+1];
+ if(!(end>start))return [];
+ const evaluate=t=>{
+  let k=n;if(t<end){k=p;while(k<n&&!(t>=u[k]&&t<u[k+1]))k++;}
+  const d=[];
+  for(let j=0;j<=p;j++){const q=cp[k-p+j],w=weights[k-p+j]??1;d[j]=[q.x*w,q.y*w,(q.z||0)*w,w];}
+  for(let r=1;r<=p;r++)for(let j=p;j>=r;j--){const i=k-p+j,den=u[i+p-r+1]-u[i],alpha=den===0?0:(t-u[i])/den;for(let z=0;z<4;z++)d[j][z]=(1-alpha)*d[j-1][z]+alpha*d[j][z];}
+  const w=d[p][3];return w?{x:d[p][0]/w,y:d[p][1]/w,z:d[p][2]/w}:{x:0,y:0,z:0};
+ };
+ const steps=Math.max(24,Math.min(256,cp.length*12)),vertices=[];
+ for(let i=0;i<=steps;i++)vertices.push(evaluate(start+(end-start)*i/steps));
+ if(g.closed&&vertices.length>2)vertices.pop();
+ return {vertices,closed:!!g.closed};
+}
 export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
  const units=result?.units||{known:false,name:"unknown",scaleToMm:null},scale=units.known?units.scaleToMm:1;
  const entities=result?.entities||[],layers=(result?.layers||[]).map(layer=>({name:layer.name,color:rgbHex(layer.color?.rgb),visible:!!layer.flags?.on&&!layer.flags?.frozen,items:0,actualItems:0,dwgHandle:layer.handle}));
  const layerMap=new Map(layers.map(layer=>[layer.name,layer]));
- const mapped=[];let convertedEntities=0,polylineEntities=0,hatchEntities=0,hatchSegments=0,unsupportedHatchEdges=0,textEntities=0,dimensionEntities=0,attributeEntities=0;
+ const mapped=[];let convertedEntities=0,polylineEntities=0,hatchEntities=0,hatchSegments=0,unsupportedHatchEdges=0,textEntities=0,dimensionEntities=0,attributeEntities=0,ellipseEntities=0,splineEntities=0,curveSegments=0,unsupportedCurves=0;
  const add=(entity,geometry,item)=>{
   const layerName=entity.layerName||"DWG:UNRESOLVED:"+String(entity.layerHandle??"0");
   if(!layerMap.has(layerName)){const layer={name:layerName,color:"#808080",visible:true,items:0,actualItems:0,unresolved:true};layers.push(layer);layerMap.set(layerName,layer);}
@@ -19,6 +57,19 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
  for(const entity of entities){
   const g=entity.geometry;if(!g||g.kind==="unsupported")continue;
   const before=mapped.length;
+  if(g.kind==="ellipse"||g.kind==="spline"){
+   const sampled=g.kind==="ellipse"?sampleEllipse(g):sampleSpline(g);
+   if(!sampled||!sampled.vertices||sampled.vertices.length<2)unsupportedCurves++;
+   else{
+    const segments=polylineToSheetItems({kind:"polyline",vertices:sampled.vertices,bulges:sampled.vertices.map(()=>0),closed:sampled.closed},{layer:entity.layerName,handle:entity.handleHex,sourceFormat:"DWG-R2004"});
+    for(const segment of segments){
+     if(segment.kind==="line")add(entity,g,{...segment,pts:segment.pts.map(v=>v*scale),z0:(segment.z0||0)*scale,z1:(segment.z1||0)*scale,curveApproximation:g.kind,curveClosed:sampled.closed});
+     else add(entity,g,{...segment,cx:segment.cx*scale,cy:segment.cy*scale,r:segment.r*scale,curveApproximation:g.kind});
+     curveSegments++;
+    }
+    if(g.kind==="ellipse")ellipseEntities++;else splineEntities++;
+   }
+  }
   if(g.kind==="attrib"){
    add(entity,g,{kind:"text",x:g.insertion.x*scale,y:g.insertion.y*scale,z:g.insertion.z*scale,text:g.text,rotation:g.rotation,height:g.height*scale,widthFactor:g.widthFactor,
     attribute:true,attributeTag:g.tag,attributeFlags:g.attributeFlags,attributeInvisible:g.invisible,attributeConstant:g.constant,styleHandle:entity.styleHandle?String(entity.styleHandle.value):null});
@@ -118,7 +169,9 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
  if(textEntities)warnings.push("TEXT/MTEXTの文字情報は読み込みました。文字の描画・フォント置換は表示側の対応に依存します。");
  if(dimensionEntities)warnings.push("DIMENSIONの計測値・文字位置を読み込みました。寸法線・矢印の描画は未対応です。");
  if(attributeEntities)warnings.push("INSERTの属性値（ATTRIB）を読み込みました。");
+ if(ellipseEntities||splineEntities)warnings.push("ELLIPSE/SPLINEは線分近似で取り込みました。曲線の近似誤差に注意してください。");
+ if(unsupportedCurves)warnings.push("平面外・不正データ等で近似できない曲線："+unsupportedCurves+"件");
  if(unsupportedHatchEdges)warnings.push("未描画のHATCH楕円・スプライン境界："+unsupportedHatchEdges+"件");
  const sheet={name:fileName,items:mapped,size:{w:Math.max(1,maxX-minX),h:Math.max(1,maxY-minY)},origin,nativeOrigin:{x:minX/scale,y:minY/scale},warnings,coordinateSpace:units.known?"sheet-mm":"dwg-native"};
- return {kind:"2d",sheets:[sheet],layers,meta:{format:"DWG",label:"DWG R2004（試験読込）",units:units.known?"mm":"unknown",coordinateSpace:units.known?"sheet-mm":"dwg-native",unitInfo:units,info:{items:mapped.length,figures:convertedEntities,polylines:polylineEntities,hatches:hatchEntities,hatchBoundarySegments:hatchSegments,textEntities,dimensionEntities,attributeEntities,codePage:result?.codePage??null,textEncoding:result?.textEncoding??"windows-1252",version:"R2004",layers:layers.length,units:units.name,scaleToMm:scale,headerWarning:result?.headerWarning||null,unsupported,skippedObjects:result?.diagnostics?.skippedObjectCount??0},warnings}};
+ return {kind:"2d",sheets:[sheet],layers,meta:{format:"DWG",label:"DWG R2004（試験読込）",units:units.known?"mm":"unknown",coordinateSpace:units.known?"sheet-mm":"dwg-native",unitInfo:units,info:{items:mapped.length,figures:convertedEntities,polylines:polylineEntities,hatches:hatchEntities,hatchBoundarySegments:hatchSegments,textEntities,dimensionEntities,attributeEntities,ellipseEntities,splineEntities,curveSegments,unsupportedCurves,codePage:result?.codePage??null,textEncoding:result?.textEncoding??"windows-1252",version:"R2004",layers:layers.length,units:units.name,scaleToMm:scale,headerWarning:result?.headerWarning||null,unsupported,skippedObjects:result?.diagnostics?.skippedObjectCount??0},warnings}};
 }

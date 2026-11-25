@@ -167,3 +167,24 @@ test("decodes ATTRIB and ATTDEF tags, flags and prompts",()=>{
  const d=decodeR2004Geometry(3,pack([...text,...tv("Room name")]));
  assert.equal(d.kind,"attdef");assert.equal(d.prompt,"Room name");assert.equal(d.tag,"ROOM_NAME");
 });
+
+test("decodes R2004 ELLIPSE center, major axis and parameter range",()=>{
+ const r=decodeR2004Geometry(35,pack([
+  ...bd(100),...bd(200),...bd(0),...bd(50),...bd(0),...bd(0),...bd(0),...bd(0),...bd(1),...bd(0.5),...bd(0),...bd(Math.PI*2)
+ ]));
+ assert.equal(r.kind,"ellipse");assert.deepEqual(r.center,[100,200,0]);assert.deepEqual(r.majorAxis,[50,0,0]);
+ assert.equal(r.axisRatio,0.5);assert.equal(r.startParameter,0);assert.ok(Math.abs(r.endParameter-Math.PI*2)<1e-8);
+});
+test("decodes R2004 control-point and fit-point SPLINE scenarios",()=>{
+ const control=decodeR2004Geometry(36,pack([
+  ...bl(1),...bl(2),0,0,0,...bd(0),...bd(0),...bl(6),...bl(3),0,
+  ...bd(0),...bd(0),...bd(0),...bd(1),...bd(1),...bd(1),
+  ...bd(0),...bd(0),...bd(0),...bd(50),...bd(100),...bd(0),...bd(100),...bd(0),...bd(0)
+ ]));
+ assert.equal(control.scenario,1);assert.equal(control.degree,2);assert.equal(control.controlPoints.length,3);assert.equal(control.knots.length,6);
+ const fit=decodeR2004Geometry(36,pack([
+  ...bl(2),...bl(3),...bd(0),...bd(1),...bd(0),...bd(0),...bd(1),...bd(0),...bd(0),...bl(3),
+  ...bd(0),...bd(0),...bd(0),...bd(50),...bd(100),...bd(0),...bd(100),...bd(0),...bd(0)
+ ]));
+ assert.equal(fit.scenario,2);assert.equal(fit.fitPoints.length,3);assert.deepEqual(fit.fitPoints[1],[50,100,0]);
+});

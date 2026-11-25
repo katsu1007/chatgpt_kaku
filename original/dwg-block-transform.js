@@ -58,6 +58,21 @@ export function transformBlockGeometry(geometry,matrix){
   const insertion=move(geometry.insertion),axis=readPoint(geometry.xAxis),xAxis={x:a*axis.x+c*axis.y,y:b*axis.x+d*axis.y,z:axis.z||0};
   return {...geometry,insertion:[insertion.x,insertion.y,insertion.z||0],xAxis:[xAxis.x,xAxis.y,xAxis.z],height:geometry.height*scaleX,rectWidth:geometry.rectWidth*scaleX,extentsHeight:geometry.extentsHeight*scaleX,extentsWidth:geometry.extentsWidth*scaleX};
  }
+ if(geometry.kind==="ellipse"){
+  const [a,b,c,d]=matrix,scaleX=Math.hypot(a,b),scaleY=Math.hypot(c,d),orthogonality=a*c+b*d;
+  if(Math.abs(scaleX-scaleY)>1e-8*Math.max(1,scaleX,scaleY)||Math.abs(orthogonality)>1e-8*Math.max(1,scaleX*scaleY))
+   return {kind:"unsupported",sourceGeometry:geometry,reason:"Ellipse under non-uniform or sheared block transform requires general conic handling"};
+  const center=Array.isArray(geometry.center)?{x:geometry.center[0],y:geometry.center[1],z:geometry.center[2]||0}:geometry.center;
+  const axis=Array.isArray(geometry.majorAxis)?{x:geometry.majorAxis[0],y:geometry.majorAxis[1],z:geometry.majorAxis[2]||0}:geometry.majorAxis;
+  const movedCenter=applyAffine2D(matrix,center),movedAxis={x:a*axis.x+c*axis.y,y:b*axis.x+d*axis.y,z:axis.z||0};
+  return {...geometry,center:[movedCenter.x,movedCenter.y,center.z||0],majorAxis:[movedAxis.x,movedAxis.y,movedAxis.z],axisRatio:geometry.axisRatio,sourceGeometry:geometry};
+ }
+ if(geometry.kind==="spline"){
+  const movePoint=p=>{const q=Array.isArray(p)?{x:p[0],y:p[1],z:p[2]||0}:p,m=applyAffine2D(matrix,q);return [m.x,m.y,q.z||0];};
+  const moveVector=p=>{const q=Array.isArray(p)?{x:p[0],y:p[1],z:p[2]||0}:p;return [matrix[0]*q.x+matrix[2]*q.y,matrix[1]*q.x+matrix[3]*q.y,q.z||0];};
+  return {...geometry,controlPoints:(geometry.controlPoints||[]).map(movePoint),fitPoints:(geometry.fitPoints||[]).map(movePoint),
+   beginTangent:geometry.beginTangent?moveVector(geometry.beginTangent):null,endTangent:geometry.endTangent?moveVector(geometry.endTangent):null,sourceGeometry:geometry};
+ }
  if(geometry.kind==="point")return {...geometry,...applyAffine2D(matrix,geometry)};
  if(geometry.kind==="arc"||geometry.kind==="circle"){
   const [a,b,c,d]=matrix,scaleX=Math.hypot(a,b),scaleY=Math.hypot(c,d),orthogonality=a*c+b*d;
