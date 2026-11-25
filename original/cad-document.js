@@ -170,7 +170,17 @@ export function createCadDocument(input = {}, options = {}) {
     const name = entity.source.layer ?? "(レイヤーなし)";
     layers.set(name, (layers.get(name) || 0) + 1);
   }
-  const size = input.size || input.sheet?.size || {};
+  const sourceTypeCounts = options.sourceTypeCounts || {};
+  const sourceWarnings = [];
+  const rawDimensionObjects = Number(sourceTypeCounts["count.CDataSunpou"] || 0);
+  const rawBlockInstances = Number(sourceTypeCounts["count.CDataBlock"] || 0);
+  if (rawDimensionObjects > 0 && (semanticCounts.dimension || 0) === 0) {
+    sourceWarnings.push("JWW元データに寸法オブジェクトがありますが、展開後の図形は寸法として識別できていません。寸法線を区画境界から除外するには元オブジェクト情報の保持が必要です。");
+  }
+  if (rawBlockInstances > 0 && (semanticCounts["block-instance"] || 0) === 0) {
+    sourceWarnings.push("JWW元データにブロック参照がありますが、展開後の図形はブロック由来として識別できていません。記号・什器の誤判定を避けるにはブロック経路の保持が必要です。");
+  }
+  const size = input.size || input.sheet?.size || {}; 
   return {
     schema: "kaku.cad-document",
     schemaVersion: 1,
@@ -194,6 +204,8 @@ export function createCadDocument(input = {}, options = {}) {
       semanticCounts,
       layerScaleCounts: scaleCounts,
       unscaledEntities: scaleCounts.unknown || 0,
+      sourceWarnings,
+      rawSourceTypeCounts: clone(sourceTypeCounts),
       dimensionGraphics: semanticCounts.dimension || 0,
       blockInstances: semanticCounts["block-instance"] || 0,
       missingGeometry,
