@@ -153,7 +153,8 @@ export function buildPlanarGraph(inputSegments = [], options = {}) {
     if(reverseIndex<0||!at.outgoing.length)continue;
     h.next=at.outgoing[(reverseIndex-1+at.outgoing.length)%at.outgoing.length];
   }
-  const visited=new Uint8Array(halfEdges.length),faces=[];\n  const edgeById=new Map([...edgeMap.values()].map(edge=>[edge.id,edge]));
+  const visited=new Uint8Array(halfEdges.length),faces=[];
+  const edgeById=new Map([...edgeMap.values()].map(edge=>[edge.id,edge]));
   for(const start of halfEdges){
     if(visited[start.id]||start.next<0)continue;
     const ring=[],edgeIds=[];let current=start.id,guard=0;
