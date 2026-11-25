@@ -58,9 +58,10 @@ export function renderNativeDwgSvg(prepared,hidden=new Uint8Array(0)){
    body.push(`<circle cx="${fmt(item.x)}" cy="${fmt(item.y)}" r="2.5" fill="${color}"/>`);
   }else if(item.kind==="text"){
    const size=Math.max(7,Math.min(200,finite(item.height,12))),angle=-finite(item.rotation)*180/Math.PI;
-   const value=xml(String(item.text??"").replace(/\\P/g," "));
-   if(!value)continue;
-   body.push(`<g transform="translate(${fmt(item.x)} ${fmt(item.y)}) rotate(${fmt(angle)}) scale(1 -1)"><text x="0" y="0" font-family="sans-serif" font-size="${fmt(size)}" fill="${color}">${value}</text></g>`);
+   const lines=normalizeDwgText(item.text);
+   if(!lines.some(line=>line.trim()))continue;
+   const tspans=lines.map((line,index)=>`<tspan x="0" dy="${index===0?0:fmt(size*1.25)}">${xml(line)}</tspan>`).join("");
+   body.push(`<g transform="translate(${fmt(item.x)} ${fmt(item.y)}) rotate(${fmt(angle)}) scale(1 -1)"><text x="0" y="0" font-family="sans-serif" font-size="${fmt(size)}" fill="${color}">${tspans}</text></g>`);
   }else if(item.kind==="dimension"&&Number.isFinite(item.actualMeasurement)){
    const value=xml(String(item.actualMeasurement));
    body.push(`<g transform="translate(${fmt(item.x)} ${fmt(item.y)}) scale(1 -1)"><text x="0" y="0" font-family="sans-serif" font-size="10" fill="${color}">${value}</text></g>`);
