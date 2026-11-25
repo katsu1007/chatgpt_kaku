@@ -10,7 +10,15 @@ function segmentRecord(value, index) {
   const x2 = Number(value?.x2), y2 = Number(value?.y2);
   if (![x1,y1,x2,y2].every(finite)) return null;
   if (Math.hypot(x2-x1,y2-y1) <= 1e-10) return null;
-  return { x1,y1,x2,y2, sourceId: value.sourceId ?? value.id ?? "segment:"+index };
+  return {
+    x1,y1,x2,y2,
+    sourceId: value.sourceId ?? value.id ?? "segment:"+index,
+    sourceLayer: value.sourceLayer ?? value.layer ?? null,
+    sourceKind: value.sourceKind ?? value.kind ?? value.type ?? null,
+    semanticRole: value.semanticRole ?? value.semantic?.role ?? null,
+    layerScaleDenominator: finite(value.layerScaleDenominator) && value.layerScaleDenominator > 0 ? value.layerScaleDenominator : null,
+    sourceSegmentIndex: Number.isInteger(value.sourceSegmentIndex) ? value.sourceSegmentIndex : null
+  };
 }
 
 export function segmentsFromEntities(entities = []) {
@@ -25,7 +33,12 @@ export function segmentsFromEntities(entities = []) {
       :Array.from({length:Math.floor(pts.length/2)},(_,j)=>[pts[j*2],pts[j*2+1]]).filter(p=>p.every(finite));
     for(let j=0;j+1<pairs.length;j++) out.push({
       x1:pairs[j][0],y1:pairs[j][1],x2:pairs[j+1][0],y2:pairs[j+1][1],
-      sourceId:entity.handle??entity.id??"entity:"+i
+      sourceId:entity.handle??entity.id??"entity:"+i,
+      sourceLayer:entity.layer??entity.layerName??null,
+      sourceKind:entity.sourceType??entity.entityType??entity.kind??entity.type??null,
+      semanticRole:entity.semantic?.role??entity.semanticRole??entity.role??null,
+      layerScaleDenominator:entity.layerScaleDenominator??entity.semantic?.layerScaleDenominator??null,
+      sourceSegmentIndex:j
     });
   }
   return out;
@@ -119,8 +132,11 @@ export function buildPlanarGraph(inputSegments = [], options = {}) {
       if(a.id===b.id)continue;
       const lo=Math.min(a.id,b.id),hi=Math.max(a.id,b.id),key=lo+":"+hi;
       let edge=edgeMap.get(key);
-      if(!edge){edge={id:edgeMap.size,a:lo,b:hi,sourceIds:[]};edgeMap.set(key,edge);}
+      if(!edge){edge={id:edgeMap.size,a:lo,b:hi,sourceIds:[],sourceRecords:[]};edgeMap.set(key,edge);}
       if(!edge.sourceIds.includes(String(s.sourceId)))edge.sourceIds.push(String(s.sourceId));
+      const record={sourceId:String(s.sourceId),layer:s.sourceLayer,kind:s.sourceKind,semanticRole:s.semanticRole,layerScaleDenominator:s.layerScaleDenominator,segmentIndex:s.sourceSegmentIndex};
+      const recordKey=JSON.stringify(record);
+      if(!edge.sourceRecords.some(item=>JSON.stringify(item)===recordKey))edge.sourceRecords.push(record);
     }
   }
 
@@ -143,6 +159,7 @@ export function buildPlanarGraph(inputSegments = [], options = {}) {
     h.next=at.outgoing[(reverseIndex-1+at.outgoing.length)%at.outgoing.length];
   }
   const visited=new Uint8Array(halfEdges.length),faces=[];
+  const edgeById=new Map([...edgeMap.values()].map(edge=>[edge.id,edge]));
   for(const start of halfEdges){
     if(visited[start.id]||start.next<0)continue;
     const ring=[],edgeIds=[];let current=start.id,guard=0;
@@ -154,7 +171,15 @@ export function buildPlanarGraph(inputSegments = [], options = {}) {
     }
     if(current!==start.id||ring.length<3)continue;
     const area=polygonArea(ring);
-    if(area>eps)faces.push({id:faces.length,area,points:ring.map(p=>({x:p.x,y:p.y})),edgeIds:[...new Set(edgeIds)]});
+    if(area>eps){
+      const uniqueEdgeIds=[...new Set(edgeIds)];
+      const sourceRecords=new Map();
+      for(const edgeId of uniqueEdgeIds){
+        const edge=edgeById.get(edgeId);
+        for(const record of edge?.sourceRecords||[])sourceRecords.set(JSON.stringify(record),record);
+      }
+      faces.push({id:faces.length,area,points:ring.map(p=>({x:p.x,y:p.y})),edgeIds:uniqueEdgeIds,sourceRecords:[...sourceRecords.values()]});
+    }
   }
   return {
     nodes:nodes.map(({id,x,y})=>({id,x,y})),
