@@ -19,6 +19,23 @@ export function decodeR2004CircleGeometry(reader){
  return {kind:"circle",center:{x,y,z},radius,thickness,extrusion};
 }
 
+function decodeR2004CommonDimensionData(reader){
+ const extrusion=reader.read3BD(),textMidpoint=reader.read2RD(),elevation=reader.readBitDouble(),flags1=reader.readRawChar(),userText=reader.readText(65535);
+ const textRotation=reader.readBitDouble(),horizontalDirection=reader.readBitDouble(),insertScaleX=reader.readBitDouble(),insertScaleY=reader.readBitDouble(),insertScaleZ=reader.readBitDouble(),insertRotation=reader.readBitDouble();
+ const attachment=reader.readBitShort(),lineSpacingStyle=reader.readBitShort(),lineSpacingFactor=reader.readBitDouble(),actualMeasurement=reader.readBitDouble(),point12=reader.read2RD();
+ return {extrusion,textMidpoint,elevation,flags1,userText,textRotation,horizontalDirection,insertScale:{x:insertScaleX,y:insertScaleY,z:insertScaleZ},insertRotation,attachment,lineSpacingStyle,lineSpacingFactor,actualMeasurement,point12};
+}
+export function decodeR2004DimensionGeometry(typeCode,reader){
+ const common=decodeR2004CommonDimensionData(reader),geometry={kind:"dimension",dimensionType:typeCode,dimensionName:({20:"ordinate",21:"linear",22:"aligned",23:"angular-3pt",24:"angular-2line",25:"radius",26:"diameter"})[typeCode],...common};
+ if(typeCode===20){geometry.point10=reader.read3BD();geometry.point13=reader.read3BD();geometry.point14=reader.read3BD();geometry.flags2=reader.readRawChar();}
+ else if(typeCode===21){geometry.point13=reader.read3BD();geometry.point14=reader.read3BD();geometry.point10=reader.read3BD();geometry.extensionLineRotation=reader.readBitDouble();geometry.dimensionRotation=reader.readBitDouble();}
+ else if(typeCode===22){geometry.point13=reader.read3BD();geometry.point14=reader.read3BD();geometry.point10=reader.read3BD();geometry.extensionLineRotation=reader.readBitDouble();}
+ else if(typeCode===23){geometry.point10=reader.read3BD();geometry.point13=reader.read3BD();geometry.point14=reader.read3BD();geometry.point15=reader.read3BD();}
+ else if(typeCode===24){geometry.point16=reader.read2RD();geometry.point13=reader.read3BD();geometry.point14=reader.read3BD();geometry.point15=reader.read3BD();geometry.point10=reader.read3BD();}
+ else if(typeCode===25){geometry.point10=reader.read3BD();geometry.point15=reader.read3BD();geometry.leaderLength=reader.readBitDouble();}
+ else if(typeCode===26){geometry.point15=reader.read3BD();geometry.point10=reader.read3BD();geometry.leaderLength=reader.readBitDouble();}
+ return geometry;
+}
 export function decodeR2004TextGeometry(reader){
  const dataFlags=reader.readRawChar(),elevation=(dataFlags&0x01)?0:reader.readRawDouble();
  const [x,y]=reader.read2RD(),insertion={x,y,z:elevation};
@@ -143,6 +160,7 @@ export function decodeR2004Geometry(typeCode,input,bitOffset=0){
   case 17:return decodeR2004ArcGeometry(reader);
   case 18:return decodeR2004CircleGeometry(reader);
   case 19:return decodeR2004LineGeometry(reader);
+  case 20:case 21:case 22:case 23:case 24:case 25:case 26:return decodeR2004DimensionGeometry(typeCode,reader);
   case 1:return decodeR2004TextGeometry(reader);
   case 44:return decodeR2004MTextGeometry(reader);
   case 7:return decodeR2004InsertGeometry(reader);
