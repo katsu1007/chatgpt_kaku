@@ -1,7 +1,8 @@
 // KAKU-owned recursive INSERT/MINSERT expansion for R2004 drawings.
 import { createInsertTransform, createMInsertTransforms, transformBlockGeometry } from "./dwg-block-transform.js";
 function p3(value){return Array.isArray(value)?{x:value[0],y:value[1],z:value[2]||0}:value;}
-function geometryForTransform(geometry){\n if(geometry?.kind==="line"&&Array.isArray(geometry.pts)&&geometry.pts[0]&&typeof geometry.pts[0]==="object")return {...geometry,pts:geometry.pts.flatMap(p=>[p.x,p.y])};\n if(geometry?.kind==="point"&&geometry.point)return {...geometry,x:geometry.point.x,y:geometry.point.y,z:geometry.point.z};\n return geometry;\n}\nfunction insertTransformData(entity){
+function geometryForTransform(geometry){
+ if(geometry?.kind==="line"&&Array.isArray(geometry.pts)&&geometry.pts[0]&&typeof geometry.pts[0]==="object")return {...geometry,pts:geometry.pts.flatMap(p=>[p.x,p.y])};\n if(geometry?.kind==="point"&&geometry.point)return {...geometry,x:geometry.point.x,y:geometry.point.y,z:geometry.point.z};\n return geometry;\n}\nfunction insertTransformData(entity){
  const g=entity.geometry||{};
  return {...g,insertionPoint:p3(g.insertionPoint),scale:g.scale||{x:1,y:1,z:1}};
 }
