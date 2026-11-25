@@ -56,12 +56,13 @@ export function parseR2004EntityRecord(input,offset=0,{maxEedBytes=1024*1024,max
  }
  let boundaryHandles=[];
  if(geometry.kind==="hatch")for(let i=0;i<geometry.boundaryObjectCount;i++)boundaryHandles.push(reader.readHandle(selfHandle.value));
+ const styleHandle=geometry.kind==="text"||geometry.kind==="mtext"?reader.readHandle(selfHandle.value):null;
  return {...envelope,objectDataBits,selfHandle:selfHandle.value,entityMode,reactorCount,xdictionaryMissing,noLinks,color,linetypeScale,linetypeFlags,plotstyleFlags,invisibility,lineweight,
-  eed,graphic,geometry,geometryBitOffset,geometryEndBit,declaredHandleBitOffset:handleBitOffset,handles,insertHandles,boundaryHandles,ownerHandle:handles.owner.value,layerHandle:handles.layer.value,
+  eed,graphic,geometry,geometryBitOffset,geometryEndBit,declaredHandleBitOffset:handleBitOffset,handles,insertHandles,boundaryHandles,styleHandle,ownerHandle:handles.owner.value,layerHandle:handles.layer.value,
   diagnostics:{...envelope.diagnostics,commonEntityDecoded:true,geometryDecoded:geometry.kind!=="unsupported",handleReferencesDecoded:true}};
 }
 export function readR2004EntityRecords(sectionBytes,objectMap,options){
- const records=[],skippedObjects=[],supported=new Set([7,8,17,18,19,27,31,77,78]);
+ const records=[],skippedObjects=[],supported=new Set([1,7,8,17,18,19,27,31,44,77,78]);
  for(const item of objectMap.entries){
   const offset=Number(item.offset),envelope=parseR2004ObjectRecordEnvelope(sectionBytes,offset);
   if(envelope.handle!==BigInt(item.handle))throw new Error("Object-map handle mismatch at entity offset "+item.offset);
