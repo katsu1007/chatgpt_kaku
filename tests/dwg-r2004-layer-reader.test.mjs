@@ -7,7 +7,7 @@ const pack=a=>{const out=new Uint8Array(Math.ceil(a.length/8));a.forEach((v,i)=>
 function layerRecord({handle=200,name="A-WALL",values=18,colorFlags=0,colorName=null,bookName=null}={}){
  const base=[0,1,...bits(51),...bytesBits([0,0,0,0]),...bits(0,4),...bits(1,4),...bits(handle),
   ...bs(0),1,0,...bs(name.length),...bytesBits([...name].map(c=>c.charCodeAt(0))),0,...bs(0),0,...bs(values),
-  ...bs(0),...bytesBits([0,0,255,0,0]),...bits(colorFlags)];
+  ...bs(0),0,0,...bytesBits([0,255,0,0]),...bits(colorFlags)];
  if(colorFlags&1)base.push(...bs(colorName.length),...bytesBits([...colorName].map(c=>c.charCodeAt(0))));
  if(colorFlags&2)base.push(...bs(bookName.length),...bytesBits([...bookName].map(c=>c.charCodeAt(0))));
  const handleStart=16+base.length,rl=[handleStart&255,(handleStart>>>8)&255,(handleStart>>>16)&255,(handleStart>>>24)&255];
