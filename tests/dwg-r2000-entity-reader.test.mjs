@@ -23,6 +23,22 @@ function lineRecord({handle=5,layer=200,noLinks=true,previous=0,next=0,owner=100
  const body=pack([...base,...refs]),out=new Uint8Array(2+body.length+2);
  out[0]=body.length&255;out[1]=body.length>>8;out.set(body,2);out.set([0x34,0x12],out.length-2);return out;
 }
+const bd=v=>v===0?[1,0]:v===1?[0,1]:[0,0,...raw(v)];
+function insertRecord({handle=7,layer=200,block=300,multiple=false,hasAttributes=false,firstAttribute=501,lastAttribute=502,seqend=503,scaleFlags=3,scale=1,columns=3,rows=2,columnSpacing=5,rowSpacing=6}={}){
+ const geometry=[...bd(10),...bd(20),...bd(0),...bits(scaleFlags,2)];
+ if(scaleFlags===0){geometry.push(...raw(scale),0,0,0,0);}
+ else if(scaleFlags===1){geometry.push(0,0,0,0);}
+ else if(scaleFlags===2)geometry.push(...raw(scale));
+ geometry.push(...bd(0),1,hasAttributes?1:0);
+ if(multiple)geometry.push(...bs(columns),...bs(rows),...bd(columnSpacing),...bd(rowSpacing));
+ const base=[0,1,...bits(multiple?8:7),...bytesBits([0,0,0,0]),...handleBits(handle),...bs(0),0,
+  0,0,1,0,1,...bs(7),0,1,0,0,0,0,1,0,...bits(0),...geometry];
+ const handleStart=16+base.length,rl=[handleStart&255,(handleStart>>>8)&255,(handleStart>>>16)&255,(handleStart>>>24)&255];
+ base.splice(10,32,...bytesBits(rl));
+ const refs=[...handleBits(100),...handleBits(0),...handleBits(layer),...handleBits(block)];
+ if(hasAttributes)refs.push(...handleBits(firstAttribute),...handleBits(lastAttribute),...handleBits(seqend));
+ const body=pack([...base,...refs]),out=new Uint8Array(2+body.length+2);out[0]=body.length&255;out[1]=body.length>>8;out.set(body,2);out.set([0x34,0x12],out.length-2);return out;
+}
 function mc(value){
  const negative=value<0;let n=Math.abs(value),groups=[];
  do{groups.push(n%128);n=Math.floor(n/128);}while(n>0);
@@ -90,4 +106,19 @@ test("reads R2000 LAYER table records and resolves entity layer names",()=>{
  assert.equal(result.layers.length,1);assert.equal(result.layers[0].name,"A-WALL");
  assert.equal(result.entities.length,1);assert.equal(result.entities[0].layerName,"A-WALL");
  assert.equal(result.entities[0].layerResolved,true);assert.equal(result.layerDiagnostics.layerCount,1);
+});
+
+test("decodes R2000 INSERT geometry and BLOCK_HEADER reference without R2004 owned-count field",()=>{
+ const r=parseR2000EntityRecord(insertRecord());
+ assert.equal(r.geometry.kind,"insert");assert.deepEqual(r.geometry.insertionPoint,[10,20,0]);
+ assert.deepEqual(r.geometry.scale,{x:1,y:1,z:1,flag:3});assert.equal(r.geometry.hasAttributes,false);
+ assert.equal(r.insertHandles.blockHeader.value,300n);assert.equal(r.insertHandles.seqend,null);
+});
+test("decodes R2000 MINSERT arrays, non-uniform scale defaults and attribute handles",()=>{
+ const r=parseR2000EntityRecord(insertRecord({multiple:true,hasAttributes:true,scaleFlags:0,scale:2}));
+ assert.equal(r.geometry.kind,"minsert");assert.equal(r.geometry.columns,3);assert.equal(r.geometry.rows,2);
+ assert.equal(r.geometry.columnSpacing,5);assert.equal(r.geometry.rowSpacing,6);
+ assert.deepEqual(r.geometry.scale,{x:2,y:2,z:2,flag:0});
+ assert.equal(r.insertHandles.blockHeader.value,300n);assert.equal(r.insertHandles.firstAttribute.value,501n);
+ assert.equal(r.insertHandles.lastAttribute.value,502n);assert.equal(r.insertHandles.seqend.value,503n);
 });
