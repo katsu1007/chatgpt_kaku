@@ -383,7 +383,7 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
   let selected=requested
     ?(()=>{const exterior=[...new Set([...requested,...classified.all])].filter(name=>OUTER_WALL_NAME.test(String(name)));return new Set(exterior.length?exterior:requested);})()
     :new Set(classified.parent);
-  if(!allNames.size)throw new Error("壁・図形候補レイヤーを自動判定できませんでした。図面の線分レイヤーを確認してください。");
+  if(!allNames.size)throw new Error("壁レイヤーを自動判定できません。誤った区画を表示しないため自動色付けを停止しました。壁レイヤーを明示選択してください。");
   let fallbackUsed=false;
   const supplemental=new Set([...allNames].filter(n=>!selected.has(n)));
   const aspect=width/height;
