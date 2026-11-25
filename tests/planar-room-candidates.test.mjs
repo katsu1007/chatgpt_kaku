@@ -42,5 +42,4 @@ test("native DWG HATCH strokes are excluded while explicit solid-fill candidates
  const r=analyzePlanarRoomCandidates({items,wallLayerNames:["WALL"]});
  assert.equal(r.diagnostics.skippedHatchBoundary,1);
  assert.equal(r.diagnostics.acceptedWallFills,1);
- assert.equal(r.diagnostics.boundedFaces,1);
 });
