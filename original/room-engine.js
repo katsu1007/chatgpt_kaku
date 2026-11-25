@@ -343,12 +343,13 @@ function floodRegions(wall,nx,ny){
   }
   return {regions,regionAt};
 }
-function chooseRegions(regions,N,maxRatio=.82,nx= Math.round(Math.sqrt(N)),ny=Math.round(Math.sqrt(N))){
+function chooseRegions(regions,N,maxRatio=.82,nx= Math.round(Math.sqrt(N)),ny=Math.round(Math.sqrt(N)),cellWorldSize=1){
   const inner=regions.filter(r=>!r.touchesEdge).sort((a,b)=>b.area-a.area);
-  // Do not scale the minimum room area from the largest hall: that erases
-  // legitimate small rooms in large plans. Use a modest absolute cell floor
-  // plus a sheet-relative minimum span to reject drafting/title-block islands.
-  const minCells=16,minSpanCells=Math.max(8,Math.ceil(Math.min(nx,ny)*.03));
+  // Keep the minimum span tied to drawing units and raster resolution, not to
+  // the overall sheet size. A fixed percentage of a large warehouse plan can
+  // otherwise erase real 900 mm toilet cubicles and compact service rooms.
+  // The 8-cell floor still rejects sub-resolution drafting noise.
+  const minCells=16,minSpanCells=Math.max(8,Math.ceil(30/Math.max(1e-9,cellWorldSize)));
   const kept=inner.filter(r=>{
     const w=Math.max(1,r.maxx-r.minx+1),h=Math.max(1,r.maxy-r.miny+1);
     const boxArea=w*h,fill=r.area/boxArea,aspect=Math.max(w,h)/Math.min(w,h),ratio=r.area/N;
@@ -396,8 +397,8 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
   let childTrace=traceItems(childItems,allNames,hidden,width,height,nx,ny,cw,ch);
   let parentFlood=floodRegions(parentTrace.wall,nx,ny);
   let childFlood=floodRegions(childTrace.wall,nx,ny);
-  let parents=chooseRegions(parentFlood.regions,N,.995,nx,ny);
-  let children=chooseRegions(childFlood.regions,N,.82,nx,ny);
+  let parents=chooseRegions(parentFlood.regions,N,.995,nx,ny,Math.min(cw,ch));
+  let children=chooseRegions(childFlood.regions,N,.995,nx,ny,Math.min(cw,ch));
   // If semantic wall-layer selection misses the building perimeter, retry with
   // every geometric layer except clearly non-architectural annotation/furniture.
   // This fallback is automatic and is used only when the first pass finds no room.
@@ -414,8 +415,8 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
     // intentionally present only in childTrace. Reusing parentFlood here silently
     // discarded those closures whenever automatic layer fallback was needed.
     childFlood=floodRegions(childTrace.wall,nx,ny);
-    parents=chooseRegions(parentFlood.regions,N,.995,nx,ny);
-    children=chooseRegions(childFlood.regions,N,.82,nx,ny);
+    parents=chooseRegions(parentFlood.regions,N,.995,nx,ny,Math.min(cw,ch));
+    children=chooseRegions(childFlood.regions,N,.995,nx,ny,Math.min(cw,ch));
   }
   const parentRooms=parents.kept.map((r,i)=>({...r,name:"大部屋 "+(i+1),level:1,children:[]}));
   const parentByRegion=new Map(parentRooms.map(p=>[p.id,p]));

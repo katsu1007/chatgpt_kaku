@@ -278,7 +278,7 @@ test("automatic all-layer fallback preserves six virtual toilet cubicle closures
     selectedLayers:["外壁"]
   });
   assert.equal(result.diagnostics.fallbackUsed,true);
-  assert.equal(result.diagnostics.minParentSpanCells,Math.max(8,Math.ceil(Math.min(result.grid.nx,result.grid.ny)*.03)));
+  assert.equal(result.diagnostics.minParentSpanCells,Math.max(8,Math.ceil(30/Math.min(result.grid.cw,result.grid.ch))));
   assert.equal(result.diagnostics.virtualBoothClosures,6);
   assert.equal(result.parents.length,1);
   assert.equal(result.rooms.length,7);
@@ -440,4 +440,24 @@ test("explicit dimension-graphic metadata is excluded even when it shares a wall
   const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"外壁"}],selectedLayers:[]});
   assert.equal(result.rooms.length,1);
   assert.ok(result.diagnostics.skippedDimensionItems>0);
+});
+
+
+test("small toilet cubicles survive when the drawing covers a large warehouse floor",()=>{
+  const items=[
+    line("外壁",100,100,62900,100),line("外壁",62900,100,62900,24900),
+    line("外壁",62900,24900,100,24900),line("外壁",100,24900,100,100),
+    line("間仕切壁",3000,6500,8400,6500),
+    ...Array.from({length:7},(_,i)=>line("間仕切壁",3000+i*900,5000,3000+i*900,6500))
+  ];
+  const result=extractRoomHierarchy({items,width:63000,height:25000,layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
+  assert.equal(result.diagnostics.virtualBoothClosures,6);
+  assert.equal(result.parents.length,1);
+  assert.equal(result.rooms.length,7);
+  const booths=result.rooms.filter(r=>{
+    const w=(r.maxx-r.minx+1)*result.grid.cw,h=(r.maxy-r.miny+1)*result.grid.ch;
+    return w>=650&&w<=1000&&h>=1200&&h<=1600;
+  });
+  assert.equal(booths.length,6);
+  assert.ok(result.diagnostics.minChildSpanCells<=21);
 });
