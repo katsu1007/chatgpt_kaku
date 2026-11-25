@@ -46,3 +46,20 @@ test("expands text annotations nested inside positioned block references",()=>{
  assert.deepEqual(r.entities[0].geometry.insertion,{x:101,y:200,z:0});
  assert.equal(r.entities[0].geometry.text,"ROOM");
 });
+
+test("includes INSERT-owned ATTRIB values in the expanded sheet entity stream",()=>{
+ const ins=insert(1,100,100,200);ins.insertHandles.attributes=[h(2)];
+ const attrib={selfHandle:2n,geometry:{kind:"attrib",insertion:{x:105,y:210,z:0},alignment:{x:105,y:210,z:0},rotation:0,height:12,widthFactor:1,text:"ROOM A",tag:"ROOM_NAME",attributeFlags:0}};
+ const r=expandR2004BlockReferences([ins,attrib],[block(90,"*Model_Space",[1]),block(100,"CHAIR",[])]);
+ const found=r.entities.find(x=>x.geometry?.kind==="attrib");
+ assert.ok(found);assert.equal(found.geometry.tag,"ROOM_NAME");assert.equal(found.geometry.text,"ROOM A");
+ assert.equal(found.sourceInsertHandle,1n);assert.equal(r.diagnostics.attributeCount,1);
+});
+test("transforms nested ATTRIB positions with the containing block transform",()=>{
+ const outer=insert(1,100,100,200),nested=insert(2,200,10,0);
+ nested.insertHandles.attributes=[h(3)];
+ const attrib={selfHandle:3n,geometry:{kind:"attrib",insertion:{x:5,y:5,z:0},alignment:{x:5,y:5,z:0},rotation:0,height:10,widthFactor:1,text:"TAG",tag:"ID",attributeFlags:0}};
+ const r=expandR2004BlockReferences([outer,nested,attrib],[block(90,"*Model_Space",[1]),block(100,"OUTER",[2]),block(200,"INNER",[])]);
+ const found=r.entities.find(x=>x.geometry?.kind==="attrib");
+ assert.ok(found);assert.deepEqual(found.geometry.insertion,{x:105,y:205,z:0});
+});
