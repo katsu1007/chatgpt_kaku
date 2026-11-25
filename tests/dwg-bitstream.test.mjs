@@ -44,18 +44,20 @@ test("reads absolute object handles with code zero",()=>{
 
 test("decodes bit-double-with-default patch forms",()=>{
  const pack=a=>{const out=new Uint8Array(Math.ceil(a.length/8));a.forEach((v,i)=>{if(v)out[i>>3]|=1<<(7-(i&7));});return out;};
- const bits=v=>Array.from({length:8},(_,i)=>(v>>(7-i))&1);
+ const bits=v=>Array.from({length:8},(_,i)=>(v>>(7-i))&1),bytesBits=a=>a.flatMap(bits);
  assert.equal(new DwgBitReader(new Uint8Array([0])).readBitDoubleWithDefault(5.5),5.5);
- assert.ok(Math.abs(new DwgBitReader(pack([0,1,...bits(1),0,0,0])).readBitDoubleWithDefault(1.0)-1.0000000000000002)<1e-15);
- assert.equal(new DwgBitReader(pack([1,0,0xf8,0x3f,0,0,0,0,0,0])).readBitDoubleWithDefault(1.0),1.5);
+ const onePatch=pack([0,1,...bytesBits([1,0,0,0])]);
+ assert.ok(Math.abs(new DwgBitReader(onePatch).readBitDoubleWithDefault(1.0)-1.0000000000000002)<1e-15);
+ const sixPatch=pack([1,0,...bytesBits([0xf8,0x3f,0,0,0,0])]);
+ assert.equal(new DwgBitReader(sixPatch).readBitDoubleWithDefault(1.0),1.5);
  const raw=new Uint8Array(8);new DataView(raw.buffer).setFloat64(0,2.5,true);
- assert.equal(new DwgBitReader(pack([1,1,...Array.from(raw).flatMap(bits)])).readBitDoubleWithDefault(1),2.5);
+ assert.equal(new DwgBitReader(pack([1,1,...bytesBits([...raw])])).readBitDoubleWithDefault(1),2.5);
 });
 test("decodes thickness, extrusion and bit triplets",()=>{
  const pack=a=>{const out=new Uint8Array(Math.ceil(a.length/8));a.forEach((v,i)=>{if(v)out[i>>3]|=1<<(7-(i&7));});return out;};
  assert.equal(new DwgBitReader(new Uint8Array([0x80])).readBitThickness(),0);
  assert.deepEqual(new DwgBitReader(new Uint8Array([0x80])).readBitExtrusion(),[0,0,1]);
- assert.equal(new DwgBitReader(new Uint8Array([0b10100000])).read3B(),5);
+ assert.equal(new DwgBitReader(new Uint8Array([0b10100000])).read3B(),2);
  const extrusionBits=[0,...[1,2,3].flatMap(v=>[0,1,...Array.from({length:8},(_,i)=>(v>>(7-i))&1)])];
  assert.deepEqual(new DwgBitReader(pack(extrusionBits)).readBitExtrusion(),[1,2,3]);
 });
