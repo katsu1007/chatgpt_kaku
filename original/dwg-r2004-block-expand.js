@@ -16,7 +16,7 @@ export function expandR2004BlockReferences(entities,blocks,{maxDepth=12,maxInsta
  const blocksByHandle=new Map(blockList.map(block=>[BigInt(block.handle).toString(),block]));
  const modelSpace=blockList.find(block=>String(block.name).toLowerCase()==="*model_space");
  const diagnostics={expanded:false,modelSpaceFound:!!modelSpace,topLevelEntityCount:0,insertCount:0,expandedInstanceCount:0,expandedEntityCount:0,
-  unresolvedBlockReferences:0,skippedXrefs:0,skippedCycles:0,skippedDepth:0,skippedGeometry:0,skippedMissingChildren:0,limitReached:false};
+  unresolvedBlockReferences:0,skippedXrefs:0,skippedCycles:0,skippedDepth:0,skippedGeometry:0,skippedMissingChildren:0,attributeCount:0,unresolvedAttributes:0,skippedAttributeInstances:0,limitReached:false};
  if(!modelSpace||!modelSpace.ownedHandles?.length)return {entities:source,diagnostics:{...diagnostics,reason:!modelSpace?"Model space BLOCK_HEADER not found":"Model space has no owned handles"}};
  const output=[],append=(entity)=>{if(output.length>=maxExpandedEntities){diagnostics.limitReached=true;return false;}output.push(entity);return true;};
  function expandInsert(insert,parentMatrix,path,stack,depth,rootInsertHandle){
@@ -53,6 +53,20 @@ export function expandR2004BlockReferences(entities,blocks,{maxDepth=12,maxInsta
     if(!append({...child,sourceGeometry:child.geometry,geometry:transformed,sourceEntityHandle:child.selfHandle,sourceInsertHandle:rootInsertHandle??insert.selfHandle,
       sourceBlockHandle:block.handle,blockPath:nextPath,blockInstanceIndex:instanceIndex,blockTransform:matrix}))return;
     diagnostics.expandedEntityCount++;
+   }
+   for(const attributeRef of insert.insertHandles?.attributes||[]){
+    if(instanceIndex>0){diagnostics.skippedAttributeInstances++;continue;}
+    const attribute=byHandle.get(BigInt(attributeRef.value).toString());
+    if(!attribute){diagnostics.unresolvedAttributes++;continue;}
+    if(attribute.geometry?.kind!=="attrib"){diagnostics.unresolvedAttributes++;continue;}
+    let attributeGeometry=attribute.geometry;
+    if(depth>0){
+     try{const transformed=transformBlockGeometry({...attributeGeometry,kind:"text"},parentMatrix);if(!transformed||transformed.kind==="unsupported"){diagnostics.skippedGeometry++;continue;}attributeGeometry={...transformed,kind:"attrib"};}
+     catch{diagnostics.skippedGeometry++;continue;}
+    }
+    if(!append({...attribute,sourceGeometry:attribute.geometry,geometry:attributeGeometry,sourceEntityHandle:attribute.selfHandle,
+     sourceInsertHandle:rootInsertHandle??insert.selfHandle,sourceBlockHandle:block.handle,blockPath:nextPath,blockInstanceIndex:instanceIndex,blockTransform:parentMatrix,attributeTag:attribute.geometry.tag}))return;
+    diagnostics.attributeCount++;diagnostics.expandedEntityCount++;
    }
    if(diagnostics.limitReached)return;
   }

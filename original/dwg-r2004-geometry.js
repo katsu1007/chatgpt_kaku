@@ -72,6 +72,11 @@ export function decodeR2004TextGeometry(reader){
  const generation=(dataFlags&0x20)?0:reader.readBitShort(),horizontalAlignment=(dataFlags&0x40)?0:reader.readBitShort(),verticalAlignment=(dataFlags&0x80)?0:reader.readBitShort();
  return {kind:"text",dataFlags,elevation,insertion,alignment,extrusion,thickness,obliqueAngle,rotation,height,widthFactor,text,generation,horizontalAlignment,verticalAlignment};
 }
+export function decodeR2004AttributeGeometry(typeCode,reader){
+ const text=decodeR2004TextGeometry(reader),tag=reader.readText(4096),fieldLength=reader.readBitShort(),flags=reader.readRawChar();
+ const prompt=typeCode===3?reader.readText(65535):null;
+ return {...text,kind:typeCode===2?"attrib":"attdef",tag,fieldLength,attributeFlags:flags,prompt,invisible:!!(flags&1),constant:!!(flags&2),verificationRequired:!!(flags&4),preset:!!(flags&8)};
+}
 function readR2004MTextColor(reader){
  const index=reader.readBitShort(),rgb=reader.readBitLong(),flags=reader.readRawChar(),color={index,rgb,flags};
  if(flags&1)color.name=reader.readText(4096);
@@ -189,6 +194,7 @@ export function decodeR2004Geometry(typeCode,input,bitOffset=0){
   case 19:return decodeR2004LineGeometry(reader);
   case 20:case 21:case 22:case 23:case 24:case 25:case 26:return decodeR2004DimensionGeometry(typeCode,reader);
   case 1:return decodeR2004TextGeometry(reader);
+  case 2:case 3:return decodeR2004AttributeGeometry(typeCode,reader);
   case 44:return decodeR2004MTextGeometry(reader);
   case 7:return decodeR2004InsertGeometry(reader);
   case 8:return decodeR2004InsertGeometry(reader,{multiple:true});

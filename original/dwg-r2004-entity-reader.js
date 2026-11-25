@@ -1,14 +1,14 @@
 // KAKU-owned R2004 common entity data reader and geometry dispatcher.
 import { DwgBitReader, dwgTextEncoding } from "./dwg-bitstream.js?v=20261125-codepage1";
 import { parseR2004ObjectRecordEnvelope } from "./dwg-r2004-object-record.js";
-import { decodeR2004Geometry } from "./dwg-r2004-geometry.js?v=20261125-legacy1";
+import { decodeR2004Geometry } from "./dwg-r2004-geometry.js?v=20261125-attributes1";
 import { readR2004SectionByName } from "./dwg-r2004-section-reader.js";
 import { readR2004ObjectMap } from "./dwg-r2004-object-map.js";
 import { readR2004SectionMaps } from "./dwg-r2004-sections.js";
 import { readR2004LayerRecords, resolveR2004EntityLayers } from "./dwg-r2004-layer-reader.js?v=20261125-codepage1";
 import { parseR2004HeaderVariables } from "./dwg-r2004-header-vars.js";
 import { readR2004BlockHeaders } from "./dwg-r2004-block-reader.js?v=20261125-codepage1";
-import { expandR2004BlockReferences } from "./dwg-r2004-block-expand.js";
+import { expandR2004BlockReferences } from "./dwg-r2004-block-expand.js?v=20261125-attributes1";
 function readEntityColor(reader){
  const colorNumber=reader.readBitShort(),flags=colorNumber&0xe000;
  const color={colorNumber,aci:colorNumber&0x01ff,complex:!!(flags&0x8000),hasColorHandle:!!(flags&0x4000),hasTransparency:!!(flags&0x2000)};
@@ -56,7 +56,7 @@ export function parseR2004EntityRecord(input,offset=0,{maxEedBytes=1024*1024,max
  }
  let boundaryHandles=[];
  if(geometry.kind==="hatch")for(let i=0;i<geometry.boundaryObjectCount;i++)boundaryHandles.push(reader.readHandle(selfHandle.value));
- const styleHandle=geometry.kind==="text"||geometry.kind==="mtext"?reader.readHandle(selfHandle.value):null;
+ const styleHandle=["text","mtext","attrib","attdef"].includes(geometry.kind)?reader.readHandle(selfHandle.value):null;
  const dimensionHandles=geometry.kind==="dimension"?{dimStyle:reader.readHandle(selfHandle.value),anonymousBlock:reader.readHandle(selfHandle.value)}:null;
  let polylineHandles=null;
  if(geometry.kind==="polyline2d"||geometry.kind==="polyline3d"){const vertices=[];for(let i=0;i<geometry.ownedObjectCount;i++)vertices.push(reader.readHandle(selfHandle.value));const seqend=reader.readHandle(selfHandle.value);polylineHandles={vertices,seqend};}
@@ -65,7 +65,7 @@ export function parseR2004EntityRecord(input,offset=0,{maxEedBytes=1024*1024,max
   diagnostics:{...envelope.diagnostics,commonEntityDecoded:true,geometryDecoded:geometry.kind!=="unsupported",handleReferencesDecoded:true}};
 }
 export function readR2004EntityRecords(sectionBytes,objectMap,options){
- const records=[],skippedObjects=[],supported=new Set([1,7,8,10,11,15,16,17,18,19,20,21,22,23,24,25,26,27,31,44,77,78]);
+ const records=[],skippedObjects=[],supported=new Set([1,2,3,7,8,10,11,15,16,17,18,19,20,21,22,23,24,25,26,27,31,44,77,78]);
  for(const item of objectMap.entries){
   const offset=Number(item.offset),envelope=parseR2004ObjectRecordEnvelope(sectionBytes,offset);
   if(envelope.handle!==BigInt(item.handle))throw new Error("Object-map handle mismatch at entity offset "+item.offset);
