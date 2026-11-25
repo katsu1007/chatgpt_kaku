@@ -1,3 +1,4 @@
+import { polylineToSheetItems } from "./dwg-polyline.js";
 // Convert decoded R2004 DWG primitives into KAKU's SheetItem shape.
 // Coordinates remain in native DWG units until INSUNITS is decoded.
 function rgbHex(value){
@@ -17,6 +18,14 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
  };
  for(const entity of entities){
   const g=entity.geometry;if(!g||g.kind==="unsupported")continue;
+  if(g.kind==="polyline"){
+   const segments=polylineToSheetItems(g,{layer:entity.layerName,handle:entity.handleHex,sourceFormat:"DWG-R2004"});
+   for(const segment of segments){
+    if(segment.kind==="line")add(entity,g,{...segment,pts:segment.pts.map(v=>v*scale),z0:(segment.z0||0)*scale,z1:(segment.z1||0)*scale});
+    else add(entity,g,{...segment,cx:segment.cx*scale,cy:segment.cy*scale,r:segment.r*scale});
+   }
+   continue;
+  }
   if(g.kind==="line"){
    add(entity,g,{kind:"line",pts:[g.pts[0].x*scale,g.pts[0].y*scale,g.pts[1].x*scale,g.pts[1].y*scale],z0:g.pts[0].z*scale,z1:g.pts[1].z*scale});
   }else if(g.kind==="arc"){
