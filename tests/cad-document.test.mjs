@@ -111,3 +111,23 @@ test("does not invent dimension provenance for flattened ordinary line geometry"
   assert.equal(entity.semantic.dimensionGraphic,false);
   assert.equal(doc.diagnostics.dimensionGraphics,0);
 });
+
+
+test("attaches Jw_cad layer-group scale to each entity without altering sheet coordinates", () => {
+  const doc = createCadDocument({items:[
+    {kind:"line",layer:"0-1 平面図 / 躯体",pts:[0,0,100,0]},
+    {kind:"line",layer:"2-1 展開図 / 躯体",pts:[0,0,20,0]},
+    {kind:"line",layer:"DXF-WALL",pts:[0,0,10,0]}
+  ]}, {sourceFormat:"JWW",layers:[
+    {name:"0-1 平面図 / 躯体",scale:50},
+    {name:"2-1 展開図 / 躯体",scale:10}
+  ]});
+  const [plan,elevation,dxfUnknown] = doc.sheets[0].entities;
+  assert.equal(plan.source.layerScaleDenominator,50);
+  assert.equal(plan.semantic.layerScaleDenominator,50);
+  assert.equal(elevation.source.layerScaleDenominator,10);
+  assert.equal(dxfUnknown.source.layerScaleDenominator,null);
+  assert.deepEqual(plan.geometry.points,[[0,0],[100,0]]);
+  assert.deepEqual(doc.diagnostics.layerScaleCounts,{"10":1,"50":1,unknown:1});
+  assert.equal(doc.diagnostics.unscaledEntities,1);
+});
