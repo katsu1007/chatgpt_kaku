@@ -1,6 +1,6 @@
 // KAKU-owned R2004 object-record envelope parser.
 import { DwgBitReader } from "./dwg-bitstream.js";
-const TYPES={1:"TEXT",2:"ATTRIB",3:"ATTDEF",4:"BLOCK",5:"ENDBLK",6:"SEQEND",7:"INSERT",8:"MINSERT",17:"ARC",18:"CIRCLE",19:"LINE",27:"POINT",46:"MTEXT",49:"MLINE",53:"LAYER",57:"LTYPE",77:"LWPOLYLINE",78:"HATCH",79:"XRECORD",82:"LAYOUT",498:"ACAD_PROXY_ENTITY",499:"ACAD_PROXY_OBJECT"};
+const TYPES={1:"TEXT",2:"ATTRIB",3:"ATTDEF",4:"BLOCK",5:"ENDBLK",6:"SEQEND",7:"INSERT",8:"MINSERT",17:"ARC",18:"CIRCLE",19:"LINE",27:"POINT",46:"MTEXT",49:"MLINE",51:"LAYER",53:"SHAPEFILE",57:"LTYPE",77:"LWPOLYLINE",78:"HATCH",79:"XRECORD",82:"LAYOUT",498:"ACAD_PROXY_ENTITY",499:"ACAD_PROXY_OBJECT"};
 function safeNumber(v,label){const n=Number(v);if(!Number.isSafeInteger(n)||n<0)throw new RangeError("Invalid "+label);return n;}
 export function parseR2004ObjectRecordEnvelope(input,offset=0,{maxRecordBytes=67108864}={}){
  const bytes=input instanceof Uint8Array?input:new Uint8Array(input||0);
