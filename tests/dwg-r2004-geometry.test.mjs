@@ -117,11 +117,11 @@ test("decodes explicit R2004 TEXT alignment, rotation and width factor",()=>{
 test("decodes R2004 MTEXT insertion, axis, layout and content",()=>{
  const input=pack([
   ...bd(100),...bd(200),...bd(0),...bd(0),...bd(0),...bd(1),...bd(1),...bd(0),...bd(0),
-  ...bd(180),...bd(24),...bs(1),...bs(1),...bd(32),...bd(200),...tv("室名\P会議室"),
+  ...bd(180),...bd(24),...bs(1),...bs(1),...bd(32),...bd(200),...tv("ROOM\PMEETING"),
   ...bs(0),...bd(1),0,...bl(0)
  ]);
  const r=decodeR2004Geometry(44,input);
  assert.equal(r.kind,"mtext");assert.deepEqual(r.insertion,[100,200,0]);assert.deepEqual(r.xAxis,[1,0,0]);
- assert.equal(r.rectWidth,180);assert.equal(r.height,24);assert.equal(r.attachment,1);assert.equal(r.text,"室名\P会議室");
+ assert.equal(r.rectWidth,180);assert.equal(r.height,24);assert.equal(r.attachment,1);assert.equal(r.text,"ROOM\PMEETING");
  assert.equal(r.backgroundFlags,0);assert.equal(r.lineSpacingFactor,1);
 });
