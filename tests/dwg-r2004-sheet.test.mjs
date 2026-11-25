@@ -130,3 +130,17 @@ test("maps ATTRIB values into tagged text sheet items",()=>{
  assert.equal(item.kind,"text");assert.equal(item.text,"ROOM A");assert.equal(item.attribute,true);assert.equal(item.attributeTag,"ROOM_NAME");
  assert.equal(drawing.meta.info.attributeEntities,1);
 });
+
+test("approximates ELLIPSE and SPLINE as source-linked line segments",()=>{
+ const drawing=createR2004DwgDrawing({units:{known:true,code:4,name:"millimeters",scaleToMm:1},entities:[
+  entity("A-CURVE",260n,{kind:"ellipse",center:[100,200,0],majorAxis:[50,0,0],extrusion:[0,0,1],axisRatio:0.5,startParameter:0,endParameter:Math.PI*2}),
+  entity("A-CURVE",261n,{kind:"spline",scenario:1,degree:2,closed:false,knots:[0,0,0,1,1,1],controlPoints:[[0,0,0],[50,100,0],[100,0,0]],weightsPresent:false,weights:[]})
+ ],layers:[]});
+ const items=drawing.sheets[0].items;
+ assert.ok(items.length>50);assert.ok(items.every(item=>item.kind==="line"));
+ assert.ok(items.some(item=>item.curveApproximation==="ellipse"));
+ assert.ok(items.some(item=>item.curveApproximation==="spline"));
+ assert.equal(drawing.meta.info.ellipseEntities,1);assert.equal(drawing.meta.info.splineEntities,1);
+ assert.equal(drawing.meta.info.curveSegments,items.length);
+ assert.ok(drawing.meta.warnings.some(w=>w.includes("線分近似")));
+});
