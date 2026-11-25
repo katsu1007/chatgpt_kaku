@@ -20,7 +20,7 @@ test("resolves multiple object-map entries to record envelopes",()=>{
  assert.equal(result.records.length,2);assert.equal(result.records[1].typeName,"ARC");assert.equal(result.diagnostics.typeCounts.LINE,1);
 });
 test("preserves unknown object types and rejects bad boundaries or handles",()=>{
- assert.equal(parseR2004ObjectRecordEnvelope(record(777,9)).typeName,"UNKNOWN_777");
+ assert.equal(parseR2004ObjectRecordEnvelope(record(200,9)).typeName,"UNKNOWN_200");
  const broken=record(19,5);broken[0]=0x7f;
  assert.throws(()=>parseR2004ObjectRecordEnvelope(broken),/bounds/);
  assert.throws(()=>readR2004ObjectRecords(record(19,5),{entries:[{handle:6n,offset:0n}]}),/handle mismatch/);
