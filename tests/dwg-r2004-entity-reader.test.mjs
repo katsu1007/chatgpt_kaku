@@ -52,9 +52,9 @@ test("rejects invalid EED and graphic lengths",()=>{
 });
 
 test("skips non-entity objects in AcDb:AcDbObjects without treating them as entities",()=>{
- const a=lineRecord(),b=makeEnvelope(44,99),section=new Uint8Array(a.length+b.length);section.set(a);section.set(b,a.length);
+ const a=lineRecord(),b=makeEnvelope(45,99),section=new Uint8Array(a.length+b.length);section.set(a);section.set(b,a.length);
  const result=readR2004EntityRecords(section,{entries:[{handle:5n,offset:0n},{handle:99n,offset:BigInt(a.length)}]});
- assert.equal(result.records.length,1);assert.equal(result.skippedObjects.length,1);assert.equal(result.skippedObjects[0].objectType,44);
+ assert.equal(result.records.length,1);assert.equal(result.skippedObjects.length,1);assert.equal(result.skippedObjects[0].objectType,45);
 });
 
 function insertRecord({handle=600,owner=100,layer=200,block=300}={}){
@@ -115,9 +115,9 @@ test("reads TEXT and MTEXT entities with their text-style handle references",()=
  const text=parseR2004EntityRecord(annotationRecord(1,textGeometry,800));
  assert.equal(text.geometry.kind,"text");assert.equal(text.geometry.text,"ROOM A");assert.equal(text.styleHandle.value,300n);
  const mtextGeometry=[...bd(100),...bd(200),...bd(0),...bd(0),...bd(0),...bd(1),...bd(1),...bd(0),...bd(0),
-  ...bd(160),...bd(20),...bs(1),...bs(1),...bd(25),...bd(170),...tv("会議室"),...bs(0),...bd(1),0,...bl(0)];
+  ...bd(160),...bd(20),...bs(1),...bs(1),...bd(25),...bd(170),...tv("CONFERENCE"),...bs(0),...bd(1),0,...bl(0)];
  const mtext=parseR2004EntityRecord(annotationRecord(44,mtextGeometry,801));
- assert.equal(mtext.geometry.kind,"mtext");assert.equal(mtext.geometry.text,"会議室");assert.equal(mtext.styleHandle.value,300n);
+ assert.equal(mtext.geometry.kind,"mtext");assert.equal(mtext.geometry.text,"CONFERENCE");assert.equal(mtext.styleHandle.value,300n);
  const result=readR2004EntityRecords(annotationRecord(1,textGeometry,800),{entries:[{handle:800n,offset:0n}]});
  assert.equal(result.records[0].geometry.text,"ROOM A");
 });
