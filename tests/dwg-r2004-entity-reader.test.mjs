@@ -52,9 +52,9 @@ test("rejects invalid EED and graphic lengths",()=>{
 });
 
 test("skips non-entity objects in AcDb:AcDbObjects without treating them as entities",()=>{
- const a=lineRecord(),b=makeEnvelope(44,99),section=new Uint8Array(a.length+b.length);section.set(a);section.set(b,a.length);
+ const a=lineRecord(),b=makeEnvelope(45,99),section=new Uint8Array(a.length+b.length);section.set(a);section.set(b,a.length);
  const result=readR2004EntityRecords(section,{entries:[{handle:5n,offset:0n},{handle:99n,offset:BigInt(a.length)}]});
- assert.equal(result.records.length,1);assert.equal(result.skippedObjects.length,1);assert.equal(result.skippedObjects[0].objectType,44);
+ assert.equal(result.records.length,1);assert.equal(result.skippedObjects.length,1);assert.equal(result.skippedObjects[0].objectType,45);
 });
 
 function insertRecord({handle=600,owner=100,layer=200,block=300}={}){
@@ -100,4 +100,31 @@ test("reads HATCH geometry and its boundary object handle stream",()=>{
  assert.equal(r.boundaryHandles[0].value,301n);assert.equal(r.layerHandle,200n);
  const records=readR2004EntityRecords(hatchRecord(),{entries:[{handle:700n,offset:0n}]});
  assert.equal(records.records.length,1);assert.equal(records.records[0].typeName,"HATCH");
+});
+
+function annotationRecord(type,geometry,handle=800){
+ const base=[0,1,...bits(type),...bytesBits([0,0,0,0]),...handleBits(handle),...bs(0),0,
+  0,0,1,0,1,1,0,1,...bits(7),0,1,0,0,0,0,1,0,...bits(0),...geometry];
+ const handleStart=16+base.length,rl=[handleStart&255,(handleStart>>>8)&255,(handleStart>>>16)&255,(handleStart>>>24)&255];
+ base.splice(10,32,...bytesBits(rl));
+ const body=pack([...base,...handleBits(100),...handleBits(200),...handleBits(300)]);
+ const out=new Uint8Array(2+body.length+2);out[0]=body.length&255;out[1]=body.length>>8;out.set(body,2);out.set([0x12,0x34],out.length-2);return out;
+}
+test("reads TEXT and MTEXT entities with their text-style handle references",()=>{
+ const textGeometry=[...bits(255),...raw(10),...raw(20),1,1,...raw(15),...tv("ROOM A")];
+ const text=parseR2004EntityRecord(annotationRecord(1,textGeometry,800));
+ assert.equal(text.geometry.kind,"text");assert.equal(text.geometry.text,"ROOM A");assert.equal(text.styleHandle.value,300n);
+ const mtextGeometry=[...bd(100),...bd(200),...bd(0),...bd(0),...bd(0),...bd(1),...bd(1),...bd(0),...bd(0),
+  ...bd(160),...bd(20),...bs(1),...bs(1),...bd(25),...bd(170),...tv("CONFERENCE"),...bs(0),...bd(1),0,...bl(0)];
+ const mtext=parseR2004EntityRecord(annotationRecord(44,mtextGeometry,801));
+ assert.equal(mtext.geometry.kind,"mtext");assert.equal(mtext.geometry.text,"CONFERENCE");assert.equal(mtext.styleHandle.value,300n);
+ const result=readR2004EntityRecords(annotationRecord(1,textGeometry,800),{entries:[{handle:800n,offset:0n}]});
+ assert.equal(result.records[0].geometry.text,"ROOM A");
+});
+
+test("decodes Japanese TEXT through the DWG code-page option",()=>{
+ const sjis=[0x89,0xef,0x8b,0x63,0x8e,0xba];
+ const geometry=[...bits(255),...raw(10),...raw(20),1,1,...raw(15),...bs(sjis.length),...bytesBits(sjis)];
+ const r=parseR2004EntityRecord(annotationRecord(1,geometry,802),0,{textEncoding:"shift_jis"});
+ assert.equal(r.geometry.text,"会議室");
 });

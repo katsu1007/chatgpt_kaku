@@ -97,3 +97,15 @@ test("maps HATCH polyline and arc boundaries without losing hatch metadata",()=>
  assert.equal(drawing.meta.info.hatches,1);
  assert.ok(drawing.meta.warnings.some(w=>w.includes("HATCH")));
 });
+
+test("preserves TEXT and MTEXT content and placement in sheet items",()=>{
+ const drawing=createR2004DwgDrawing({units:{known:true,code:4,name:"millimeters",scaleToMm:1},entities:[
+  entity("A-TEXT",230n,{kind:"text",insertion:{x:100,y:200,z:0},alignment:{x:100,y:200,z:0},text:"ROOM A",rotation:Math.PI/4,height:15,widthFactor:1}),
+  entity("A-TEXT",230n,{kind:"mtext",insertion:[300,400,0],xAxis:[0,1,0],text:"CONFERENCE",height:20,rectWidth:160,attachment:1,drawingDirection:1})
+ ],layers:[]});
+ const items=drawing.sheets[0].items;
+ assert.equal(items.length,2);assert.equal(items[0].kind,"text");assert.equal(items[0].text,"ROOM A");
+ assert.deepEqual([items[0].x,items[0].y],[0,0]);assert.equal(items[0].height,15);
+ assert.equal(items[1].mtext,true);assert.equal(items[1].text,"CONFERENCE");assert.equal(items[1].rotation,Math.PI/2);
+ assert.equal(items[1].width,160);assert.equal(drawing.meta.info.textEntities,2);
+});

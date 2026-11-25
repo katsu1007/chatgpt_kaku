@@ -98,3 +98,30 @@ test("rejects excessive HATCH path counts and unknown edge types",()=>{
  const bad=pack([...head,...bl(1),...bl(0),...bl(1),99,...bl(0),...bs(0),...bs(0),...bl(0)]);
  assert.throws(()=>decodeR2004Geometry(78,bad),/edge type/);
 });
+
+test("decodes R2004 TEXT position, height, string and defaulted style fields",()=>{
+ const input=pack([...bits(255),...raw(125),...raw(250),1,1,...raw(18),...tv("ROOM A")]);
+ const r=decodeR2004Geometry(1,input);
+ assert.equal(r.kind,"text");assert.equal(r.text,"ROOM A");
+ assert.deepEqual(r.insertion,{x:125,y:250,z:0});assert.deepEqual(r.alignment,r.insertion);
+ assert.equal(r.height,18);assert.equal(r.widthFactor,1);assert.equal(r.rotation,0);
+ assert.equal(r.horizontalAlignment,0);assert.equal(r.verticalAlignment,0);
+});
+test("decodes explicit R2004 TEXT alignment, rotation and width factor",()=>{
+ const input=pack([...bits(0),...raw(30),...raw(10),...raw(20),...dd(10,40),...dd(20,60),1,1,...raw(0.1),...raw(0.5),...raw(12),...raw(0.8),...tv("A-101"),...bs(1),...bs(2),...bs(3)]);
+ const r=decodeR2004Geometry(1,input);
+ assert.equal(r.elevation,30);assert.deepEqual(r.insertion,{x:10,y:20,z:30});assert.deepEqual(r.alignment,{x:40,y:60,z:30});
+ assert.equal(r.obliqueAngle,0.1);assert.equal(r.rotation,0.5);assert.equal(r.height,12);assert.equal(r.widthFactor,0.8);
+ assert.equal(r.generation,1);assert.equal(r.horizontalAlignment,2);assert.equal(r.verticalAlignment,3);
+});
+test("decodes R2004 MTEXT insertion, axis, layout and content",()=>{
+ const input=pack([
+  ...bd(100),...bd(200),...bd(0),...bd(0),...bd(0),...bd(1),...bd(1),...bd(0),...bd(0),
+  ...bd(180),...bd(24),...bs(1),...bs(1),...bd(32),...bd(200),...tv("ROOM\PMEETING"),
+  ...bs(0),...bd(1),0,...bl(0)
+ ]);
+ const r=decodeR2004Geometry(44,input);
+ assert.equal(r.kind,"mtext");assert.deepEqual(r.insertion,[100,200,0]);assert.deepEqual(r.xAxis,[1,0,0]);
+ assert.equal(r.rectWidth,180);assert.equal(r.height,24);assert.equal(r.attachment,1);assert.equal(r.text,"ROOM\PMEETING");
+ assert.equal(r.backgroundFlags,0);assert.equal(r.lineSpacingFactor,1);
+});

@@ -1,10 +1,10 @@
 // KAKU-owned R2004 LAYER object reader and entity layer-handle resolver.
-import { DwgBitReader } from "./dwg-bitstream.js";
+import { DwgBitReader } from "./dwg-bitstream.js?v=20261125-codepage1";
 import { parseR2004ObjectRecordEnvelope } from "./dwg-r2004-object-record.js";
-export function parseR2004LayerRecord(input,offset=0,{maxEedBytes=1024*1024}={}){
+export function parseR2004LayerRecord(input,offset=0,{maxEedBytes=1024*1024,textEncoding="windows-1252"}={}){
  const bytes=input instanceof Uint8Array?input:new Uint8Array(input||0),env=parseR2004ObjectRecordEnvelope(bytes,offset);
  if(env.objectType!==51)throw new Error("R2004 layer parser requires object type 51");
- const r=new DwgBitReader(bytes,{bitOffset:offset*8});
+ const r=new DwgBitReader(bytes,{bitOffset:offset*8,textEncoding});
  r.readModularShort();r.readBitShort();const objectDataBits=r.readRawLong(),selfHandle=r.readHandle();
  const eedSize=r.readBitShort();if(eedSize<0||eedSize>maxEedBytes)throw new RangeError("Invalid R2004 layer EED size");
  const eed=r.readBytes(eedSize),reactorCount=r.readBitLong(),xdictionaryMissing=r.readBit()===1;
@@ -19,12 +19,12 @@ export function parseR2004LayerRecord(input,offset=0,{maxEedBytes=1024*1024}={})
   flags:{frozen:!!(values&1),on:!!(values&2),frozenInNewViewports:!!(values&4),locked:!!(values&8),plottable:!!(values&16),lineweight:(values&0x03e0)>>5},
   handleBitOffset,diagnostics:{...env.diagnostics,layerObjectDecoded:true,handleReferencesDecoded:false}};
 }
-export function readR2004LayerRecords(sectionBytes,objectMap){
+export function readR2004LayerRecords(sectionBytes,objectMap,options){
  const layers=[];
  for(const item of objectMap.entries){
   const offset=Number(item.offset),env=parseR2004ObjectRecordEnvelope(sectionBytes,offset);
   if(env.objectType!==51)continue;
-  const layer=parseR2004LayerRecord(sectionBytes,offset);
+  const layer=parseR2004LayerRecord(sectionBytes,offset,options);
   if(layer.handle!==BigInt(item.handle))throw new Error("R2004 layer object-map handle mismatch");
   layers.push(layer);
  }

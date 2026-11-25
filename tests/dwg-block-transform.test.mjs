@@ -40,3 +40,15 @@ test("rejects invalid scale, nonplanar extrusion and excessive MINSERT arrays",(
  assert.throws(()=>createInsertTransform({insertionPoint:{x:0,y:0},extrusion:[1,0,0]}),/Non-planar/);
  assert.throws(()=>createMInsertTransforms({insertionPoint:{x:0,y:0},columns:1000,rows:1000}),/excessive/);
 });
+
+test("transforms TEXT and MTEXT positions, orientation and scale inside blocks",()=>{
+ const matrix=[0,2,-2,0,100,200];
+ const text=transformBlockGeometry({kind:"text",insertion:{x:1,y:0,z:0},alignment:{x:2,y:0,z:0},rotation:0,height:10,widthFactor:1,text:"ROOM"},matrix);
+ near(text.insertion.x,100);near(text.insertion.y,202);near(text.alignment.x,100);near(text.alignment.y,204);
+ near(text.rotation,Math.PI/2);near(text.height,20);
+ const mtext=transformBlockGeometry({kind:"mtext",insertion:{x:1,y:0,z:0},xAxis:{x:1,y:0,z:0},rectWidth:80,height:20,extentsWidth:85,extentsHeight:25,text:"NOTE"},matrix);
+ assert.deepEqual(mtext.insertion,[100,202,0]);assert.deepEqual(mtext.xAxis,[0,2,0]);
+ near(mtext.rectWidth,160);near(mtext.height,40);near(mtext.extentsWidth,170);
+ const unsupported=transformBlockGeometry({kind:"text",insertion:{x:0,y:0},rotation:0,height:10},[2,0,0,1,0,0]);
+ assert.equal(unsupported.kind,"unsupported");
+});

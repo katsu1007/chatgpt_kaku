@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { DwgBitReader } from "../original/dwg-bitstream.js";
+import { DwgBitReader, dwgTextEncoding } from "../original/dwg-bitstream.js";
 const pack=bits=>{const out=new Uint8Array(Math.ceil(bits.length/8));bits.forEach((v,i)=>{if(v)out[i>>3]|=1<<(7-(i&7));});return out;};
 const bytesBits=bytes=>Array.from(bytes).flatMap(b=>Array.from({length:8},(_,i)=>(b>>(7-i))&1));
 const bits=(value,n)=>Array.from({length:n},(_,i)=>(value>>(n-1-i))&1);
@@ -60,4 +60,13 @@ test("decodes thickness, extrusion and bit triplets",()=>{
  assert.equal(new DwgBitReader(new Uint8Array([0b10100000])).read3B(),2);
  const extrusionBits=[0,0,1,0,1,0,1];
  assert.deepEqual(new DwgBitReader(pack(extrusionBits)).readBitExtrusion(),[1,1,1]);
+});
+
+test("decodes legacy DWG text with the file's CP932 code page",()=>{
+ const bytes=[0x89,0xef,0x8b,0x63,0x8e,0xba];
+ const input=pack([0,1,...bits(bytes.length,8),...bytesBits(bytes)]);
+ const r=new DwgBitReader(input,{textEncoding:dwgTextEncoding(932)});
+ assert.equal(r.readText(),"会議室");
+ assert.equal(dwgTextEncoding(1252),"windows-1252");
+ assert.equal(dwgTextEncoding(936),"gbk");
 });

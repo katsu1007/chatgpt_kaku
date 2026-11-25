@@ -1,6 +1,10 @@
 // KAKU-owned DWG bitstream primitives.
+export function dwgTextEncoding(codePage){
+ const map={932:"shift_jis",936:"gbk",949:"euc-kr",950:"big5",874:"windows-874",1250:"windows-1250",1251:"windows-1251",1252:"windows-1252",1253:"windows-1253",1254:"windows-1254",1255:"windows-1255",1256:"windows-1256",1257:"windows-1257",1258:"windows-1258",65001:"utf-8"};
+ return map[Number(codePage)]||"windows-1252";
+}
 export class DwgBitReader {
- constructor(input,{bitOffset=0}={}) { this.bytes=input instanceof Uint8Array?input:new Uint8Array(input||0); this.bitOffset=bitOffset; if(!Number.isInteger(bitOffset)||bitOffset<0||bitOffset>this.bytes.length*8) throw new RangeError('DWG bit offset outside buffer'); }
+ constructor(input,{bitOffset=0,textEncoding="windows-1252"}={}) { this.bytes=input instanceof Uint8Array?input:new Uint8Array(input||0); this.bitOffset=bitOffset; this.textEncoding=textEncoding; if(!Number.isInteger(bitOffset)||bitOffset<0||bitOffset>this.bytes.length*8) throw new RangeError('DWG bit offset outside buffer'); }
  get remainingBits(){return this.bytes.length*8-this.bitOffset;}
  get byteOffset(){return Math.floor(this.bitOffset/8);}
  readBit(){if(this.remainingBits<1)throw new RangeError('DWG stream ended while reading a bit');const b=this.bytes[this.bitOffset>>3],s=7-(this.bitOffset&7);this.bitOffset++;return (b>>s)&1;}
@@ -13,7 +17,7 @@ export class DwgBitReader {
  readBitLong(){const c=this.readBits(2);if(c===0)return this.readRawLong();if(c===1)return this.readBits(8);if(c===2)return 0;throw new Error('Reserved DWG bitlong opcode 11');}
  readBitDouble(){const c=this.readBits(2);if(c===0)return this.readRawDouble();if(c===1)return 1;if(c===2)return 0;throw new Error('Reserved DWG bitdouble opcode 11');}
  readRawChar(){return this.readBits(8);}
- readText(maxBytes=65535){const length=this.readBitShort();if(length<0||length>maxBytes)throw new RangeError('Invalid DWG text length '+length);return new TextDecoder('windows-1252').decode(this.readBytes(length));}
+ readText(maxBytes=65535,encoding=this.textEncoding){const length=this.readBitShort();if(length<0||length>maxBytes)throw new RangeError('Invalid DWG text length '+length);return new TextDecoder(encoding).decode(this.readBytes(length));}
  read2BD(){return [this.readBitDouble(),this.readBitDouble()];}
  read3BD(){return [this.readBitDouble(),this.readBitDouble(),this.readBitDouble()];}
  read2RD(){return [this.readRawDouble(),this.readRawDouble()];}

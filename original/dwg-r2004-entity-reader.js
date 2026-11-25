@@ -1,13 +1,13 @@
 // KAKU-owned R2004 common entity data reader and geometry dispatcher.
-import { DwgBitReader } from "./dwg-bitstream.js";
+import { DwgBitReader, dwgTextEncoding } from "./dwg-bitstream.js?v=20261125-codepage1";
 import { parseR2004ObjectRecordEnvelope } from "./dwg-r2004-object-record.js";
-import { decodeR2004Geometry } from "./dwg-r2004-geometry.js?v=20261125-hatch1";
+import { decodeR2004Geometry } from "./dwg-r2004-geometry.js?v=20261125-text2";
 import { readR2004SectionByName } from "./dwg-r2004-section-reader.js";
 import { readR2004ObjectMap } from "./dwg-r2004-object-map.js";
 import { readR2004SectionMaps } from "./dwg-r2004-sections.js";
-import { readR2004LayerRecords, resolveR2004EntityLayers } from "./dwg-r2004-layer-reader.js";
+import { readR2004LayerRecords, resolveR2004EntityLayers } from "./dwg-r2004-layer-reader.js?v=20261125-codepage1";
 import { parseR2004HeaderVariables } from "./dwg-r2004-header-vars.js";
-import { readR2004BlockHeaders } from "./dwg-r2004-block-reader.js";
+import { readR2004BlockHeaders } from "./dwg-r2004-block-reader.js?v=20261125-codepage1";
 import { expandR2004BlockReferences } from "./dwg-r2004-block-expand.js";
 function readEntityColor(reader){
  const colorNumber=reader.readBitShort(),flags=colorNumber&0xe000;
@@ -27,10 +27,10 @@ function readEntityHandles(reader,selfHandle,reactorCount,xdictionaryMissing,col
  const plotstyle=plotstyleFlags===3?reader.readHandle(selfHandle):null;
  return {owner,reactors,xdictionary,colorBook,layer,linetype,plotstyle};
 }
-export function parseR2004EntityRecord(input,offset=0,{maxEedBytes=1024*1024,maxGraphicBytes=16*1024*1024}={}){
+export function parseR2004EntityRecord(input,offset=0,{maxEedBytes=1024*1024,maxGraphicBytes=16*1024*1024,textEncoding="windows-1252"}={}){
  const bytes=input instanceof Uint8Array?input:new Uint8Array(input||0);
  const envelope=parseR2004ObjectRecordEnvelope(bytes,offset);
- const reader=new DwgBitReader(bytes,{bitOffset:offset*8});
+ const reader=new DwgBitReader(bytes,{bitOffset:offset*8,textEncoding});
  reader.readModularShort();reader.readBitShort();const objectDataBits=reader.readRawLong();const selfHandle=reader.readHandle();
  const eedSize=reader.readBitShort();
  if(eedSize<0||eedSize>maxEedBytes)throw new RangeError("Invalid R2004 EED byte count");
@@ -56,12 +56,13 @@ export function parseR2004EntityRecord(input,offset=0,{maxEedBytes=1024*1024,max
  }
  let boundaryHandles=[];
  if(geometry.kind==="hatch")for(let i=0;i<geometry.boundaryObjectCount;i++)boundaryHandles.push(reader.readHandle(selfHandle.value));
+ const styleHandle=geometry.kind==="text"||geometry.kind==="mtext"?reader.readHandle(selfHandle.value):null;
  return {...envelope,objectDataBits,selfHandle:selfHandle.value,entityMode,reactorCount,xdictionaryMissing,noLinks,color,linetypeScale,linetypeFlags,plotstyleFlags,invisibility,lineweight,
-  eed,graphic,geometry,geometryBitOffset,geometryEndBit,declaredHandleBitOffset:handleBitOffset,handles,insertHandles,boundaryHandles,ownerHandle:handles.owner.value,layerHandle:handles.layer.value,
+  eed,graphic,geometry,geometryBitOffset,geometryEndBit,declaredHandleBitOffset:handleBitOffset,handles,insertHandles,boundaryHandles,styleHandle,ownerHandle:handles.owner.value,layerHandle:handles.layer.value,
   diagnostics:{...envelope.diagnostics,commonEntityDecoded:true,geometryDecoded:geometry.kind!=="unsupported",handleReferencesDecoded:true}};
 }
 export function readR2004EntityRecords(sectionBytes,objectMap,options){
- const records=[],skippedObjects=[],supported=new Set([7,8,17,18,19,27,31,77,78]);
+ const records=[],skippedObjects=[],supported=new Set([1,7,8,17,18,19,27,31,44,77,78]);
  for(const item of objectMap.entries){
   const offset=Number(item.offset),envelope=parseR2004ObjectRecordEnvelope(sectionBytes,offset);
   if(envelope.handle!==BigInt(item.handle))throw new Error("Object-map handle mismatch at entity offset "+item.offset);
@@ -74,10 +75,11 @@ export function readR2004EntityRecords(sectionBytes,objectMap,options){
 export function readR2004DrawingEntities(input,fileHeader,options){
  const sections=readR2004SectionMaps(input,fileHeader),objectMap=readR2004ObjectMap(input,sections.resolvedSections);
  const objects=readR2004SectionByName(input,sections.resolvedSections,"AcDb:AcDbObjects");
- const entities=readR2004EntityRecords(objects.data,objectMap,options),layers=readR2004LayerRecords(objects.data,objectMap),blocks=readR2004BlockHeaders(objects.data,objectMap);
- const resolved=resolveR2004EntityLayers(entities.records,layers),expanded=expandR2004BlockReferences(resolved.entities,blocks.blocks,options?.blockExpansion);
+ const textEncoding=options?.textEncoding||dwgTextEncoding(fileHeader?.fileHeader?.codePage),readerOptions={...options,textEncoding};
+ const entities=readR2004EntityRecords(objects.data,objectMap,readerOptions),layers=readR2004LayerRecords(objects.data,objectMap,readerOptions),blocks=readR2004BlockHeaders(objects.data,objectMap,readerOptions);
+ const resolved=resolveR2004EntityLayers(entities.records,layers),expanded=expandR2004BlockReferences(resolved.entities,blocks.blocks,readerOptions?.blockExpansion);
  let units={code:null,name:"unknown",scaleToMm:null,known:false},headerWarning=null,headerVariables=null;
  try{const headerSection=readR2004SectionByName(input,sections.resolvedSections,"AcDb:Header");headerVariables=parseR2004HeaderVariables(headerSection.data);units=headerVariables.units;if(!headerVariables.endingSentinelValid)headerWarning="DWGヘッダー終端を検証できないため、INSUNITSは採用しません。";else if(!units.known)headerWarning="INSUNITSが未指定または未対応のため、mm換算は保留します。";}
  catch(error){headerWarning="DWG INSUNITSを取得できません："+(error?.message||error);}
- return {entities:expanded.entities,rawEntities:resolved.entities,objectMap,layers:layers.layers,blocks:blocks.blocks,blockExpansion:expanded.diagnostics,units,headerVariables,headerWarning,sections:sections.diagnostics,diagnostics:{...entities.diagnostics,...layers.diagnostics,...blocks.diagnostics,...resolved.diagnostics,...expanded.diagnostics,sectionCount:sections.resolvedSections.length,objectMapEntries:objectMap.entries.length}};
+ return {entities:expanded.entities,rawEntities:resolved.entities,objectMap,layers:layers.layers,blocks:blocks.blocks,blockExpansion:expanded.diagnostics,textEncoding,codePage:fileHeader?.fileHeader?.codePage??null,units,headerVariables,headerWarning,sections:sections.diagnostics,diagnostics:{...entities.diagnostics,...layers.diagnostics,...blocks.diagnostics,...resolved.diagnostics,...expanded.diagnostics,sectionCount:sections.resolvedSections.length,objectMapEntries:objectMap.entries.length}};
 }

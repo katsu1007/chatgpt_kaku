@@ -1,6 +1,6 @@
 // KAKU-owned R2004 geometry payload decoders.
 // Call with the bit cursor positioned at the entity-specific data fields.
-import { DwgBitReader } from "./dwg-bitstream.js";
+import { DwgBitReader } from "./dwg-bitstream.js?v=20261125-codepage1";
 export function decodeR2004LineGeometry(reader){
  const zIsZero=reader.readBit()===1;
  const sx=reader.readRawDouble(),ex=reader.readBitDoubleWithDefault(sx);
@@ -19,6 +19,31 @@ export function decodeR2004CircleGeometry(reader){
  return {kind:"circle",center:{x,y,z},radius,thickness,extrusion};
 }
 
+export function decodeR2004TextGeometry(reader){
+ const dataFlags=reader.readRawChar(),elevation=(dataFlags&0x01)?0:reader.readRawDouble();
+ const [x,y]=reader.read2RD(),insertion={x,y,z:elevation};
+ const alignment=(dataFlags&0x02)?{x,y,z:elevation}:(()=>{const [ax,ay]=[reader.readBitDoubleWithDefault(x),reader.readBitDoubleWithDefault(y)];return {x:ax,y:ay,z:elevation};})();
+ const extrusion=reader.readBitExtrusion(),thickness=reader.readBitThickness();
+ const obliqueAngle=(dataFlags&0x04)?0:reader.readRawDouble(),rotation=(dataFlags&0x08)?0:reader.readRawDouble();
+ const height=reader.readRawDouble(),widthFactor=(dataFlags&0x10)?1:reader.readRawDouble(),text=reader.readText(65535);
+ const generation=(dataFlags&0x20)?0:reader.readBitShort(),horizontalAlignment=(dataFlags&0x40)?0:reader.readBitShort(),verticalAlignment=(dataFlags&0x80)?0:reader.readBitShort();
+ return {kind:"text",dataFlags,elevation,insertion,alignment,extrusion,thickness,obliqueAngle,rotation,height,widthFactor,text,generation,horizontalAlignment,verticalAlignment};
+}
+function readR2004MTextColor(reader){
+ const index=reader.readBitShort(),rgb=reader.readBitLong(),flags=reader.readRawChar(),color={index,rgb,flags};
+ if(flags&1)color.name=reader.readText(4096);
+ if(flags&2)color.bookName=reader.readText(4096);
+ return color;
+}
+export function decodeR2004MTextGeometry(reader){
+ const insertion=reader.read3BD(),extrusion=reader.read3BD(),xAxis=reader.read3BD(),rectWidth=reader.readBitDouble(),height=reader.readBitDouble();
+ const attachment=reader.readBitShort(),drawingDirection=reader.readBitShort(),extentsHeight=reader.readBitDouble(),extentsWidth=reader.readBitDouble(),text=reader.readText(65535);
+ const lineSpacingStyle=reader.readBitShort(),lineSpacingFactor=reader.readBitDouble(),unknownFlag=reader.readBit()===1,backgroundFlags=reader.readBitLong();
+ let backgroundScaleFactor=null,backgroundColor=null,backgroundTransparency=null;
+ if(backgroundFlags&1){backgroundScaleFactor=reader.readBitLong();backgroundColor=readR2004MTextColor(reader);backgroundTransparency=reader.readBitLong();}
+ return {kind:"mtext",insertion,extrusion,xAxis,rectWidth,height,attachment,drawingDirection,extentsHeight,extentsWidth,text,
+  lineSpacingStyle,lineSpacingFactor,unknownFlag,backgroundFlags,backgroundScaleFactor,backgroundColor,backgroundTransparency};
+}
 function checkedCount(reader,label,max=100000){
  const count=reader.readBitLong();
  if(!Number.isSafeInteger(count)||count<0||count>max)throw new RangeError("Invalid R2004 HATCH "+label+" count");
@@ -118,6 +143,8 @@ export function decodeR2004Geometry(typeCode,input,bitOffset=0){
   case 17:return decodeR2004ArcGeometry(reader);
   case 18:return decodeR2004CircleGeometry(reader);
   case 19:return decodeR2004LineGeometry(reader);
+  case 1:return decodeR2004TextGeometry(reader);
+  case 44:return decodeR2004MTextGeometry(reader);
   case 7:return decodeR2004InsertGeometry(reader);
   case 8:return decodeR2004InsertGeometry(reader,{multiple:true});
   case 77:return decodeR2004LwPolylineGeometry(reader);
