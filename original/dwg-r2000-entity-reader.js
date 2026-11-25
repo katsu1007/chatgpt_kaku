@@ -1,7 +1,7 @@
 // KAKU-owned R2000 entity common-data reader.
 // The R2000 container is flat (absolute object-map offsets); geometry payload
 // decoders are shared only where the published entity layouts match R2004.
-import { DwgBitReader, dwgTextEncoding } from "./dwg-bitstream.js";
+import { DwgBitReader, dwgTextEncoding } from "./dwg-bitstream.js?v=20261125-codepage1";
 import { parseR2004ObjectRecordEnvelope } from "./dwg-r2004-object-record.js";
 import { decodeR2004Geometry } from "./dwg-r2004-geometry.js";
 import { readR13R15ObjectMap } from "./dwg-r13-container.js";
