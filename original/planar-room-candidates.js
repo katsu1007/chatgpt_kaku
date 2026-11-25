@@ -88,7 +88,7 @@ function doorwayBridges(items,allowed,hidden,anchors,stats){
  });
  (items||[]).forEach((item,index)=>{
   const layer=String(item?.layer??""),kind=String(item?.kind||item?.type||"").toLowerCase();
-  if(!allowed.has(layer)||hidden.has(layer)||NON_WALL_LAYER.test(layer)||!["line","polyline"].includes(kind))return;
+  if(!allowed.has(layer)||hidden.has(layer)||NON_WALL_LAYER.test(layer)||isDimensionGraphicItem(item)||!["line","polyline"].includes(kind))return;
   const p=pointsOf(item);if(p.length<2)return;
   const ends=[{p:p[0],toward:p[1]},{p:p.at(-1),toward:p.at(-2)}];
   for(const e of ends){
