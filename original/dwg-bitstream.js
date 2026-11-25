@@ -13,7 +13,7 @@ export class DwgBitReader {
  readBitLong(){const c=this.readBits(2);if(c===0)return this.readRawLong();if(c===1)return this.readBits(8);if(c===2)return 0;throw new Error('Reserved DWG bitlong opcode 11');}
  readBitDouble(){const c=this.readBits(2);if(c===0)return this.readRawDouble();if(c===1)return 1;if(c===2)return 0;throw new Error('Reserved DWG bitdouble opcode 11');}
  readRawChar(){return this.readBits(8);}
- readText(maxBytes=65535){const length=this.readBitShort();if(length<0||length>maxBytes)throw new RangeError('Invalid DWG text length '+length);return new TextDecoder('windows-1252').decode(this.readBytes(length));}
+ readText(maxBytes=65535,encoding=this.textEncoding){const length=this.readBitShort();if(length<0||length>maxBytes)throw new RangeError('Invalid DWG text length '+length);return new TextDecoder(encoding).decode(this.readBytes(length));}
  read2BD(){return [this.readBitDouble(),this.readBitDouble()];}
  read3BD(){return [this.readBitDouble(),this.readBitDouble(),this.readBitDouble()];}
  read2RD(){return [this.readRawDouble(),this.readRawDouble()];}
