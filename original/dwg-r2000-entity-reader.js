@@ -9,7 +9,8 @@ import { readR2000LayerRecords, resolveR2000EntityLayers } from "./dwg-r2000-lay
 import { readR2000BlockHeaders, assembleR2000BlockDefinitions } from "./dwg-r2000-block-reader.js?v=20261125-r2000-block1";
 import { parseR2000HeaderVariables } from "./dwg-r2000-header-vars.js?v=20261125-header-vars1";
 import { expandR2004BlockReferences } from "./dwg-r2004-block-expand.js?v=20261125-blockexpand1";
-const SUPPORTED=new Set([1,7,8,17,18,19,20,21,22,23,24,25,26,27,31,35,36,44,77]);
+import { assembleR2004LegacyPolylines } from "./dwg-r2004-entity-reader.js";
+const SUPPORTED=new Set([1,7,8,10,11,12,13,15,16,17,18,19,20,21,22,23,24,25,26,27,31,35,36,44,77]);
 function bitDoubleDefault(reader,defaultValue){return reader.readBitDoubleWithDefault(defaultValue);}
 function decodeR2000InsertGeometry(reader,multiple=false){
  const insertionPoint=reader.read3BD(),scaleFlags=reader.readBits(2);let x=1,y=1,z=1;
@@ -63,8 +64,15 @@ export function parseR2000EntityRecord(input,offset=0,{maxEedBytes=1024*1024,max
   const seqend=geometry.hasAttributes?reader.readHandle(selfHandle.value):null;
   insertHandles={blockHeader,firstAttribute,lastAttribute,seqend};
  }
+ let polylineHandles=null;
+ if(geometry.kind==="polyline2d"||geometry.kind==="polyline3d"){
+  const vertices=[];
+  for(let i=0;i<geometry.ownedObjectCount;i++)vertices.push(reader.readHandle(selfHandle.value));
+  const seqend=reader.readHandle(selfHandle.value);
+  polylineHandles={vertices,seqend};
+ }
  return {...envelope,objectDataBits,selfHandle:selfHandle.value,entityMode,reactorCount,noLinks,color,linetypeScale,linetypeFlags,plotstyleFlags,invisibility,lineweight,
-  eed,graphic,geometry,geometryBitOffset,geometryAvailableBits,geometryEndBit,declaredHandleBitOffset:handleBitOffset,handles,styleHandle,dimensionHandles,insertHandles,
+  eed,graphic,geometry,geometryBitOffset,geometryAvailableBits,geometryEndBit,declaredHandleBitOffset:handleBitOffset,handles,styleHandle,dimensionHandles,insertHandles,polylineHandles,
   ownerHandle:handles.owner.value,layerHandle:handles.layer.value,
   diagnostics:{...envelope.diagnostics,commonEntityDecoded:true,geometryDecoded:geometry.kind!=="unsupported",handleReferencesDecoded:true,formatFamily:"R2000"}};
 }
@@ -93,8 +101,9 @@ export function readR2000DrawingEntities(input,header,options={}){
   catch(error){headerWarning="DWGヘッダー変数を解析できません："+error.message;}}
  const entities=readR2000EntityRecords(bytes,objectMap,{...options,textEncoding:encoding});
  const layers=readR2000LayerRecords(bytes,objectMap,{textEncoding:encoding}),blocks=readR2000BlockHeaders(bytes,objectMap,{textEncoding:encoding});
- const blockDefinitions=assembleR2000BlockDefinitions(blocks,entities.records),expanded=expandR2004BlockReferences(entities.records,blockDefinitions.blocks,options.blockExpansion);
+ const polylines=assembleR2004LegacyPolylines(entities.records);
+ const blockDefinitions=assembleR2000BlockDefinitions(blocks,polylines.entities),expanded=expandR2004BlockReferences(polylines.entities,blockDefinitions.blocks,options.blockExpansion);
  const resolved=resolveR2000EntityLayers(expanded.entities,layers);
  return {...entities,entities:resolved.entities,layers:layers.layers,blocks:blockDefinitions.blocks,blockExpansion:expanded.diagnostics,objectMap,headerVariables,units,headerWarning,version:header.version,versionCode:header.versionCode,codePage:header.fileHeader?.codePage,textEncoding:encoding,
-  layerDiagnostics:layers.diagnostics,blockDiagnostics:blockDefinitions.diagnostics,diagnostics:{...entities.diagnostics,...layers.diagnostics,...resolved.diagnostics,...blockDefinitions.diagnostics,...expanded.diagnostics,headerVariablesParsed:!!headerVariables,unitsKnown:units.known,objectMapEntries:objectMap.entries.length,formatFamily:"R2000-flat"}};
+  layerDiagnostics:layers.diagnostics,blockDiagnostics:blockDefinitions.diagnostics,polylineDiagnostics:polylines.diagnostics,diagnostics:{...entities.diagnostics,...layers.diagnostics,...resolved.diagnostics,...blockDefinitions.diagnostics,...polylines.diagnostics,...expanded.diagnostics,headerVariablesParsed:!!headerVariables,unitsKnown:units.known,objectMapEntries:objectMap.entries.length,formatFamily:"R2000-flat"}};
 }
