@@ -10,6 +10,13 @@ on:
 permissions:
   contents: read
 
+# Keep only the newest validation active for each PR/branch.
+# Rapid follow-up commits cancel obsolete in-flight runs instead of sending
+# a separate failure notification for every intermediate state.
+concurrency:
+  group: kaku-tests-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
