@@ -27,7 +27,7 @@ test("supports multi-byte modular chars and signed location deltas",()=>{
  assert.equal(map.entries[0].offset,4610n);assert.equal(map.entries[1].offset,3197n);
 });
 test("rejects missing terminator, malformed blocks and non-increasing handles",()=>{
- assert.throws(()=>parseR2004ObjectMap(new Uint8Array([0,2,0,0,0]),{}),/terminal|block/);
+ assert.throws(()=>parseR2004ObjectMap(new Uint8Array(block([[5,10]])),{}),/terminal|block/);
  assert.throws(()=>parseR2004ObjectMap(new Uint8Array([0,1,0,2,0,0])),/block size/);
  assert.throws(()=>parseR2004ObjectMap(new Uint8Array([...block([[5,10],[0,1]]),0,2,0,0])),/strictly increasing/);
 });
