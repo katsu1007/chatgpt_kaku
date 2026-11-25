@@ -1,6 +1,32 @@
 // KAKU-owned R2004 geometry payload decoders.
 // Call with the bit cursor positioned at the entity-specific data fields.
 import { DwgBitReader } from "./dwg-bitstream.js?v=20261125-codepage1";
+export function decodeR2004LegacyPolylineGeometry(typeCode,reader,{maxOwnedObjects=100000}={}){
+ if(typeCode===15){
+  const flags=reader.readBitShort(),curveType=reader.readBitShort(),startWidth=reader.readBitDouble(),endWidth=reader.readBitDouble();
+  const thickness=reader.readBitThickness(),elevation=reader.readBitDouble(),extrusion=reader.readBitExtrusion(),ownedObjectCount=reader.readBitLong();
+  if(ownedObjectCount<0||ownedObjectCount>maxOwnedObjects)throw new RangeError("Invalid R2004 2D POLYLINE owned-object count");
+  return {kind:"polyline2d",flags,curveType,startWidth,endWidth,thickness,elevation,extrusion,ownedObjectCount,closed:!!(flags&1)};
+ }
+ if(typeCode===16){
+  const flags=reader.readRawChar(),ownedObjectCount=reader.readBitLong();
+  if(ownedObjectCount<0||ownedObjectCount>maxOwnedObjects)throw new RangeError("Invalid R2004 3D POLYLINE owned-object count");
+  return {kind:"polyline3d",flags,ownedObjectCount,closed:!!(flags&1)};
+ }
+ if(typeCode===10){
+  const flags=reader.readRawChar(),point=reader.read3BD(),rawStartWidth=reader.readBitDouble();
+  let startWidth,endWidth;
+  if(rawStartWidth<0)startWidth=endWidth=Math.abs(rawStartWidth);
+  else{startWidth=rawStartWidth;endWidth=reader.readBitDouble();}
+  const bulge=reader.readBitDouble(),tangentDirection=reader.readBitDouble();
+  return {kind:"vertex2d",flags,point,startWidth,endWidth,bulge,tangentDirection};
+ }
+ if(typeCode===11||typeCode===12||typeCode===13){
+  const flags=reader.readRawChar(),point=reader.read3BD();
+  return {kind:typeCode===11?"vertex3d":typeCode===12?"vertexMesh":"vertexPface",flags,point};
+ }
+ throw new Error("Unsupported R2004 legacy polyline type "+typeCode);
+}
 export function decodeR2004LineGeometry(reader){
  const zIsZero=reader.readBit()===1;
  const sx=reader.readRawDouble(),ex=reader.readBitDoubleWithDefault(sx);
@@ -159,6 +185,7 @@ export function decodeR2004Geometry(typeCode,input,bitOffset=0){
  switch(typeCode){
   case 17:return decodeR2004ArcGeometry(reader);
   case 18:return decodeR2004CircleGeometry(reader);
+  case 10:case 11:case 12:case 13:case 15:case 16:return decodeR2004LegacyPolylineGeometry(typeCode,reader);
   case 19:return decodeR2004LineGeometry(reader);
   case 20:case 21:case 22:case 23:case 24:case 25:case 26:return decodeR2004DimensionGeometry(typeCode,reader);
   case 1:return decodeR2004TextGeometry(reader);
