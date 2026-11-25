@@ -19,6 +19,61 @@ export function decodeR2004CircleGeometry(reader){
  return {kind:"circle",center:{x,y,z},radius,thickness,extrusion};
 }
 
+function checkedCount(reader,label,max=100000){
+ const count=reader.readBitLong();
+ if(!Number.isSafeInteger(count)||count<0||count>max)throw new RangeError("Invalid R2004 HATCH "+label+" count");
+ return count;
+}
+function decodeR2004HatchPath(reader,{maxEdges=100000,maxVertices=100000,maxKnots=100000,maxControlPoints=100000}={}){
+ const flags=reader.readBitLong(),path={flags,kind:(flags&2)?"polyline":"edges",boundaryObjectCount:0};
+ if(flags&2){
+  path.bulgesPresent=reader.readBit()===1;path.closed=reader.readBit()===1;
+  const count=checkedCount(reader,"polyline vertex",maxVertices);
+  path.vertices=Array.from({length:count},()=>{const [x,y]=reader.read2RD();return {x,y};});
+  if(path.bulgesPresent)path.bulges=Array.from({length:count},()=>reader.readBitDouble());
+  else path.bulges=path.vertices.map(()=>0);
+ }else{
+  const count=checkedCount(reader,"edge",maxEdges);path.edges=[];
+  for(let i=0;i<count;i++){
+   const type=reader.readRawChar(),edge={type};
+   if(type===1){const [x1,y1]=reader.read2RD(),[x2,y2]=reader.read2RD();edge.kind="line";edge.start={x:x1,y:y1};edge.end={x:x2,y:y2};}
+   else if(type===2){const [x,y]=reader.read2RD();edge.kind="arc";edge.center={x,y};edge.radius=reader.readBitDouble();edge.startAngle=reader.readBitDouble();edge.endAngle=reader.readBitDouble();edge.counterClockwise=reader.readBit()===1;}
+   else if(type===3){const [x,y]=reader.read2RD(),[mx,my]=reader.read2RD();edge.kind="ellipse";edge.center={x,y};edge.majorAxis={x:mx,y:my};edge.minorMajorRatio=reader.readBitDouble();edge.startAngle=reader.readBitDouble();edge.endAngle=reader.readBitDouble();edge.counterClockwise=reader.readBit()===1;}
+   else if(type===4){
+    edge.kind="spline";edge.degree=checkedCount(reader,"spline degree",32);edge.rational=reader.readBit()===1;edge.periodic=reader.readBit()===1;
+    const knotCount=checkedCount(reader,"spline knot",maxKnots),controlCount=checkedCount(reader,"spline control point",maxControlPoints);
+    edge.knots=Array.from({length:knotCount},()=>reader.readBitDouble());
+    edge.controlPoints=Array.from({length:controlCount},()=>{const [x,y]=reader.read2RD();return {x,y,...(edge.rational?{weight:reader.readBitDouble()}: {})};});
+   }else throw new Error("Unsupported R2004 HATCH edge type "+type);
+   path.edges.push(edge);
+  }
+ }
+ path.boundaryObjectCount=checkedCount(reader,"boundary object",maxEdges);
+ return path;
+}
+export function decodeR2004HatchGeometry(reader,options={}){
+ const isGradientFill=reader.readBitLong(),reserved=reader.readBitLong(),gradientAngle=reader.readBitDouble(),gradientShift=reader.readBitDouble();
+ const singleColorGradient=reader.readBitLong(),gradientTint=reader.readBitDouble(),gradientColorCount=checkedCount(reader,"gradient color",4096),gradientColors=[];
+ for(let i=0;i<gradientColorCount;i++)gradientColors.push({unknownDouble:reader.readBitDouble(),unknownShort:reader.readBitShort(),rgb:reader.readBitLong(),ignoredColorByte:reader.readRawChar()});
+ const gradientName=reader.readText(4096),elevation=reader.readBitDouble(),extrusion=reader.read3BD(),name=reader.readText(4096);
+ const solidFill=reader.readBit()===1,associative=reader.readBit()===1,pathCount=checkedCount(reader,"path",options.maxPaths??10000);
+ const paths=Array.from({length:pathCount},()=>decodeR2004HatchPath(reader,options));
+ const style=reader.readBitShort(),patternType=reader.readBitShort();let pattern=null;
+ if(!solidFill){
+  pattern={angle:reader.readBitDouble(),scale:reader.readBitDouble(),double:reader.readBit()===1,lines:[]};
+  const lineCount=reader.readBitShort();if(lineCount<0||lineCount>(options.maxPatternLines??10000))throw new RangeError("Invalid R2004 HATCH pattern line count");
+  for(let i=0;i<lineCount;i++){
+   const angle=reader.readBitDouble(),base=reader.read2BD(),offset=reader.read2BD(),dashCount=reader.readBitShort();
+   if(dashCount<0||dashCount>(options.maxPatternDashes??10000))throw new RangeError("Invalid R2004 HATCH pattern dash count");
+   pattern.lines.push({angle,base,offset,dashes:Array.from({length:dashCount},()=>reader.readBitDouble())});
+  }
+ }
+ if(paths.some(path=>path.flags&4))pattern={...(pattern||{}),pixelSize:reader.readBitDouble()};
+ const seedCount=checkedCount(reader,"seed point",options.maxSeedPoints??100000),seedPoints=Array.from({length:seedCount},()=>reader.read2RD());
+ return {kind:"hatch",isGradientFill,reserved,gradientAngle,gradientShift,singleColorGradient,gradientTint,gradientColors,gradientName,
+  elevation,extrusion,name,solidFill,associative,pathCount,paths,style,patternType,pattern,seedPoints,
+  boundaryObjectCount:paths.reduce((n,path)=>n+path.boundaryObjectCount,0)};
+}
 function readR2004InsertScale(reader){
  const flag=reader.readBits(2);let x=1,y=1,z=1;
  if(flag===1){y=reader.readBitDoubleWithDefault(1);z=reader.readBitDoubleWithDefault(1);}
@@ -66,6 +121,7 @@ export function decodeR2004Geometry(typeCode,input,bitOffset=0){
   case 7:return decodeR2004InsertGeometry(reader);
   case 8:return decodeR2004InsertGeometry(reader,{multiple:true});
   case 77:return decodeR2004LwPolylineGeometry(reader);
+  case 78:return decodeR2004HatchGeometry(reader);
   case 27:return decodeR2004PointGeometry(reader);
   case 31:return decodeR2004SolidGeometry(reader);
   default:return {kind:"unsupported",typeCode,bitOffset:reader.bitOffset};
