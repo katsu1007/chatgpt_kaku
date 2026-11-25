@@ -66,7 +66,7 @@ export function readR2004DrawingEntities(input,fileHeader,options){
  const entities=readR2004EntityRecords(objects.data,objectMap,options),layers=readR2004LayerRecords(objects.data,objectMap);
  const resolved=resolveR2004EntityLayers(entities.records,layers);
  let units={code:null,name:"unknown",scaleToMm:null,known:false},headerWarning=null,headerVariables=null;
- try{const headerSection=readR2004SectionByName(input,sections.resolvedSections,"AcDb:Header");headerVariables=parseR2004HeaderVariables(headerSection.data);units=headerVariables.units;}
+ try{const headerSection=readR2004SectionByName(input,sections.resolvedSections,"AcDb:Header");headerVariables=parseR2004HeaderVariables(headerSection.data);units=headerVariables.units;if(!headerVariables.endingSentinelValid)headerWarning="DWGヘッダー終端を検証できないため、INSUNITSは採用しません。";else if(!units.known)headerWarning="INSUNITSが未指定または未対応のため、mm換算は保留します。";}
  catch(error){headerWarning="DWG INSUNITSを取得できません："+(error?.message||error);}
  return {entities:resolved.entities,objectMap,layers:layers.layers,units,headerVariables,headerWarning,sections:sections.diagnostics,diagnostics:{...entities.diagnostics,...layers.diagnostics,...resolved.diagnostics,sectionCount:sections.resolvedSections.length,objectMapEntries:objectMap.entries.length}};
 }
