@@ -5,13 +5,13 @@ const pack=bits=>{const out=new Uint8Array(Math.ceil(bits.length/8));bits.forEac
 const bytesBits=bytes=>Array.from(bytes).flatMap(b=>Array.from({length:8},(_,i)=>(b>>(7-i))&1));
 const bits=(value,n)=>Array.from({length:n},(_,i)=>(value>>(n-1-i))&1);
 const reader=(...bytes)=>new DwgBitReader(new Uint8Array(bytes));
-test("reads bits most-significant-bit first across byte boundaries",()=>{const r=reader(0b10110010,0b01100000);assert.equal(r.readBits(4),11);assert.equal(r.readBits(6),0b100100);});
+test("reads bits most-significant-bit first across byte boundaries",()=>{const r=reader(0b10110010,0b01100000);assert.equal(r.readBits(4),11);assert.equal(r.readBits(6),0b001001);});
 test("decodes bitshort compact and raw forms",()=>{
- assert.equal(reader(0b10000000).readBitShort(),0);assert.equal(reader(0b11000000).readBitShort(),256);assert.equal(reader(0b01010101).readBitShort(),0x55);
+ assert.equal(reader(0b10000000).readBitShort(),0);assert.equal(reader(0b11000000).readBitShort(),256);assert.equal(reader(0b01010101,0).readBitShort(),0x55);
  assert.equal(new DwgBitReader(pack([0,0,...bytesBits([0x34,0x12])])).readBitShort(),0x1234);
 });
 test("decodes bitlong compact, zero and raw forms",()=>{
- assert.equal(reader(0b01001010).readBitLong(),0x4a);assert.equal(reader(0b10000000).readBitLong(),0);
+ assert.equal(reader(0b01001010,0).readBitLong(),0x4a);assert.equal(reader(0b10000000).readBitLong(),0);
  assert.equal(new DwgBitReader(pack([0,0,...bytesBits([0x78,0x56,0x34,0x12])])).readBitLong(),0x12345678);
  assert.throws(()=>reader(0b11000000).readBitLong(),/Reserved/);
 });
