@@ -8,16 +8,16 @@ const fmt=value=>Number(finite(value).toFixed(3)).toString();
 export function normalizeDwgText(input){
  let value=String(input??"");
  value=value.replace(/%%([dpc])/gi,(_,code)=>({d:"°",p:"±",c:"Ø"}[code.toLowerCase()]));
- value=value.replace(/\\\\U\\+([0-9a-f]{4,8})/gi,(_,hex)=>{
+ value=value.replace(/\\U\+([0-9a-f]{4,8})/gi,(_,hex)=>{
   const cp=parseInt(hex,16);return cp<=0x10ffff?String.fromCodePoint(cp):"";
  });
- value=value.replace(/\\\\S([^;]*);/g,(_,stack)=>stack.replace(/[\\^#]/g,"/"));
- value=value.replace(/\\\\P/gi,"\\n").replace(/\\\\~/g,"\\u00a0");
- value=value.replace(/\\\\[AaCcFfHhQqTtWw][^;]*;/g,"");
- value=value.replace(/\\\\[LlOoKk]/g,"");
- value=value.replace(/\\\\([\\\\{}])/g,"$1");
+ value=value.replace(/\\S([^;]*);/g,(_,stack)=>stack.replace(/[\^#]/g,"/"));
+ value=value.replace(/\\P/gi,"\n").replace(/\\~/g,"\u00a0");
+ value=value.replace(/\\[AaCcFfHhQqTtWw][^;]*;/g,"");
+ value=value.replace(/\\[LlOoKk]/g,"");
+ value=value.replace(/\\([\\{}])/g,"$1");
  value=value.replace(/[{}]/g,"");
- return value.split(/\\r?\\n/).map(line=>line.trimEnd());
+ return value.split(/\r?\n/).map(line=>line.trimEnd());
 }
 export function prepareNativeDwgSheet(sheet,layers=[]){
  if(!sheet||!Array.isArray(sheet.items))throw new TypeError("Native DWG sheet items are required");
