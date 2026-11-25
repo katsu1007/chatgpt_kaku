@@ -25,6 +25,32 @@ function normalizeKind(entity) {
   const raw = String(first(entity?.kind, entity?.type, entity?.entityType, "unknown")).toLowerCase();
   return KIND_MAP.get(raw) || raw;
 }
+function sourceSemantics(source, rawType) {
+  const explicitRole = first(source?.semanticRole, source?.semantic?.role, source?.role, null);
+  const kind = String(rawType || "").toLowerCase();
+  const dimensionFlag = source?.dimensionGraphic === true || source?.dimensionLine === true ||
+    source?.dimensionExtension === true || source?.dimensionArrow === true ||
+    source?.dimensionBoundary === true || source?.isDimension === true ||
+    source?.dimensionEntity === true;
+  const role = explicitRole != null ? String(explicitRole) :
+    (kind === "dimension" || kind === "sunpou" || dimensionFlag ? "dimension" :
+      (kind === "block" || kind === "insert" ? "block-instance" : "unclassified"));
+  const layer = first(source?.layer, source?.layerName, source?.base?.layerName, null);
+  const match = String(layer ?? "").match(/^\\s*([0-9a-f]+)-([0-9a-f]+)(?:\\s|$)/i);
+  const groupIndex = first(source?.groupIndex, source?.group, match ? parseInt(match[1], 16) : null);
+  const layerIndex = first(source?.layerIndex, match ? parseInt(match[2], 16) : null);
+  return {
+    role,
+    explicit: explicitRole != null || dimensionFlag || kind === "dimension" || kind === "sunpou" || kind === "block" || kind === "insert",
+    dimensionGraphic: role === "dimension",
+    blockInstance: role === "block-instance",
+    groupIndex: Number.isInteger(groupIndex) ? groupIndex : null,
+    layerIndex: Number.isInteger(layerIndex) ? layerIndex : null,
+    entityIndex: Number.isInteger(source?.sourceIndex) ? source.sourceIndex :
+      Number.isInteger(source?.entityIndex) ? source.entityIndex : null
+  };
+}
+
 function pointPairs(points) {
   if (!Array.isArray(points)) return [];
   if (points.length && typeof points[0] === "object") {
@@ -86,6 +112,7 @@ export function normalizeCadEntity(entity, index, options = {}) {
   const layer = first(source.layer, source.layerName, source.base?.layerName, null);
   const layerGroup = first(source.layerGroup, source.layer_group, source.base?.layer_group, null);
   const sourceType = first(source.sourceType, source.entityType, source.type, source.kind, "unknown");
+  const semantics = sourceSemantics(source, sourceType);
   const handle = first(source.handle, source.id, source.objectId, null);
   const blockPath = Array.isArray(source.blockPath) ? [...source.blockPath] :
     source.blockName != null ? [String(source.blockName)] : [];
@@ -100,8 +127,13 @@ export function normalizeCadEntity(entity, index, options = {}) {
       layer: layer == null ? null : String(layer),
       layerGroup: layerGroup == null ? null : String(layerGroup),
       blockPath,
+      sourceIndex: semantics.entityIndex,
+      groupIndex: semantics.groupIndex,
+      layerIndex: semantics.layerIndex,
+      semantics,
       raw: clone(source)
     },
+    semantic: semantics,
     geometry,
     bounds: boundsOf(geometry),
     coordinateSpace: options.coordinateSpace || "sheet-mm"
@@ -122,8 +154,11 @@ export function createCadDocument(input = {}, options = {}) {
   const counts = {};
   const layers = new Map();
   let missingGeometry = 0;
+  const semanticCounts = {};
   for (const entity of normalized) {
     counts[entity.kind] = (counts[entity.kind] || 0) + 1;
+    const role = entity.semantic?.role || "unclassified";
+    semanticCounts[role] = (semanticCounts[role] || 0) + 1;
     if (!entity.bounds) missingGeometry++;
     const name = entity.source.layer ?? "(レイヤーなし)";
     layers.set(name, (layers.get(name) || 0) + 1);
@@ -149,6 +184,9 @@ export function createCadDocument(input = {}, options = {}) {
       entityCount: normalized.length,
       kindCounts: counts,
       layerCounts: Object.fromEntries([...layers.entries()].sort((a,b) => a[0].localeCompare(b[0]))),
+      semanticCounts,
+      dimensionGraphics: semanticCounts.dimension || 0,
+      blockInstances: semanticCounts["block-instance"] || 0,
       missingGeometry,
       duplicateIds,
       unknownKinds: [...new Set(normalized.filter(e => !KIND_MAP.has(String(e.source.type).toLowerCase())).map(e => e.kind))]
