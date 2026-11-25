@@ -59,3 +59,42 @@ test("decodes compact INSERT scale flags",()=>{
  const r=decodeR2004Geometry(7,input);
  assert.deepEqual(r.scale,{x:1,y:2,z:3,flag:1});
 });
+
+const bl=v=>v===0?[1,0]:v<256?[0,1,...bits(v)]:[0,0,...byteBits([v&255,(v>>>8)&255,(v>>>16)&255,(v>>>24)&255])];
+const bs=v=>v===0?[1,0]:v===256?[1,1]:v<256?[0,1,...bits(v)]:[0,0,...byteBits([v&255,(v>>>8)&255])];
+const tv=v=>[...bs(v.length),...byteBits([...v].map(c=>c.charCodeAt(0)))];
+const rd2=(x,y)=>[...raw(x),...raw(y)];
+test("decodes a closed solid R2004 HATCH polyline boundary",()=>{
+ const input=pack([
+  ...bl(0),...bl(0),...bd(0),...bd(0),...bl(0),...bd(0),...bl(0),...tv(""),
+  ...bd(0),...bd(0),...bd(0),...bd(1),...tv("SOLID"),1,0,...bl(1),
+  ...bl(2),0,1,...bl(4),
+  ...rd2(0,0),...rd2(100,0),...rd2(100,50),...rd2(0,50),...bl(0),
+  ...bs(0),...bs(1),...bl(0)
+ ]);
+ const r=decodeR2004Geometry(78,input);
+ assert.equal(r.kind,"hatch");assert.equal(r.solidFill,true);assert.equal(r.name,"SOLID");
+ assert.equal(r.paths.length,1);assert.equal(r.paths[0].kind,"polyline");assert.equal(r.paths[0].closed,true);
+ assert.deepEqual(r.paths[0].vertices,[{x:0,y:0},{x:100,y:0},{x:100,y:50},{x:0,y:50}]);
+ assert.equal(r.boundaryObjectCount,0);assert.equal(r.seedPoints.length,0);
+});
+test("decodes a HATCH edge loop with a circular arc and boundary references",()=>{
+ const input=pack([
+  ...bl(0),...bl(0),...bd(0),...bd(0),...bl(0),...bd(0),...bl(0),...tv(""),
+  ...bd(0),...bd(0),...bd(0),...bd(1),...tv("PATTERN"),0,1,...bl(1),
+  ...bl(1),...bl(2),
+  1,...rd2(0,0),...rd2(100,0),
+  2,...rd2(100,50),...bd(50),...bd(0),...bd(Math.PI),1,
+  ...bl(2),...bs(0),...bs(0),...bd(0),...bd(1),0,...bs(0),...bl(0),...bl(0)
+ ]);
+ const r=decodeR2004Geometry(78,input);
+ assert.equal(r.solidFill,false);assert.equal(r.paths[0].edges[1].kind,"arc");
+ assert.equal(r.paths[0].boundaryObjectCount,2);assert.equal(r.boundaryObjectCount,2);
+ assert.equal(r.pattern.lines.length,0);
+});
+test("rejects excessive HATCH path counts and unknown edge types",()=>{
+ const head=[...bl(0),...bl(0),...bd(0),...bd(0),...bl(0),...bd(0),...bl(0),...tv(""),...bd(0),...bd(0),...bd(0),...bd(1),...tv("H"),1,0];
+ assert.throws(()=>decodeR2004Geometry(78,pack([...head,...bl(20000)])),/path count/);
+ const bad=pack([...head,...bl(1),...bl(0),...bl(1),99,...bl(0),...bs(0),...bs(0),...bl(0)]);
+ assert.throws(()=>decodeR2004Geometry(78,bad),/edge type/);
+});
