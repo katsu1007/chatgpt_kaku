@@ -18,6 +18,18 @@ export function decodeR2004CircleGeometry(reader){
  const [x,y,z]=reader.read3BD(),radius=reader.readBitDouble(),thickness=reader.readBitThickness(),extrusion=reader.readBitExtrusion();
  return {kind:"circle",center:{x,y,z},radius,thickness,extrusion};
 }
+export function decodeR2004LwPolylineGeometry(reader,{maxVertices=1000000}={}){
+ const flags=reader.readBitShort(),constantWidth=reader.readBitDouble(),elevation=reader.readBitDouble(),thickness=reader.readBitDouble(),extrusion=reader.readBitExtrusion();
+ const count=reader.readBitLong();if(count<0||count>maxVertices)throw new RangeError("Invalid R2004 LWPOLYLINE vertex count");
+ const vertices=Array.from({length:count},()=>reader.read2RD()).map(([x,y])=>({x,y,z:elevation}));
+ const bulgeCount=reader.readBitLong();if(bulgeCount<0||bulgeCount>maxVertices)throw new RangeError("Invalid R2004 LWPOLYLINE bulge count");
+ const bulges=Array.from({length:bulgeCount},()=>reader.readBitDouble());
+ const vertexIdCount=reader.readBitLong();if(vertexIdCount<0||vertexIdCount>maxVertices)throw new RangeError("Invalid R2004 LWPOLYLINE vertex-id count");
+ const vertexIds=Array.from({length:vertexIdCount},()=>reader.readBitLong());
+ const widthCount=reader.readBitLong();if(widthCount<0||widthCount>maxVertices)throw new RangeError("Invalid R2004 LWPOLYLINE width count");
+ const widths=Array.from({length:widthCount},()=>({start:reader.readBitDouble(),end:reader.readBitDouble()}));
+ return {kind:"polyline",vertices,bulges,vertexIds,widths,closed:!!(flags&1),flags,constantWidth,elevation,thickness,extrusion};
+}
 export function decodeR2004PointGeometry(reader){
  const [x,y,z]=reader.read3BD(),thickness=reader.readBitThickness(),extrusion=reader.readBitExtrusion(),xAxisAngle=reader.readBitDouble();
  return {kind:"point",point:{x,y,z},thickness,extrusion,xAxisAngle};
@@ -34,6 +46,7 @@ export function decodeR2004Geometry(typeCode,input,bitOffset=0){
   case 17:return decodeR2004ArcGeometry(reader);
   case 18:return decodeR2004CircleGeometry(reader);
   case 19:return decodeR2004LineGeometry(reader);
+  case 77:return decodeR2004LwPolylineGeometry(reader);
   case 27:return decodeR2004PointGeometry(reader);
   case 31:return decodeR2004SolidGeometry(reader);
   default:return {kind:"unsupported",typeCode,bitOffset:reader.bitOffset};
