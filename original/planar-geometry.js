@@ -33,7 +33,12 @@ export function segmentsFromEntities(entities = []) {
       :Array.from({length:Math.floor(pts.length/2)},(_,j)=>[pts[j*2],pts[j*2+1]]).filter(p=>p.every(finite));
     for(let j=0;j+1<pairs.length;j++) out.push({
       x1:pairs[j][0],y1:pairs[j][1],x2:pairs[j+1][0],y2:pairs[j+1][1],
-      sourceId:entity.handle??entity.id??"entity:"+i
+      sourceId:entity.handle??entity.id??"entity:"+i,
+      sourceLayer:entity.layer??entity.layerName??null,
+      sourceKind:entity.sourceType??entity.entityType??entity.kind??entity.type??null,
+      semanticRole:entity.semantic?.role??entity.semanticRole??entity.role??null,
+      layerScaleDenominator:entity.layerScaleDenominator??entity.semantic?.layerScaleDenominator??null,
+      sourceSegmentIndex:j
     });
   }
   return out;
