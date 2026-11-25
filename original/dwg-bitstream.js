@@ -2,6 +2,7 @@
 export class DwgBitReader {
  constructor(input,{bitOffset=0}={}) { this.bytes=input instanceof Uint8Array?input:new Uint8Array(input||0); this.bitOffset=bitOffset; if(!Number.isInteger(bitOffset)||bitOffset<0||bitOffset>this.bytes.length*8) throw new RangeError('DWG bit offset outside buffer'); }
  get remainingBits(){return this.bytes.length*8-this.bitOffset;}
+ get byteOffset(){return Math.floor(this.bitOffset/8);}
  readBit(){if(this.remainingBits<1)throw new RangeError('DWG stream ended while reading a bit');const b=this.bytes[this.bitOffset>>3],s=7-(this.bitOffset&7);this.bitOffset++;return (b>>s)&1;}
  readBits(n){if(!Number.isInteger(n)||n<0||n>53)throw new RangeError('Invalid bit count');if(this.remainingBits<n)throw new RangeError('DWG stream ended while reading bits');let v=0;for(let i=0;i<n;i++)v=v*2+this.readBit();return v;}
  readBytes(n){if(!Number.isInteger(n)||n<0||this.remainingBits<n*8)throw new RangeError('DWG stream ended while reading bytes');const a=new Uint8Array(n);for(let i=0;i<n;i++)a[i]=this.readBits(8);return a;}
