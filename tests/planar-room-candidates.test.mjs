@@ -43,3 +43,11 @@ test("native DWG HATCH strokes are excluded while explicit solid-fill candidates
  assert.equal(r.diagnostics.skippedHatchBoundary,1);
  assert.equal(r.diagnostics.acceptedWallFills,1);
 });
+
+
+test("explicit dimension graphics are excluded from planar room candidates",()=>{
+ const items=[...box("WALL",0,0,1000,1000),line("WALL",500,0,500,1000,{dimensionLine:true})];
+ const r=analyzePlanarRoomCandidates({items,wallLayerNames:["WALL"]});
+ assert.equal(r.diagnostics.skippedDimensionItems,1);
+ assert.equal(r.diagnostics.boundedFaces,1);
+});
