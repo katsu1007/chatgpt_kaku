@@ -216,3 +216,14 @@ test("reports malformed HATCH spline boundaries without aborting the drawing",()
  assert.equal(drawing.sheets[0].items.length,1);
  assert.ok(drawing.meta.warnings.some(w=>w.includes("近似描画できないHATCH曲線境界：1件")));
 });
+
+test("labels R2000 imports and tags source primitives with the correct DWG family",()=>{
+ const drawing=createR2004DwgDrawing({version:"R2000",units:{known:true,code:4,name:"millimeters",scaleToMm:1},entities:[
+  entity("A-WALL",320n,{kind:"line",pts:[{x:0,y:0,z:0},{x:100,y:0,z:0}]})
+ ],layers:[]});
+ assert.equal(drawing.meta.label,"DWG R2000（独自読込）");
+ assert.equal(drawing.meta.info.version,"R2000");
+ assert.equal(drawing.sheets[0].items[0].sourceFormat,"DWG-R2000");
+ assert.ok(drawing.meta.warnings[0].includes("R2000"));
+ assert.ok(drawing.meta.warnings.some(w=>w.includes("HATCH・MLINE・ATTRIB")));
+});
