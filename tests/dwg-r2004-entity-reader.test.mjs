@@ -188,3 +188,19 @@ test("reads ATTRIB and ATTDEF with their STYLE references",()=>{
  const d=parseR2004EntityRecord(annotationRecord(3,[...text,...tv("Room name")],811));
  assert.equal(d.geometry.kind,"attdef");assert.equal(d.geometry.prompt,"Room name");assert.equal(d.styleHandle.value,300n);
 });
+
+function insertWithAttributeRecord(){
+ const geometry=[1,0,1,0,1,0,1,1,1,0,1,1,...bl(1)];
+ const base=[0,1,...bits(7),...bytesBits([0,0,0,0]),...handleBits(610),...bs(0),0,
+  0,0,0,1,0,1,1,0,1,...bits(7),0,1,0,0,0,0,1,0,...bits(0),...geometry];
+ const handleStart=16+base.length,rl=[handleStart&255,(handleStart>>>8)&255,(handleStart>>>16)&255,(handleStart>>>24)&255];
+ base.splice(10,32,...bytesBits(rl));
+ const body=pack([...base,...handleBits(100),...handleBits(200),...handleBits(300),...handleBits(620),...handleBits(621)]);
+ const out=new Uint8Array(2+body.length+2);out[0]=body.length&255;out[1]=body.length>>8;out.set(body,2);out.set([0x12,0x34],out.length-2);return out;
+}
+test("reads INSERT-owned ATTRIB and SEQEND handles",()=>{
+ const r=parseR2004EntityRecord(insertWithAttributeRecord());
+ assert.equal(r.geometry.hasAttributes,true);assert.equal(r.geometry.ownedObjectCount,1);
+ assert.equal(r.insertHandles.blockHeader.value,300n);assert.equal(r.insertHandles.attributes[0].value,620n);
+ assert.equal(r.insertHandles.seqend.value,621n);
+});
