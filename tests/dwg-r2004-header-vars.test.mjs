@@ -19,7 +19,8 @@ function makeHeader(insunits=4,optionalTail=false){
   else if(f.type==="RC")stream.push(...bits(0));
   else if(f.type==="RS")stream.push(...Array(16).fill(0));
  }
- if(optionalTail)stream.push(1,0,1,0,1,0,1,0);\n const data=pack(stream),out=new Uint8Array(16+4+data.length+2+16),v=new DataView(out.buffer);
+ if(optionalTail)stream.push(1,0,1,0,1,0,1,0);
+ const data=pack(stream),out=new Uint8Array(16+4+data.length+2+16),v=new DataView(out.buffer);
  out.set(START,0);v.setUint32(16,data.length,true);out.set(data,20);out.set(END,22+data.length);return out;
 }
 test("walks the R2004 header variable stream and extracts INSUNITS",()=>{
