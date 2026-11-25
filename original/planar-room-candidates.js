@@ -2,8 +2,8 @@
 // Shadow mode only: never mutates or replaces production room extraction.
 import { buildPlanarGraph } from "./planar-geometry.js";
 
-const NON_WALL_LAYER=/(寸法|寸法線|寸法補助|寸法記入|引出線|補助線|中心線|通り芯|グリッド|文字|注記|家具|什器|設備|器具|照明|電気|コンセント|記号|ハッチ|dimension|\\bdim\\b|annotation|leader|extension|center.?line|grid|axis|furniture|fixture|text|symbol|hatch)/i;
-const DIMENSION_LABEL=/^\\s*[+-]?\\d[\\d,]*(?:\\.\\d+)?\\s*(?:mm|ｍｍ|m|ｍ|cm|㎜|㎝|φ|ø)?\\s*$/i;
+const NON_WALL_LAYER=/(寸法|寸法線|寸法補助|寸法記入|引出線|補助線|中心線|通り芯|グリッド|文字|注記|家具|什器|設備|器具|照明|電気|コンセント|記号|ハッチ|dimension|\bdim\b|annotation|leader|extension|center.?line|grid|axis|furniture|fixture|text|symbol|hatch)/i;
+const DIMENSION_LABEL=/^\s*[+-]?\d[\d,]*(?:\.\d+)?\s*(?:mm|ｍｍ|m|ｍ|cm|㎜|㎝|φ|ø)?\s*$/i;
 const finite=Number.isFinite;
 const pointsOf=item=>{
  const p=item?.pts||item?.points||item?.vertices;
@@ -71,13 +71,20 @@ function entitySegments(item,index,stats,anchors){
  return out;
 }
 function doorwayBridges(items,allowed,hidden,anchors,stats){
- const endpoints=[];
+ const endpoints=[],degree=new Map(),coordinateKey=(x,y)=>Math.round(x*10)+":"+Math.round(y*10);
+ (items||[]).forEach(item=>{
+  const layer=String(item?.layer??""),kind=String(item?.kind||item?.type||"").toLowerCase();
+  if(!allowed.has(layer)||hidden.has(layer)||NON_WALL_LAYER.test(layer)||!["line","polyline"].includes(kind))return;
+  const p=pointsOf(item);if(p.length<2)return;
+  for(const e of [p[0],p.at(-1)]){const k=coordinateKey(e.x,e.y);degree.set(k,(degree.get(k)||0)+1);}
+ });
  (items||[]).forEach((item,index)=>{
   const layer=String(item?.layer??""),kind=String(item?.kind||item?.type||"").toLowerCase();
   if(!allowed.has(layer)||hidden.has(layer)||NON_WALL_LAYER.test(layer)||!["line","polyline"].includes(kind))return;
   const p=pointsOf(item);if(p.length<2)return;
   const ends=[{p:p[0],toward:p[1]},{p:p.at(-1),toward:p.at(-2)}];
   for(const e of ends){
+   if((degree.get(coordinateKey(e.p.x,e.p.y))||0)!==1)continue;
    if(isDimensionStroke(e.p,e.toward,anchors))continue;
    const dx=e.toward.x-e.p.x,dy=e.toward.y-e.p.y,len=Math.hypot(dx,dy);if(len>1e-8)endpoints.push({x:e.p.x,y:e.p.y,ux:dx/len,uy:dy/len,source:index});
   }
