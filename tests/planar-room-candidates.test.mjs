@@ -51,3 +51,15 @@ test("explicit dimension graphics are excluded from planar room candidates",()=>
  assert.equal(r.diagnostics.skippedDimensionItems,1);
  assert.equal(r.diagnostics.boundedFaces,1);
 });
+
+
+test("dimension-tagged fragments are not used to invent doorway closures",()=>{
+ const items=[
+  line("WALL",0,0,500,0,{dimensionLine:true}),
+  line("WALL",1300,0,1800,0,{dimensionExtension:true})
+ ];
+ const r=analyzePlanarRoomCandidates({items,wallLayerNames:["WALL"]});
+ assert.equal(r.diagnostics.skippedDimensionItems,2);
+ assert.equal(r.diagnostics.bridgedDoorGaps,0);
+ assert.equal(r.bridges.length,0);
+});
