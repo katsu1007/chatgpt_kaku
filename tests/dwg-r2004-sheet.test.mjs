@@ -54,8 +54,7 @@ test("expands LWPOLYLINE bulges into native line and arc segments",()=>{
  assert.equal(drawing.meta.info.polylines,1);assert.equal(drawing.meta.info.unsupported,0);
 });
 test("does not guess geometry for tilted LWPOLYLINE extrusion planes",()=>{
- const drawing=createR2004DwgDrawing({entities:[entity("A",1n,{kind:"polyline",closed:true,vertices:[
+ assert.throws(()=>createR2004DwgDrawing({entities:[entity("A",1n,{kind:"polyline",closed:true,vertices:[
   {x:0,y:0,z:0},{x:10,y:0,z:0}
- ],bulges:[0,0],extrusion:[1,0,0]})],layers:[]});
- assert.throws(()=>drawing.sheets[0].items.length===0,/./);
+ ],bulges:[0,0],extrusion:[1,0,0]})],layers:[]}),/表示可能/);
 });
