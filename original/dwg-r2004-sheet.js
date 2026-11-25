@@ -4,7 +4,8 @@ function rgbHex(value){
  const n=Number(value??0x808080)>>>0;return "#"+(n&0xffffff).toString(16).padStart(6,"0");
 }
 export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
- const units=result?.units||{known:false,name:"unknown",scaleToMm:null},scale=units.known?units.scaleToMm:1;\n const entities=result?.entities||[],layers=(result?.layers||[]).map(layer=>({name:layer.name,color:rgbHex(layer.color?.rgb),visible:!!layer.flags?.on&&!layer.flags?.frozen,items:0,actualItems:0,dwgHandle:layer.handle}));
+ const units=result?.units||{known:false,name:"unknown",scaleToMm:null},scale=units.known?units.scaleToMm:1;
+ const entities=result?.entities||[],layers=(result?.layers||[]).map(layer=>({name:layer.name,color:rgbHex(layer.color?.rgb),visible:!!layer.flags?.on&&!layer.flags?.frozen,items:0,actualItems:0,dwgHandle:layer.handle}));
  const layerMap=new Map(layers.map(layer=>[layer.name,layer]));
  const mapped=[];
  const add=(entity,geometry,item)=>{
