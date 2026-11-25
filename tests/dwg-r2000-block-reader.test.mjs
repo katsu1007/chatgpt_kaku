@@ -14,7 +14,7 @@ function blockRecord({handleValue=300,name="CHAIR",first=501,last=502,blockEntit
   ...tv(""),...insert.flatMap(()=>bits(1)),...bits(0),...tv("Block description"),...bl(0)];
  const handleStart=16+baseBits.length,rl=[handleStart&255,(handleStart>>>8)&255,(handleStart>>>16)&255,(handleStart>>>24)&255];
  baseBits.splice(10,32,...bytesBits(rl));
- const refs=[...handle(400),...handle(0),...handle(0),...handle(0),...handle(blockEntity)];
+ const refs=[...handle(400),...handle(0),...handle(0),...handle(blockEntity)];
  if(!isXref&&!overlaid)refs.push(...handle(first),...handle(last));
  refs.push(...handle(302),...insert.flatMap(handle),...handle(401));
  const body=pack([...baseBits,...refs]),out=new Uint8Array(2+body.length+2);out[0]=body.length&255;out[1]=body.length>>8;out.set(body,2);out.set([0x12,0x34],out.length-2);return out;
