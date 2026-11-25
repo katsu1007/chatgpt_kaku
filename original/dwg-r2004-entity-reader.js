@@ -8,6 +8,7 @@ import { readR2004SectionMaps } from "./dwg-r2004-sections.js";
 import { readR2004LayerRecords, resolveR2004EntityLayers } from "./dwg-r2004-layer-reader.js";
 import { parseR2004HeaderVariables } from "./dwg-r2004-header-vars.js";
 import { readR2004BlockHeaders } from "./dwg-r2004-block-reader.js";
+import { expandR2004BlockReferences } from "./dwg-r2004-block-expand.js";
 function readEntityColor(reader){
  const colorNumber=reader.readBitShort(),flags=colorNumber&0xe000;
  const color={colorNumber,aci:colorNumber&0x01ff,complex:!!(flags&0x8000),hasColorHandle:!!(flags&0x4000),hasTransparency:!!(flags&0x2000)};
@@ -72,9 +73,9 @@ export function readR2004DrawingEntities(input,fileHeader,options){
  const sections=readR2004SectionMaps(input,fileHeader),objectMap=readR2004ObjectMap(input,sections.resolvedSections);
  const objects=readR2004SectionByName(input,sections.resolvedSections,"AcDb:AcDbObjects");
  const entities=readR2004EntityRecords(objects.data,objectMap,options),layers=readR2004LayerRecords(objects.data,objectMap),blocks=readR2004BlockHeaders(objects.data,objectMap);
- const resolved=resolveR2004EntityLayers(entities.records,layers);
+ const resolved=resolveR2004EntityLayers(entities.records,layers),expanded=expandR2004BlockReferences(resolved.entities,blocks.blocks,options?.blockExpansion);
  let units={code:null,name:"unknown",scaleToMm:null,known:false},headerWarning=null,headerVariables=null;
  try{const headerSection=readR2004SectionByName(input,sections.resolvedSections,"AcDb:Header");headerVariables=parseR2004HeaderVariables(headerSection.data);units=headerVariables.units;if(!headerVariables.endingSentinelValid)headerWarning="DWGヘッダー終端を検証できないため、INSUNITSは採用しません。";else if(!units.known)headerWarning="INSUNITSが未指定または未対応のため、mm換算は保留します。";}
  catch(error){headerWarning="DWG INSUNITSを取得できません："+(error?.message||error);}
- return {entities:resolved.entities,objectMap,layers:layers.layers,blocks:blocks.blocks,units,headerVariables,headerWarning,sections:sections.diagnostics,diagnostics:{...entities.diagnostics,...layers.diagnostics,...blocks.diagnostics,...resolved.diagnostics,sectionCount:sections.resolvedSections.length,objectMapEntries:objectMap.entries.length}};
+ return {entities:expanded.entities,rawEntities:resolved.entities,objectMap,layers:layers.layers,blocks:blocks.blocks,blockExpansion:expanded.diagnostics,units,headerVariables,headerWarning,sections:sections.diagnostics,diagnostics:{...entities.diagnostics,...layers.diagnostics,...blocks.diagnostics,...resolved.diagnostics,...expanded.diagnostics,sectionCount:sections.resolvedSections.length,objectMapEntries:objectMap.entries.length}};
 }
