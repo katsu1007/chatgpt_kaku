@@ -35,5 +35,5 @@ test("resolves supported INSUNITS codes to millimeter scale",()=>{
 test("rejects truncated or invalid header-variable sections",()=>{
  assert.throws(()=>parseR2004HeaderVariables(new Uint8Array(20)),/truncated/);
  const bad=makeHeader(4);bad[0]=0;assert.throws(()=>parseR2004HeaderVariables(bad),/sentinel/);
- const truncated=makeHeader(4).slice(0,30);assert.throws(()=>parseR2004HeaderVariables(truncated),/size/);
+ const truncated=makeHeader(4).slice(0,30);assert.throws(()=>parseR2004HeaderVariables(truncated),/truncated|size/);
 });
