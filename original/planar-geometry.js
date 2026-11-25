@@ -165,10 +165,15 @@ export function buildPlanarGraph(inputSegments = [], options = {}) {
     }
     if(current!==start.id||ring.length<3)continue;
     const area=polygonArea(ring);
-    if(area>eps)const uniqueEdgeIds=[...new Set(edgeIds)];
-    const sourceRecords=new Map();
-    for(const edgeId of uniqueEdgeIds)for(const record of edgeMap.get([...edgeMap.keys()][edgeId])?.sourceRecords||[])sourceRecords.set(JSON.stringify(record),record);
-    faces.push({id:faces.length,area,points:ring.map(p=>({x:p.x,y:p.y})),edgeIds:uniqueEdgeIds,sourceRecords:[...sourceRecords.values()]});
+    if(area>eps){
+      const uniqueEdgeIds=[...new Set(edgeIds)];
+      const sourceRecords=new Map();
+      for(const edgeId of uniqueEdgeIds){
+        const edge=[...edgeMap.values()].find(item=>item.id===edgeId);
+        for(const record of edge?.sourceRecords||[])sourceRecords.set(JSON.stringify(record),record);
+      }
+      faces.push({id:faces.length,area,points:ring.map(p=>({x:p.x,y:p.y})),edgeIds:uniqueEdgeIds,sourceRecords:[...sourceRecords.values()]});
+    }
   }
   return {
     nodes:nodes.map(({id,x,y})=>({id,x,y})),
