@@ -43,7 +43,7 @@ function findBoothFrontClosures(items,names,hidden){
   // are collinear with their wall and therefore do not satisfy this geometry.
   const raw=[];
   for(const it of items){
-    if(it.kind!=="line"||!names.has(it.layer)||hidden.has(it.layer)||!Array.isArray(it.pts))continue;
+    if(it.hatchBoundary||it.kind!=="line"||!names.has(it.layer)||hidden.has(it.layer)||!Array.isArray(it.pts))continue;
     for(let k=0;k+3<it.pts.length;k+=2){
       const x1=it.pts[k],y1=it.pts[k+1],x2=it.pts[k+2],y2=it.pts[k+3],dx=x2-x1,dy=y2-y1,len=Math.hypot(dx,dy);
       if(len>1)raw.push({it,x1,y1,x2,y2,dx:dx/len,dy:dy/len,len});
@@ -193,7 +193,7 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
   };
   const rememberEndpoint=(x,y)=>{if(Number.isFinite(x)&&Number.isFinite(y))endpoints.push([Math.round(x/cw),Math.round(y/ch)]);};
   for(const it of items){
-    if(!names.has(it.layer))continue;
+    if(it.hatchBoundary||!names.has(it.layer))continue;
     if(hidden.has(it.layer)){skippedHidden++;continue;}
     if(it.kind==="line"&&Array.isArray(it.pts)&&it.pts.length>=4){
       usedItems++;
