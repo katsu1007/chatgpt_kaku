@@ -30,3 +30,14 @@ test("retains unresolved layer handles and reports unsupported objects",()=>{
 test("rejects drawings with no supported geometry",()=>{
  assert.throws(()=>createR2004DwgDrawing({entities:[],layers:[]}),/表示可能/);
 });
+
+test("converts native drawing units to millimeters when INSUNITS is known",()=>{
+ const drawing=createR2004DwgDrawing({units:{known:true,code:1,name:"inches",scaleToMm:25.4},entities:[
+  entity("A-WALL",200n,{kind:"line",pts:[{x:10,y:20,z:0},{x:20,y:30,z:0}]})
+ ],layers:[]});
+ const sheet=drawing.sheets[0];
+ assert.equal(drawing.meta.units,"mm");assert.equal(drawing.meta.coordinateSpace,"sheet-mm");
+ assert.deepEqual(sheet.origin,{x:254,y:508});assert.deepEqual(sheet.items[0].pts,[0,0,254,254]);
+ assert.equal(sheet.size.w,254);assert.equal(sheet.size.h,254);
+ assert.equal(sheet.nativeOrigin.x,10);assert.equal(sheet.nativeOrigin.y,20);
+});
