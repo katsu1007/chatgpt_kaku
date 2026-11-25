@@ -15,8 +15,7 @@ function arcPoints(item){
  if(!(r>0))return [];
  if(item.isCircle)return Array.from({length:49},(_,i)=>{const a=Math.PI*2*i/48;return [cx+r*Math.cos(a),cy+r*Math.sin(a)];});
  let a0=finite(item.a0),a1=finite(item.a1),sweep=a1-a0;
- while(sweep<0)sweep+=Math.PI*2;
- if(sweep>Math.PI*2+1e-6)sweep=Math.PI*2;
+ if(Math.abs(sweep)>Math.PI*2+1e-6)sweep=Math.sign(sweep)*Math.PI*2;
  const count=Math.max(12,Math.min(256,Math.ceil(Math.abs(sweep)*Math.max(r,1)/8)));
  return Array.from({length:count+1},(_,i)=>{const a=a0+sweep*i/count;return [cx+r*Math.cos(a),cy+r*Math.sin(a)];});
 }
