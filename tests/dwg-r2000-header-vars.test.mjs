@@ -35,7 +35,7 @@ test("R2000 header field order excludes R2004-only fields and retains INSUNITS",
 });
 test("reads and validates R2000 INSUNITS from the header variable section",()=>{
  const result=parseR2000HeaderVariables(makeHeader(4));
- assert.equal(result.insunits,4);assert.equal(result.units.known,true);assert.equal(result.units.scaleToMm,1);
+ assert.equal(result.insunits,4);assert.equal(result.endingSentinelValid,true,JSON.stringify(result));assert.equal(result.units.known,true);assert.equal(result.units.scaleToMm,1);
  assert.equal(result.endingSentinelValid,true);assert.equal(result.diagnostics.formatFamily,"R2000");
 });
 test("keeps unitless drawings unscaled and rejects a damaged ending sentinel",()=>{
