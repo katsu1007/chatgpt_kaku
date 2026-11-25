@@ -118,9 +118,19 @@ export function parseR2004HeaderVariables(input){
   skipField(r,field.type);
  }
  const consumedBits=r.bitOffset-20*8;
- if(r.bitOffset>dataEnd*8)throw new Error("R2004 INSUNITS field lies beyond declared header section");
- const endingSentinel=bytes.slice(dataEnd+2,dataEnd+18);
- const endingValid=endingSentinel.length===16&&endingSentinel.every((b,i)=>b===END[i]);
- return {insunits,units:resolveDwgInsunits(insunits),cepsntype,flags,consumedBits,sectionSize,endingSentinelValid:endingValid,
-  diagnostics:{fieldCount:fields.length,bitOffset:r.bitOffset,dataEndBit:dataEnd*8,crcChecked:false}};
+ let endingValid=false,crc=null,endingOffset=null,optionalTail=false;
+ for(const extra of [0,4]){
+  try{
+   const candidate=new DwgBitReader(bytes,{bitOffset:r.bitOffset});
+   if(extra)for(let i=0;i<extra;i++)candidate.readBitShort();
+   candidate.bitOffset=Math.ceil(candidate.bitOffset/8)*8;
+   crc=candidate.readRawShort();endingOffset=candidate.byteOffset;
+   const ending=bytes.slice(endingOffset,endingOffset+16);
+   const boundaryOk=endingOffset===dataEnd||endingOffset===dataEnd+2;
+   if(boundaryOk&&ending.length===16&&ending.every((b,i)=>b===END[i])){endingValid=true;optionalTail=!!extra;break;}
+  }catch{}
+ }
+ const rawUnits=resolveDwgInsunits(insunits),units=endingValid?rawUnits:{code:insunits,name:"unvalidated-header",scaleToMm:null,known:false};
+ return {insunits,units,cepsntype,flags,crc,consumedBits,sectionSize,endingSentinelValid:endingValid,optionalTail,
+  diagnostics:{fieldCount:fields.length,bitOffset:r.bitOffset,dataEndBit:dataEnd*8,endingOffset,crcChecked:false}};
 }
