@@ -50,7 +50,7 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
   }else if(g.kind==="polyline"){converted=addPolyline(entity,g);if(converted)polylineEntities++;}
   if(converted)convertedEntities++;
  }
- if(!mapped.length)throw new Error("DWG R2004から表示可能なLINE/ARC/CIRCLE/POINT/SOLIDを取得できませんでした");
+ if(!mapped.length)throw new Error("DWG R2004から表示可能なLINE/ARC/CIRCLE/LWPOLYLINE/POINT/SOLIDを取得できませんでした");
  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
  const include=(x,y)=>{if(!Number.isFinite(x)||!Number.isFinite(y))return;minX=Math.min(minX,x);minY=Math.min(minY,y);maxX=Math.max(maxX,x);maxY=Math.max(maxY,y);};
  for(const item of mapped){
