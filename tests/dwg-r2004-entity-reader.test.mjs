@@ -192,7 +192,7 @@ test("reads ATTRIB and ATTDEF with their STYLE references",()=>{
 function insertWithAttributeRecord(){
  const geometry=[1,0,1,0,1,0,1,1,1,0,1,1,...bl(1)];
  const base=[0,1,...bits(7),...bytesBits([0,0,0,0]),...handleBits(610),...bs(0),0,
-  0,0,0,1,0,1,1,0,1,...bits(7),0,1,0,0,0,0,1,0,...bits(0),...geometry];
+  0,0,1,0,1,1,0,1,...bits(7),0,1,0,0,0,0,1,0,...bits(0),...geometry];
  const handleStart=16+base.length,rl=[handleStart&255,(handleStart>>>8)&255,(handleStart>>>16)&255,(handleStart>>>24)&255];
  base.splice(10,32,...bytesBits(rl));
  const body=pack([...base,...handleBits(100),...handleBits(200),...handleBits(300),...handleBits(620),...handleBits(621)]);
