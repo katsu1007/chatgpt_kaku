@@ -35,7 +35,7 @@ test("indexes R2000 block headers and assembles owned entities from owner and fi
  const a=blockRecord({handleValue:300,name:"CHAIR",first:501,last:501}),b=blockRecord({handleValue:301,name:"TABLE",blockEntity:302,first:502,last:502,insert:[]}),other=otherRecord();
  const section=new Uint8Array(a.length+b.length+other.length);section.set(a);section.set(b,a.length);section.set(other,a.length+b.length);
  const map={entries:[{handle:300n,offset:0n},{handle:301n,offset:BigInt(a.length)},{handle:999n,offset:BigInt(a.length+b.length)}]};
- const blocks=readR2000BlockHeaders(section,map);assert.equal(blocks.blocks.length,2);assert.equal(blocks.byName.get("TABLE").firstEntity.value,601n);
+ const blocks=readR2000BlockHeaders(section,map);assert.equal(blocks.blocks.length,2);assert.equal(blocks.byName.get("TABLE").firstEntity.value,502n);
  const assembled=assembleR2000BlockDefinitions(blocks,[
   {selfHandle:501n,ownerHandle:300n},{selfHandle:502n,ownerHandle:302n},{selfHandle:503n,ownerHandle:300n}
  ]);
