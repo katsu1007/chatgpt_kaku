@@ -6,6 +6,8 @@ const END=Uint8Array.from([0x30,0x84,0xe0,0xdc,0x02,0x21,0xc7,0x56,0xa0,0x83,0x9
 const R2004_ONLY=new Set(["R2004_UNKNOWN_BOOL","R2004_UNKNOWN_LONG_1","R2004_UNKNOWN_LONG_2","R2004_UNKNOWN_LONG_3","R2004_UNKNOWN_LONG_4","R2004_UNKNOWN_LONG_5","R2004_UNKNOWN_LONG_6","HANDLEED","DICT_MATERIALS","DICT_COLORS","SORTENTS","INDEXCTL","HIDETEXT","XCLIPFRAME","DIMASSOC","HALOGAP","OBSCUREDCOLOR","INTERSECTIONCOLOR","OBSCUREDLTYPE","INTERSECTIONDISPLAY","PROJECTNAME"]);
 export const R2000_HEADER_FIELDS=R2004_HEADER_FIELDS.filter(field=>!R2004_ONLY.has(field.name));
 // R13-R15 carry one legacy control-object handle that R2004 no longer stores.
+const currentViewportIndex=R2000_HEADER_FIELDS.findIndex(field=>field.name==="DIMASO");
+R2000_HEADER_FIELDS.splice(currentViewportIndex,0,{type:"H",name:"CURRENT_VIEWPORT_ENTITY_HEADER"});
 const viewportControlIndex=R2000_HEADER_FIELDS.findIndex(field=>field.name==="DICT_ACAD_GROUP");
 R2000_HEADER_FIELDS.splice(viewportControlIndex,0,{type:"H",name:"VIEWPORT_ENTITY_HEADER_CONTROL"});
 function skipCmcR2000(r){r.readBitShort();}
