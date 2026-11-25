@@ -4,6 +4,14 @@
 const OUTER_WALL_NAME=/(外壁|躯体|外周|建物外形|外形壁|exterior|outer.?wall)/i;
 const WALL_NAME=/(壁|間仕切|ブース|躯体|外壁|内壁|壁芯|(?:^|[-_ ])(?:a-)?wall(?:$|[-_ ])|wall|partition)/i;
 const NON_WALL_NAME=/(寸法|寸法線|寸法補助|寸法記入|寸法記号|引出線|引出|補助線|中心線|通り芯|グリッド|文字|注記|注釈|家具|什器|設備|器具|照明|電気|コンセント|記号|ハッチ|dimension|\bdim\b|measure|annotation|leader|extension|center.?line|grid|axis|furniture|fixture|text|symbol|hatch(?:ing)?)/i;
+// Jw_cad layer names may encode a group, e.g. "2-1 展開図 / 躯体".
+// A layer named 躯体 in an elevation/development group is not the floor-plan perimeter.
+// Exclude clearly non-plan groups from automatic wall discovery; explicit selections remain overrides.
+const NON_PLAN_GROUP_NAME=/(展開図|立面図|断面図|詳細図|矩計図|軸組図|天井伏図|屋根伏図|基礎伏図|設備図|電気図|配線図)/i;
+function isNonPlanGroupLayer(name){
+  const match=String(name??"").match(/^\s*[0-9a-f]+-[0-9a-f]+\s+([^/]+)\s*\//i);
+  return !!match&&NON_PLAN_GROUP_NAME.test(match[1]);
+}
 // Explicit CAD dimension metadata is stronger evidence than geometric heuristics.
 // Keep this narrow: ordinary lines on a dimension-like layer are already handled
 // by layer semantics, while these flags identify dimension graphics on mixed layers.
@@ -32,11 +40,11 @@ function isDimensionSegment(x1,y1,x2,y2,anchors){
 }
 export function suggestWallLayers(layers=[]){
   const names=(layers||[]).map(layer=>typeof layer==="string"?layer:layer?.name);
-  return [...new Set(names.filter(name=>name!=null&&WALL_NAME.test(String(name))&&!NON_WALL_NAME.test(String(name))).map(String))];
+  return [...new Set(names.filter(name=>name!=null&&!isNonPlanGroupLayer(name)&&WALL_NAME.test(String(name))&&!NON_WALL_NAME.test(String(name))).map(String))];
 }
 function classifyLayers(layers,items,hidden){
   const visible=(layers||[]).filter(l=>!hidden.has(l.name));
-  const namedWalls=visible.filter(l=>WALL_NAME.test(String(l.name))&&!NON_WALL_NAME.test(String(l.name)));
+  const namedWalls=visible.filter(l=>!isNonPlanGroupLayer(l.name)&&WALL_NAME.test(String(l.name))&&!NON_WALL_NAME.test(String(l.name)));
   // Never promote every anonymous geometry layer to a wall layer. Furniture,
   // symbols, dimensions and title-block outlines often share ordinary CAD
   // layers; treating all closed geometry as rooms creates convincing-looking
