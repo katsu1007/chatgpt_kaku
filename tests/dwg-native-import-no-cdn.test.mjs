@@ -9,6 +9,8 @@ test("native R2000 and R2004 DWG imports do not depend on external CAD CDN",()=>
  const load=source.slice(start,end);
  assert.match(load,/readR2000DrawingEntities/);
  assert.match(load,/readR2004DrawingEntities/);
+ assert.match(source,/prepareNativeDwgSheet/);
+ assert.match(source,/renderNativeDwgSvg/);
  assert.match(load,/await ensureCadLibrary\(\);drawing=await openCad/);
  assert.doesNotMatch(load,/\}await ensureCadLibrary\(\);if\(drawing\.kind/);
 });
