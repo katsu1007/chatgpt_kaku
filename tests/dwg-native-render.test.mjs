@@ -32,8 +32,8 @@ test("normalizes common AutoCAD MTEXT controls without losing separate lines",()
   {kind:"text",layer:"NOTES",x:10,y:40,text:"A <B> & C",height:10,rotation:0}
  ]},[{name:"NOTES",color:"#111111"}]);
  const svg=renderNativeDwgSvg(prepared);
- assert.match(svg,/<tspan x="0" dy="0">1<\\/tspan>/);
- assert.match(svg,/<tspan x="0" dy="12.5">2<\\/tspan>/);
+ assert.ok(svg.includes('<tspan x="0" dy="0">1</tspan>'));
+ assert.ok(svg.includes('<tspan x="0" dy="12.5">2</tspan>'));
  assert.match(svg,/1\/2/);
  assert.match(svg,/Ω ° ± Ø/);
  assert.match(svg,/A &lt;B&gt; &amp; C/);
