@@ -238,3 +238,16 @@ test("translates dimension definition points with drawing origin and includes th
  assert.deepEqual(item.points.point10,[0,25,0]);
  assert.equal(drawing.sheets[0].size.h,25);
 });
+test("only external solid HATCH polyline paths become wall-fill candidates",()=>{
+ const drawing=createR2004DwgDrawing({units:{known:true,code:4,name:"millimeters",scaleToMm:1},entities:[
+  entity("A-HATCH",220n,{kind:"hatch",solidFill:true,paths:[
+   {kind:"polyline",flags:2,closed:true,vertices:[{x:0,y:0},{x:7000,y:0},{x:7000,y:100},{x:0,y:100}],bulges:[0,0,0,0]},
+   {kind:"polyline",flags:3,closed:true,vertices:[{x:100,y:200},{x:6000,y:200},{x:6000,y:300},{x:100,y:300}],bulges:[0,0,0,0]}
+  ]})
+ ],layers:[]});
+ const candidates=drawing.sheets[0].items.filter(item=>item.hatchFillCandidate);
+ assert.equal(candidates.length,1);
+ assert.equal(candidates[0].hatchPathFlags,3);
+ assert.equal(candidates[0].hatchPathIndex,1);
+ assert.equal(drawing.meta.info.hatchFillCandidates,1);
+});
