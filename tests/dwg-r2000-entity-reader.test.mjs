@@ -11,8 +11,9 @@ const raw=v=>{const b=new Uint8Array(8);new DataView(b.buffer).setFloat64(0,v,tr
 const pack=a=>{const out=new Uint8Array(Math.ceil(a.length/8));a.forEach((v,i)=>{if(v)out[i>>3]|=1<<(7-(i&7));});return out;};
 const handleBits=v=>{if(v===0)return [...bits(0,4),...bits(0,4)];const a=[];let n=v;while(n>0){a.unshift(n&255);n=Math.floor(n/256);}return [...bits(0,4),...bits(a.length,4),...bytesBits(a)];};
 // Synthetic R2000 object with the R15 common-entity field order.
-function lineRecord({handle=5,layer=200,noLinks=true,previous=0,next=0,owner=100}={}){
- const geometry=[1,...raw(100),0,0,...raw(200),0,0,1,1];
+const dd=(value,defaultValue)=>value===defaultValue?[0,0]:[1,1,...raw(value)];
+function lineRecord({handle=5,layer=200,noLinks=true,previous=0,next=0,owner=100,startX=100,startY=200,endX=startX,endY=startY}={}){
+ const geometry=[1,...raw(startX),...dd(endX,startX),...raw(startY),...dd(endY,startY),1,1];
  const base=[0,1,...bits(19),...bytesBits([0,0,0,0]),...handleBits(handle),...bs(0),0,
   0,0,1,0,noLinks?1:0,...bs(7),0,1,0,0,0,0,1,0,...bits(0),...geometry];
  const handleStartBit=16+base.length,rl=[handleStartBit&255,(handleStartBit>>>8)&255,(handleStartBit>>>16)&255,(handleStartBit>>>24)&255];
@@ -24,8 +25,8 @@ function lineRecord({handle=5,layer=200,noLinks=true,previous=0,next=0,owner=100
  out[0]=body.length&255;out[1]=body.length>>8;out.set(body,2);out.set([0x34,0x12],out.length-2);return out;
 }
 const bd=v=>v===0?[1,0]:v===1?[0,1]:[0,0,...raw(v)];
-function insertRecord({handle=7,layer=200,block=300,multiple=false,hasAttributes=false,firstAttribute=501,lastAttribute=502,seqend=503,scaleFlags=3,scale=1,columns=3,rows=2,columnSpacing=5,rowSpacing=6}={}){
- const geometry=[...bd(10),...bd(20),...bd(0),...bits(scaleFlags,2)];
+function insertRecord({handle=7,layer=200,block=300,owner=100,insertionPoint=[10,20,0],multiple=false,hasAttributes=false,firstAttribute=501,lastAttribute=502,seqend=503,scaleFlags=3,scale=1,columns=3,rows=2,columnSpacing=5,rowSpacing=6}={}){
+ const geometry=[...insertionPoint.flatMap(bd),...bits(scaleFlags,2)];
  if(scaleFlags===0){geometry.push(...raw(scale),0,0,0,0);}
  else if(scaleFlags===1){geometry.push(0,0,0,0);}
  else if(scaleFlags===2)geometry.push(...raw(scale));
@@ -35,7 +36,7 @@ function insertRecord({handle=7,layer=200,block=300,multiple=false,hasAttributes
   0,0,1,0,1,...bs(7),0,1,0,0,0,0,1,0,...bits(0),...geometry];
  const handleStart=16+base.length,rl=[handleStart&255,(handleStart>>>8)&255,(handleStart>>>16)&255,(handleStart>>>24)&255];
  base.splice(10,32,...bytesBits(rl));
- const refs=[...handleBits(100),...handleBits(0),...handleBits(layer),...handleBits(block)];
+ const refs=[...handleBits(owner),...handleBits(0),...handleBits(layer),...handleBits(block)];
  if(hasAttributes)refs.push(...handleBits(firstAttribute),...handleBits(lastAttribute),...handleBits(seqend));
  const body=pack([...base,...refs]),out=new Uint8Array(2+body.length+2);out[0]=body.length&255;out[1]=body.length>>8;out.set(body,2);out.set([0x34,0x12],out.length-2);return out;
 }
@@ -75,6 +76,28 @@ function makeR2000FileWithLayer(entity,layer){
  for(let i=0;i<3;i++){const [id,offset,size]=locators[i],p=0x19+i*9;file[p]=id;put32(view,p+1,offset);put32(view,p+5,size);}
  const crcOffset=0x19+27;view.setUint16(crcOffset,(dwgR13Crc16(file.subarray(0,crcOffset))^0xa598)&0xffff,true);file.set(END,crcOffset+2);
  file.set(map,0x80);file.set(entity,0x100);file.set(layer,layerOffset);return file;
+}
+
+function blockRecord({handleValue=300,name="*MODEL_SPACE",first=500,last=500,blockEntity=301,insert=[],base=[0,0,0]}={}){
+ const baseBits=[0,1,...bits(49),...bytesBits([0,0,0,0]),...handleBits(handleValue),...bs(0),...bl(0),...tv(name),
+  0,...bs(0),0,0,0,0,0,0,
+  ...base.flatMap(v=>v===0?[1,0]:[0,0,...bytesBits(new Uint8Array(new Float64Array([v]).buffer))]),
+  ...tv(""),...insert.flatMap(()=>bits(1)),...bits(0),...tv("Block description"),...bl(0)];
+ const handleStart=16+baseBits.length,rl=[handleStart&255,(handleStart>>>8)&255,(handleStart>>>16)&255,(handleStart>>>24)&255];
+ baseBits.splice(10,32,...bytesBits(rl));
+ const refs=[...handleBits(90),...handleBits(0),...handleBits(0),...handleBits(0),...handleBits(blockEntity),...handleBits(first),...handleBits(last),...handleBits(blockEntity+1),...insert.flatMap(handleBits),...handleBits(blockEntity+2)];
+ const body=pack([...baseBits,...refs]),out=new Uint8Array(2+body.length+2);out[0]=body.length&255;out[1]=body.length>>8;out.set(body,2);out.set([0x12,0x34],out.length-2);return out;
+}
+function makeR2000FileWithObjects(records){
+ let handle=0,offset=0x100;const pairs=[],placed=[];
+ for(const item of records){pairs.push([item.handle-handle,offset-(placed.length?placed[placed.length-1].offset:0)]);placed.push({...item,offset});handle=item.handle;offset+=item.bytes.length;}
+ const map=mapBytes(pairs),file=new Uint8Array(Math.max(0x500,offset+32)),view=new DataView(file.buffer);
+ for(let i=0;i<6;i++)file[i]="AC1015".charCodeAt(i);
+ put32(view,0x0d,0x100);view.setUint16(0x13,932,true);put32(view,0x15,3);
+ const locators=[[0,0x50,16],[1,0x60,16],[2,0x80,map.length]];
+ for(let i=0;i<3;i++){const [id,at,size]=locators[i],p=0x19+i*9;file[p]=id;put32(view,p+1,at);put32(view,p+5,size);}
+ const crcOffset=0x19+27;view.setUint16(crcOffset,(dwgR13Crc16(file.subarray(0,crcOffset))^0xa598)&0xffff,true);file.set(END,crcOffset+2);
+ file.set(map,0x80);for(const item of placed)file.set(item.bytes,item.offset);return file;
 }
 test("decodes R2000 common entity data, CMC color and LINE geometry",()=>{
  const r=parseR2000EntityRecord(lineRecord());assert.ok(r);
@@ -121,4 +144,17 @@ test("decodes R2000 MINSERT arrays, non-uniform scale defaults and attribute han
  assert.deepEqual(r.geometry.scale,{x:2,y:2,z:2,flag:0});
  assert.equal(r.insertHandles.blockHeader.value,300n);assert.equal(r.insertHandles.firstAttribute.value,501n);
  assert.equal(r.insertHandles.lastAttribute.value,502n);assert.equal(r.insertHandles.seqend.value,503n);
+});
+
+test("expands an R2000 model-space INSERT through BLOCK_HEADER ownership",()=>{
+ const layer=layerRecord(),model=blockRecord({handleValue:300,name:"*MODEL_SPACE",first:500,last:500,blockEntity:301}),
+  symbol=blockRecord({handleValue:400,name:"SYMBOL",first:501,last:501,blockEntity:401,insert:[500]}),
+  insert=insertRecord({handle:500,owner:300,block:400,insertionPoint:[100,200,0]}),
+  line=lineRecord({handle:501,owner:400,startX:0,startY:0,endX:50,endY:0});
+ const file=makeR2000FileWithObjects([{handle:200,bytes:layer},{handle:300,bytes:model},{handle:400,bytes:symbol},{handle:500,bytes:insert},{handle:501,bytes:line}]);
+ const result=readR2000DrawingEntities(file,parseR13R15DwgHeader(file));
+ assert.equal(result.blocks.length,2);assert.equal(result.blockExpansion.expanded,true);
+ assert.equal(result.entities.length,1);assert.deepEqual(result.entities[0].geometry.pts,[100,200,150,200]);
+ assert.equal(result.entities[0].sourceInsertHandle,500n);assert.deepEqual(result.entities[0].blockPath,["SYMBOL"]);
+ assert.equal(result.entities[0].layerName,"A-WALL");
 });
