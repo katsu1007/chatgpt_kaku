@@ -80,7 +80,7 @@ export function decodeR2004SplineGeometry(reader,{maxKnots=100000,maxControlPoin
  const scenario=reader.readBitLong();
  if(scenario!==1&&scenario!==2)throw new Error("Unsupported R2004 SPLINE scenario "+scenario);
  const degree=reader.readBitLong();
- let rational=false,closed=false,periodic=false,knotTolerance=0,controlTolerance=0,fitTolerance=0,beginTangent=null,endTangent=null,knots=[],controlPoints=[],fitPoints=[],weightsPresent=false;
+ let rational=false,closed=false,periodic=false,knotTolerance=0,controlTolerance=0,fitTolerance=0,beginTangent=null,endTangent=null,knots=[],controlPoints=[],fitPoints=[],weightsPresent=false,weights=[];
  if(scenario===2){
   fitTolerance=reader.readBitDouble();beginTangent=reader.read3BD();endTangent=reader.read3BD();
   const fitCount=reader.readBitLong();if(fitCount<0||fitCount>maxFitPoints)throw new RangeError("Invalid R2004 SPLINE fit point count");
@@ -93,9 +93,9 @@ export function decodeR2004SplineGeometry(reader,{maxKnots=100000,maxControlPoin
   weightsPresent=reader.readBit()===1;
   knots=Array.from({length:knotCount},()=>reader.readBitDouble());
   controlPoints=Array.from({length:controlCount},()=>reader.read3BD());
-  if(weightsPresent)controlPoints=controlPoints.map(point=>({...point,weight:reader.readRawDouble()}));
+  if(weightsPresent)weights=Array.from({length:controlCount},()=>reader.readRawDouble());
  }
- return {kind:"spline",scenario,degree,rational,closed,periodic,knotTolerance,controlTolerance,fitTolerance,beginTangent,endTangent,knots,controlPoints,weightsPresent,fitPoints};
+ return {kind:"spline",scenario,degree,rational,closed,periodic,knotTolerance,controlTolerance,fitTolerance,beginTangent,endTangent,knots,controlPoints,weightsPresent,weights,fitPoints};
 }
 export function decodeR2004AttributeGeometry(typeCode,reader){
  const text=decodeR2004TextGeometry(reader),tag=reader.readText(4096),fieldLength=reader.readBitShort(),flags=reader.readRawChar();
