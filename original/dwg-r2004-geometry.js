@@ -72,6 +72,23 @@ export function decodeR2004TextGeometry(reader){
  const generation=(dataFlags&0x20)?0:reader.readBitShort(),horizontalAlignment=(dataFlags&0x40)?0:reader.readBitShort(),verticalAlignment=(dataFlags&0x80)?0:reader.readBitShort();
  return {kind:"text",dataFlags,elevation,insertion,alignment,extrusion,thickness,obliqueAngle,rotation,height,widthFactor,text,generation,horizontalAlignment,verticalAlignment};
 }
+export function decodeR2004MLineGeometry(reader,{maxVertices=100000,maxStyleElements=64,maxParameters=10000}={}){
+ const scale=reader.readBitDouble(),justification=reader.readBitShort(),basePoint=reader.read3BD(),extrusion=reader.read3BD(),openClosed=reader.readBitShort(),linesInStyle=reader.readRawChar(),vertexCount=reader.readBitShort();
+ if(linesInStyle<0||linesInStyle>maxStyleElements||vertexCount<0||vertexCount>maxVertices)throw new RangeError("Invalid R2004 MLINE style/vertex count");
+ const vertices=[];
+ for(let i=0;i<vertexCount;i++){
+  const point=reader.read3BD(),direction=reader.read3BD(),miter=reader.read3BD(),elements=[];
+  for(let j=0;j<linesInStyle;j++){
+   const segmentCount=reader.readBitShort();if(segmentCount<0||segmentCount>maxParameters)throw new RangeError("Invalid R2004 MLINE segment parameter count");
+   const segmentParams=Array.from({length:segmentCount},()=>reader.readBitDouble());
+   const areaCount=reader.readBitShort();if(areaCount<0||areaCount>maxParameters)throw new RangeError("Invalid R2004 MLINE area fill parameter count");
+   const areaFillParams=Array.from({length:areaCount},()=>reader.readBitDouble());
+   elements.push({segmentParams,areaFillParams});
+  }
+  vertices.push({point,direction,miter,elements});
+ }
+ return {kind:"mline",scale,justification,basePoint,extrusion,openClosed,closed:openClosed===3,linesInStyle,vertexCount,vertices};
+}
 export function decodeR2004EllipseGeometry(reader){
  const center=reader.read3BD(),majorAxis=reader.read3BD(),extrusion=reader.read3BD(),axisRatio=reader.readBitDouble(),startParameter=reader.readBitDouble(),endParameter=reader.readBitDouble();
  return {kind:"ellipse",center,majorAxis,extrusion,axisRatio,startParameter,endParameter};
@@ -228,6 +245,7 @@ export function decodeR2004Geometry(typeCode,input,bitOffset=0){
   case 27:return decodeR2004PointGeometry(reader);
   case 31:return decodeR2004SolidGeometry(reader);
   case 35:return decodeR2004EllipseGeometry(reader);
+  case 47:return decodeR2004MLineGeometry(reader);
   case 36:return decodeR2004SplineGeometry(reader);
   default:return {kind:"unsupported",typeCode,bitOffset:reader.bitOffset};
  }
