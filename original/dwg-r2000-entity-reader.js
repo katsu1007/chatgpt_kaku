@@ -9,13 +9,13 @@ import { readR2000LayerRecords, resolveR2000EntityLayers } from "./dwg-r2000-lay
 import { readR2000BlockHeaders, assembleR2000BlockDefinitions } from "./dwg-r2000-block-reader.js?v=20261125-r2000-block1";
 import { expandR2004BlockReferences } from "./dwg-r2004-block-expand.js?v=20261125-blockexpand1";
 const SUPPORTED=new Set([1,7,8,17,18,19,20,21,22,23,24,25,26,27,31,35,36,44,77]);
-function bitDoubleDefault(reader,defaultValue){const code=reader.readBits(2);if(code===0)return reader.readRawDouble();if(code===1)return 1;if(code===2)return 0;if(code===3)return defaultValue;throw new Error("Invalid R2000 bit-double code");}
+function bitDoubleDefault(reader,defaultValue){return reader.readBitDoubleWithDefault(defaultValue);}
 function decodeR2000InsertGeometry(reader,multiple=false){
  const insertionPoint=reader.read3BD(),scaleFlags=reader.readBits(2);let x=1,y=1,z=1;
  if(scaleFlags===1){y=bitDoubleDefault(reader,1);z=bitDoubleDefault(reader,1);}
  else if(scaleFlags===2){x=reader.readRawDouble();y=x;z=x;}
  else if(scaleFlags===0){x=reader.readRawDouble();y=bitDoubleDefault(reader,x);z=bitDoubleDefault(reader,x);}
- const rotation=reader.readBitDouble(),extrusion=reader.read3BD(),hasAttributes=reader.readBit()===1;
+ const rotation=reader.readBitDouble(),extrusion=reader.readBitExtrusion(),hasAttributes=reader.readBit()===1;
  const geometry={kind:multiple?"minsert":"insert",insertionPoint,scale:{x,y,z,flag:scaleFlags},rotation,extrusion,hasAttributes};
  if(multiple){geometry.columns=reader.readBitShort();geometry.rows=reader.readBitShort();geometry.columnSpacing=reader.readBitDouble();geometry.rowSpacing=reader.readBitDouble();}
  return geometry;
