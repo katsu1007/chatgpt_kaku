@@ -144,3 +144,17 @@ test("approximates ELLIPSE and SPLINE as source-linked line segments",()=>{
  assert.equal(drawing.meta.info.curveSegments,items.length);
  assert.ok(drawing.meta.warnings.some(w=>w.includes("線分近似")));
 });
+
+test("renders MLINESTYLE-derived parallel wall boundary lines",()=>{
+ const drawing=createR2004DwgDrawing({units:{known:true,code:4,name:"millimeters",scaleToMm:1},entities:[
+  entity("A-WALL",270n,{kind:"mline",closed:false,mlineStyleName:"WALL",boundaries:[
+   {elementIndex:0,offset:-50,vertices:[{x:0,y:-50,z:0},{x:1000,y:-50,z:0}]},
+   {elementIndex:1,offset:50,vertices:[{x:0,y:50,z:0},{x:1000,y:50,z:0}]}
+  ]})
+ ],layers:[]});
+ const items=drawing.sheets[0].items;
+ assert.equal(items.length,2);assert.ok(items.every(x=>x.kind==="line"&&x.mlineBoundary));
+ assert.equal(items[0].mlineStyleName,"WALL");assert.equal(items[0].mlineOffset,-50);
+ assert.equal(items[1].mlineOffset,50);assert.equal(drawing.meta.info.mlineEntities,1);
+ assert.equal(drawing.meta.info.mlineBoundarySegments,2);
+});

@@ -46,7 +46,7 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
  const units=result?.units||{known:false,name:"unknown",scaleToMm:null},scale=units.known?units.scaleToMm:1;
  const entities=result?.entities||[],layers=(result?.layers||[]).map(layer=>({name:layer.name,color:rgbHex(layer.color?.rgb),visible:!!layer.flags?.on&&!layer.flags?.frozen,items:0,actualItems:0,dwgHandle:layer.handle}));
  const layerMap=new Map(layers.map(layer=>[layer.name,layer]));
- const mapped=[];let convertedEntities=0,polylineEntities=0,hatchEntities=0,hatchSegments=0,unsupportedHatchEdges=0,textEntities=0,dimensionEntities=0,attributeEntities=0,ellipseEntities=0,splineEntities=0,curveSegments=0,unsupportedCurves=0;
+ const mapped=[];let convertedEntities=0,polylineEntities=0,hatchEntities=0,hatchSegments=0,unsupportedHatchEdges=0,textEntities=0,dimensionEntities=0,attributeEntities=0,ellipseEntities=0,splineEntities=0,curveSegments=0,unsupportedCurves=0,mlineEntities=0,mlineBoundarySegments=0;
  const add=(entity,geometry,item)=>{
   const layerName=entity.layerName||"DWG:UNRESOLVED:"+String(entity.layerHandle??"0");
   if(!layerMap.has(layerName)){const layer={name:layerName,color:"#808080",visible:true,items:0,actualItems:0,unresolved:true};layers.push(layer);layerMap.set(layerName,layer);}
@@ -57,6 +57,18 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
  for(const entity of entities){
   const g=entity.geometry;if(!g||g.kind==="unsupported")continue;
   const before=mapped.length;
+  if(g.kind==="mline"){
+   for(const boundary of g.boundaries||[]){
+    const segments=polylineToSheetItems({kind:"polyline",vertices:boundary.vertices,bulges:boundary.vertices.map(()=>0),closed:g.closed},{layer:entity.layerName,handle:entity.handleHex,sourceFormat:"DWG-R2004"});
+    for(const segment of segments){
+     if(segment.kind==="line")add(entity,g,{...segment,pts:segment.pts.map(v=>v*scale),z0:(segment.z0||0)*scale,z1:(segment.z1||0)*scale,
+      mlineBoundary:true,mlineStyleName:g.mlineStyleName,mlineOffset:boundary.offset*scale,mlineElementIndex:boundary.elementIndex});
+     else add(entity,g,{...segment,cx:segment.cx*scale,cy:segment.cy*scale,r:segment.r*scale,mlineBoundary:true,mlineStyleName:g.mlineStyleName,mlineOffset:boundary.offset*scale,mlineElementIndex:boundary.elementIndex});
+     mlineBoundarySegments++;
+    }
+   }
+   if((g.boundaries||[]).length)mlineEntities++;
+  }
   if(g.kind==="ellipse"||g.kind==="spline"){
    const sampled=g.kind==="ellipse"?sampleEllipse(g):sampleSpline(g);
    if(!sampled||!sampled.vertices||sampled.vertices.length<2)unsupportedCurves++;
@@ -171,7 +183,9 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
  if(attributeEntities)warnings.push("INSERTの属性値（ATTRIB）を読み込みました。");
  if(ellipseEntities||splineEntities)warnings.push("ELLIPSE/SPLINEは線分近似で取り込みました。曲線の近似誤差に注意してください。");
  if(unsupportedCurves)warnings.push("平面外・不正データ等で近似できない曲線："+unsupportedCurves+"件");
+ if(result?.diagnostics?.missingMLineStyleCount)warnings.push("MLINESTYLE未解決："+result.diagnostics.missingMLineStyleCount+"件。二重線境界は生成していません。");
+ if(mlineEntities)warnings.push("MLINEはMLINESTYLEのオフセットから境界線を生成しました。");
  if(unsupportedHatchEdges)warnings.push("未描画のHATCH楕円・スプライン境界："+unsupportedHatchEdges+"件");
  const sheet={name:fileName,items:mapped,size:{w:Math.max(1,maxX-minX),h:Math.max(1,maxY-minY)},origin,nativeOrigin:{x:minX/scale,y:minY/scale},warnings,coordinateSpace:units.known?"sheet-mm":"dwg-native"};
- return {kind:"2d",sheets:[sheet],layers,meta:{format:"DWG",label:"DWG R2004（試験読込）",units:units.known?"mm":"unknown",coordinateSpace:units.known?"sheet-mm":"dwg-native",unitInfo:units,info:{items:mapped.length,figures:convertedEntities,polylines:polylineEntities,hatches:hatchEntities,hatchBoundarySegments:hatchSegments,textEntities,dimensionEntities,attributeEntities,ellipseEntities,splineEntities,curveSegments,unsupportedCurves,codePage:result?.codePage??null,textEncoding:result?.textEncoding??"windows-1252",version:"R2004",layers:layers.length,units:units.name,scaleToMm:scale,headerWarning:result?.headerWarning||null,unsupported,skippedObjects:result?.diagnostics?.skippedObjectCount??0},warnings}};
+ return {kind:"2d",sheets:[sheet],layers,meta:{format:"DWG",label:"DWG R2004（試験読込）",units:units.known?"mm":"unknown",coordinateSpace:units.known?"sheet-mm":"dwg-native",unitInfo:units,info:{items:mapped.length,figures:convertedEntities,polylines:polylineEntities,hatches:hatchEntities,hatchBoundarySegments:hatchSegments,textEntities,dimensionEntities,attributeEntities,ellipseEntities,splineEntities,curveSegments,unsupportedCurves,mlineEntities,mlineBoundarySegments,codePage:result?.codePage??null,textEncoding:result?.textEncoding??"windows-1252",version:"R2004",layers:layers.length,units:units.name,scaleToMm:scale,headerWarning:result?.headerWarning||null,unsupported,skippedObjects:result?.diagnostics?.skippedObjectCount??0},warnings}};
 }

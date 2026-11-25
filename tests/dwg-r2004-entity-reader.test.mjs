@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseR2004EntityRecord, readR2004EntityRecords, assembleR2004LegacyPolylines } from "../original/dwg-r2004-entity-reader.js";
+import { parseR2004EntityRecord, readR2004EntityRecords, assembleR2004LegacyPolylines, resolveR2004MLineStyles } from "../original/dwg-r2004-entity-reader.js";
 const bits=(v,n=8)=>Array.from({length:n},(_,i)=>(v>>(n-1-i))&1);
 const bytesBits=a=>a.flatMap(v=>bits(v));
 const bs=v=>v===0?[1,0]:[0,1,...bits(v)];
@@ -203,4 +203,34 @@ test("reads INSERT-owned ATTRIB and SEQEND handles",()=>{
  assert.equal(r.geometry.hasAttributes,true);assert.equal(r.geometry.ownedObjectCount,1);
  assert.equal(r.insertHandles.blockHeader.value,300n);assert.equal(r.insertHandles.attributes[0].value,620n);
  assert.equal(r.insertHandles.seqend.value,621n);
+});
+
+function mlineRecord(){
+ const geometry=[...bd(1),...bs(1),...bd(0),...bd(0),...bd(0),...bd(0),...bd(0),...bd(1),...bs(3),...bits(2),...bs(2),
+  ...bd(0),...bd(0),...bd(0),...bd(1),...bd(0),...bd(0),...bd(0),...bd(1),...bd(0),...bs(0),...bs(0),...bs(0),...bs(0),
+  ...bd(100),...bd(0),...bd(0),...bd(1),...bd(0),...bd(0),...bd(0),...bd(1),...bd(0),...bs(0),...bs(0),...bs(0),...bs(0)];
+ const base=[0,1,...bits(47),...bytesBits([0,0,0,0]),...handleBits(910),...bs(0),0,
+  0,0,1,0,1,1,0,1,...bits(7),0,1,0,0,0,0,1,0,...bits(0),...geometry];
+ const handleStart=16+base.length,rl=[handleStart&255,(handleStart>>>8)&255,(handleStart>>>16)&255,(handleStart>>>24)&255];
+ base.splice(10,32,...bytesBits(rl));
+ const body=pack([...base,...handleBits(100),...handleBits(200),...handleBits(300)]);
+ const out=new Uint8Array(2+body.length+2);out[0]=body.length&255;out[1]=body.length>>8;out.set(body,2);out.set([0x12,0x34],out.length-2);return out;
+}
+test("reads MLINE style handle and derives two wall boundaries from style offsets",()=>{
+ const record=mlineRecord(),entity=parseR2004EntityRecord(record);
+ assert.equal(entity.geometry.kind,"mline");assert.equal(entity.mlineStyleHandle.value,300n);
+ const style={handle:300n,name:"WALL",elements:[{offset:-0.5,color:{rgb:0xff0000}},{offset:0.5,color:{rgb:0x00ff00}}]};
+ const result=resolveR2004MLineStyles([entity],{byHandle:new Map([["300",style]])});
+ assert.equal(result.diagnostics.resolvedMLineCount,1);assert.equal(result.entities[0].geometry.boundaries.length,2);
+ assert.deepEqual(result.entities[0].geometry.boundaries[0].vertices,[{x:0,y:-0.5,z:0},{x:100,y:-0.5,z:0}]);
+ assert.deepEqual(result.entities[0].geometry.boundaries[1].vertices,[{x:0,y:0.5,z:0},{x:100,y:0.5,z:0}]);
+});
+
+test("applies MLINE top and bottom justification to style offsets",()=>{
+ const entity={selfHandle:1n,geometry:{kind:"mline",scale:1,justification:0,vertices:[{point:[0,0,0],miter:[0,1,0]},{point:[100,0,0],miter:[0,1,0]}]},mlineStyleHandle:{value:300n}};
+ const style={handle:300n,name:"WALL",elements:[{offset:-0.5},{offset:0.5}]};
+ const top=resolveR2004MLineStyles([entity],{byHandle:new Map([["300",style]])}).entities[0].geometry.boundaries;
+ assert.equal(top[0].offset,-1);assert.equal(top[1].offset,0);
+ const bottom=resolveR2004MLineStyles([{...entity,geometry:{...entity.geometry,justification:2}}],{byHandle:new Map([["300",style]])}).entities[0].geometry.boundaries;
+ assert.equal(bottom[0].offset,0);assert.equal(bottom[1].offset,1);
 });

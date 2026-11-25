@@ -58,6 +58,12 @@ export function transformBlockGeometry(geometry,matrix){
   const insertion=move(geometry.insertion),axis=readPoint(geometry.xAxis),xAxis={x:a*axis.x+c*axis.y,y:b*axis.x+d*axis.y,z:axis.z||0};
   return {...geometry,insertion:[insertion.x,insertion.y,insertion.z||0],xAxis:[xAxis.x,xAxis.y,xAxis.z],height:geometry.height*scaleX,rectWidth:geometry.rectWidth*scaleX,extentsHeight:geometry.extentsHeight*scaleX,extentsWidth:geometry.extentsWidth*scaleX};
  }
+ if(geometry.kind==="mline"){
+  const movePoint=p=>{const q=Array.isArray(p)?{x:p[0],y:p[1],z:p[2]||0}:p,m=applyAffine2D(matrix,q);return {x:m.x,y:m.y,z:q.z||0};};
+  const moveVector=p=>{const q=Array.isArray(p)?{x:p[0],y:p[1],z:p[2]||0}:p;return {x:matrix[0]*q.x+matrix[2]*q.y,y:matrix[1]*q.x+matrix[3]*q.y,z:q.z||0};};
+  return {...geometry,basePoint:movePoint(geometry.basePoint),vertices:(geometry.vertices||[]).map(v=>({...v,point:movePoint(v.point),direction:moveVector(v.direction),miter:moveVector(v.miter)})),
+   boundaries:(geometry.boundaries||[]).map(b=>({...b,vertices:(b.vertices||[]).map(movePoint)}))};
+ }
  if(geometry.kind==="ellipse"){
   const [a,b,c,d]=matrix,scaleX=Math.hypot(a,b),scaleY=Math.hypot(c,d),orthogonality=a*c+b*d;
   if(Math.abs(scaleX-scaleY)>1e-8*Math.max(1,scaleX,scaleY)||Math.abs(orthogonality)>1e-8*Math.max(1,scaleX*scaleY))

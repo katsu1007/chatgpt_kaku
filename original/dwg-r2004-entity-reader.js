@@ -1,14 +1,15 @@
 // KAKU-owned R2004 common entity data reader and geometry dispatcher.
 import { DwgBitReader, dwgTextEncoding } from "./dwg-bitstream.js?v=20261125-codepage1";
 import { parseR2004ObjectRecordEnvelope } from "./dwg-r2004-object-record.js";
-import { decodeR2004Geometry } from "./dwg-r2004-geometry.js?v=20261125-curves1";
+import { decodeR2004Geometry } from "./dwg-r2004-geometry.js?v=20261125-mline1";
 import { readR2004SectionByName } from "./dwg-r2004-section-reader.js";
 import { readR2004ObjectMap } from "./dwg-r2004-object-map.js";
 import { readR2004SectionMaps } from "./dwg-r2004-sections.js";
 import { readR2004LayerRecords, resolveR2004EntityLayers } from "./dwg-r2004-layer-reader.js?v=20261125-codepage1";
 import { parseR2004HeaderVariables } from "./dwg-r2004-header-vars.js";
 import { readR2004BlockHeaders } from "./dwg-r2004-block-reader.js?v=20261125-codepage1";
-import { expandR2004BlockReferences } from "./dwg-r2004-block-expand.js?v=20261125-curves1";
+import { readR2004MLineStyleRecords } from "./dwg-r2004-mline-style-reader.js?v=20261125-mline1";
+import { expandR2004BlockReferences } from "./dwg-r2004-block-expand.js?v=20261125-mline1";
 function readEntityColor(reader){
  const colorNumber=reader.readBitShort(),flags=colorNumber&0xe000;
  const color={colorNumber,aci:colorNumber&0x01ff,complex:!!(flags&0x8000),hasColorHandle:!!(flags&0x4000),hasTransparency:!!(flags&0x2000)};
@@ -58,14 +59,15 @@ export function parseR2004EntityRecord(input,offset=0,{maxEedBytes=1024*1024,max
  if(geometry.kind==="hatch")for(let i=0;i<geometry.boundaryObjectCount;i++)boundaryHandles.push(reader.readHandle(selfHandle.value));
  const styleHandle=["text","mtext","attrib","attdef"].includes(geometry.kind)?reader.readHandle(selfHandle.value):null;
  const dimensionHandles=geometry.kind==="dimension"?{dimStyle:reader.readHandle(selfHandle.value),anonymousBlock:reader.readHandle(selfHandle.value)}:null;
+ const mlineStyleHandle=geometry.kind==="mline"?reader.readHandle(selfHandle.value):null;
  let polylineHandles=null;
  if(geometry.kind==="polyline2d"||geometry.kind==="polyline3d"){const vertices=[];for(let i=0;i<geometry.ownedObjectCount;i++)vertices.push(reader.readHandle(selfHandle.value));const seqend=reader.readHandle(selfHandle.value);polylineHandles={vertices,seqend};}
  return {...envelope,objectDataBits,selfHandle:selfHandle.value,entityMode,reactorCount,xdictionaryMissing,noLinks,color,linetypeScale,linetypeFlags,plotstyleFlags,invisibility,lineweight,
-  eed,graphic,geometry,geometryBitOffset,geometryEndBit,declaredHandleBitOffset:handleBitOffset,handles,insertHandles,boundaryHandles,styleHandle,dimensionHandles,polylineHandles,ownerHandle:handles.owner.value,layerHandle:handles.layer.value,
+  eed,graphic,geometry,geometryBitOffset,geometryEndBit,declaredHandleBitOffset:handleBitOffset,handles,insertHandles,boundaryHandles,styleHandle,dimensionHandles,polylineHandles,mlineStyleHandle,ownerHandle:handles.owner.value,layerHandle:handles.layer.value,
   diagnostics:{...envelope.diagnostics,commonEntityDecoded:true,geometryDecoded:geometry.kind!=="unsupported",handleReferencesDecoded:true}};
 }
 export function readR2004EntityRecords(sectionBytes,objectMap,options){
- const records=[],skippedObjects=[],supported=new Set([1,2,3,7,8,10,11,15,16,17,18,19,20,21,22,23,24,25,26,27,31,35,36,44,77,78]);
+ const records=[],skippedObjects=[],supported=new Set([1,2,3,7,8,10,11,15,16,17,18,19,20,21,22,23,24,25,26,27,31,35,36,44,47,77,78]);
  for(const item of objectMap.entries){
   const offset=Number(item.offset),envelope=parseR2004ObjectRecordEnvelope(sectionBytes,offset);
   if(envelope.handle!==BigInt(item.handle))throw new Error("Object-map handle mismatch at entity offset "+item.offset);
@@ -106,14 +108,31 @@ export function assembleR2004LegacyPolylines(records){
  for(const entity of source)if(!["vertex2d","vertex3d","vertexMesh","vertexPface","polyline2d","polyline3d"].includes(entity.geometry?.kind))output.push(entity);
  return {entities:output,diagnostics};
 }
+export function resolveR2004MLineStyles(entities,styleResult){
+ let resolved=0,missing=0,offsetMismatch=0;
+ const output=(entities||[]).map(entity=>{
+  if(entity.geometry?.kind!=="mline")return entity;
+  const style=styleResult?.byHandle?.get(BigInt(entity.mlineStyleHandle?.value??0).toString());
+  if(!style){missing++;return {...entity,mlineStyleResolved:false,geometry:{...entity.geometry,boundaries:[]}};}
+  if(style.elements.length!==entity.geometry.linesInStyle)offsetMismatch++;
+  const scaledOffsets=style.elements.map(element=>element.offset*entity.geometry.scale);
+  const justificationShift=entity.geometry.justification===0?-Math.max(...scaledOffsets):entity.geometry.justification===2?-Math.min(...scaledOffsets):0;
+  const boundaries=style.elements.map((element,index)=>{const offset=scaledOffsets[index]+justificationShift;return {elementIndex:index,offset,color:element.color,
+   vertices:entity.geometry.vertices.map(vertex=>({x:vertex.point[0]+vertex.miter[0]*offset,
+    y:vertex.point[1]+vertex.miter[1]*offset,z:vertex.point[2]+vertex.miter[2]*offset}))};});
+  resolved++;
+  return {...entity,mlineStyleResolved:true,mlineStyleName:style.name,geometry:{...entity.geometry,mlineStyleName:style.name,boundaries}};
+ });
+ return {entities:output,diagnostics:{resolvedMLineCount:resolved,missingMLineStyleCount:missing,mlineStyleElementMismatchCount:offsetMismatch}};
+}
 export function readR2004DrawingEntities(input,fileHeader,options){
  const sections=readR2004SectionMaps(input,fileHeader),objectMap=readR2004ObjectMap(input,sections.resolvedSections);
  const objects=readR2004SectionByName(input,sections.resolvedSections,"AcDb:AcDbObjects");
  const textEncoding=options?.textEncoding||dwgTextEncoding(fileHeader?.fileHeader?.codePage),readerOptions={...options,textEncoding};
- const entities=readR2004EntityRecords(objects.data,objectMap,readerOptions),layers=readR2004LayerRecords(objects.data,objectMap,readerOptions),blocks=readR2004BlockHeaders(objects.data,objectMap,readerOptions);
- const polylines=assembleR2004LegacyPolylines(entities.records),resolved=resolveR2004EntityLayers(polylines.entities,layers),expanded=expandR2004BlockReferences(resolved.entities,blocks.blocks,readerOptions?.blockExpansion);
+ const entities=readR2004EntityRecords(objects.data,objectMap,readerOptions),layers=readR2004LayerRecords(objects.data,objectMap,readerOptions),blocks=readR2004BlockHeaders(objects.data,objectMap,readerOptions),mlineStyles=readR2004MLineStyleRecords(objects.data,objectMap,readerOptions);
+ const polylines=assembleR2004LegacyPolylines(entities.records),resolved=resolveR2004EntityLayers(polylines.entities,layers),mlineResolved=resolveR2004MLineStyles(resolved.entities,mlineStyles),expanded=expandR2004BlockReferences(mlineResolved.entities,blocks.blocks,readerOptions?.blockExpansion);
  let units={code:null,name:"unknown",scaleToMm:null,known:false},headerWarning=null,headerVariables=null;
  try{const headerSection=readR2004SectionByName(input,sections.resolvedSections,"AcDb:Header");headerVariables=parseR2004HeaderVariables(headerSection.data);units=headerVariables.units;if(!headerVariables.endingSentinelValid)headerWarning="DWGヘッダー終端を検証できないため、INSUNITSは採用しません。";else if(!units.known)headerWarning="INSUNITSが未指定または未対応のため、mm換算は保留します。";}
  catch(error){headerWarning="DWG INSUNITSを取得できません："+(error?.message||error);}
- return {entities:expanded.entities,rawEntities:entities.records,objectMap,layers:layers.layers,blocks:blocks.blocks,blockExpansion:expanded.diagnostics,textEncoding,codePage:fileHeader?.fileHeader?.codePage??null,units,headerVariables,headerWarning,sections:sections.diagnostics,diagnostics:{...entities.diagnostics,...layers.diagnostics,...blocks.diagnostics,...polylines.diagnostics,...resolved.diagnostics,...expanded.diagnostics,sectionCount:sections.resolvedSections.length,objectMapEntries:objectMap.entries.length}};
+ return {entities:expanded.entities,rawEntities:entities.records,objectMap,layers:layers.layers,blocks:blocks.blocks,mlineStyles:mlineStyles.styles,blockExpansion:expanded.diagnostics,textEncoding,codePage:fileHeader?.fileHeader?.codePage??null,units,headerVariables,headerWarning,sections:sections.diagnostics,diagnostics:{...entities.diagnostics,...layers.diagnostics,...blocks.diagnostics,...mlineStyles.diagnostics,...polylines.diagnostics,...resolved.diagnostics,...mlineResolved.diagnostics,...expanded.diagnostics,sectionCount:sections.resolvedSections.length,objectMapEntries:objectMap.entries.length}};
 }

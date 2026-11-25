@@ -62,3 +62,11 @@ test("transforms ELLIPSE axes and SPLINE control/fit points in nested blocks",()
  assert.deepEqual(spline.fitPoints,[[100,200,0]]);
  assert.deepEqual(spline.beginTangent,[0,2,0]);assert.deepEqual(spline.endTangent,[-2,0,0]);
 });
+
+test("transforms MLINE center vertices and derived boundary polylines in blocks",()=>{
+ const mline=transformBlockGeometry({kind:"mline",basePoint:[0,0,0],vertices:[{point:[1,0,0],direction:[1,0,0],miter:[0,1,0]}],
+  boundaries:[{offset:0.5,vertices:[{x:1,y:0.5,z:0},{x:2,y:0.5,z:0}]}]},[0,2,-2,0,100,200]);
+ assert.deepEqual(mline.vertices[0].point,{x:100,y:202,z:0});
+ assert.deepEqual(mline.vertices[0].miter,{x:-2,y:0,z:0});
+ assert.deepEqual(mline.boundaries[0].vertices,[{x:99,y:202,z:0},{x:99,y:204,z:0}]);
+});
