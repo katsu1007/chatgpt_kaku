@@ -44,3 +44,18 @@ test("decodes closed R2004 LWPOLYLINE with vertices and bulges",()=>{
  assert.deepEqual(r.vertices,[{x:0,y:0,z:0},{x:10,y:0,z:0},{x:10,y:10,z:0}]);
  assert.deepEqual(r.bulges,[1,0,0]);assert.equal(r.constantWidth,0);
 });
+
+test("decodes INSERT and MINSERT insertion transforms",()=>{
+ const insert=pack([...bd(10),...bd(20),...bd(0),1,1,...bd(0),1,0,1,0]);
+ const a=decodeR2004Geometry(7,insert);
+ assert.equal(a.kind,"insert");assert.deepEqual(a.insertionPoint,[10,20,0]);assert.deepEqual(a.scale,{x:1,y:1,z:1,flag:3});
+ const minsert=pack([...bd(1),...bd(2),...bd(0),1,1,...bd(0),1,0,1,0,0,1,...bits(3),0,1,...bits(2),...bd(5),...bd(6)]);
+ const b=decodeR2004Geometry(8,minsert);
+ assert.equal(b.kind,"minsert");assert.equal(b.columns,3);assert.equal(b.rows,2);
+ assert.equal(b.columnSpacing,5);assert.equal(b.rowSpacing,6);
+});
+test("decodes compact INSERT scale flags",()=>{
+ const input=pack([...bd(0),...bd(0),...bd(0),0,1,...dd(1,2),...dd(1,3),...bd(0),1,0,1,0]);
+ const r=decodeR2004Geometry(7,input);
+ assert.deepEqual(r.scale,{x:1,y:2,z:3,flag:1});
+});
