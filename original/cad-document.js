@@ -25,7 +25,7 @@ function normalizeKind(entity) {
   const raw = String(first(entity?.kind, entity?.type, entity?.entityType, "unknown")).toLowerCase();
   return KIND_MAP.get(raw) || raw;
 }
-function sourceSemantics(source, rawType) {
+function sourceSemantics(source, rawType, layerScaleDenominator = null) {
   const explicitRole = first(source?.semanticRole, source?.semantic?.role, source?.role, null);
   const kind = String(rawType || "").toLowerCase();
   const dimensionFlag = source?.dimensionGraphic === true || source?.dimensionLine === true ||
@@ -46,6 +46,7 @@ function sourceSemantics(source, rawType) {
     blockInstance: role === "block-instance",
     groupIndex: Number.isInteger(groupIndex) ? groupIndex : null,
     layerIndex: Number.isInteger(layerIndex) ? layerIndex : null,
+    layerScaleDenominator: finite(layerScaleDenominator) && layerScaleDenominator > 0 ? layerScaleDenominator : null,
     entityIndex: Number.isInteger(source?.sourceIndex) ? source.sourceIndex :
       Number.isInteger(source?.entityIndex) ? source.entityIndex : null
   };
@@ -112,7 +113,9 @@ export function normalizeCadEntity(entity, index, options = {}) {
   const layer = first(source.layer, source.layerName, source.base?.layerName, null);
   const layerGroup = first(source.layerGroup, source.layer_group, source.base?.layer_group, null);
   const sourceType = first(source.sourceType, source.entityType, source.type, source.kind, "unknown");
-  const semantics = sourceSemantics(source, sourceType);
+  const layerInfo = (options.layers || []).find(entry => String(entry?.name ?? "") === String(layer ?? ""));
+  const layerScaleDenominator = finite(layerInfo?.scale) && layerInfo.scale > 0 ? layerInfo.scale : null;
+  const semantics = sourceSemantics(source, sourceType, layerScaleDenominator);
   const handle = first(source.handle, source.id, source.objectId, null);
   const blockPath = Array.isArray(source.blockPath) ? [...source.blockPath] :
     source.blockName != null ? [String(source.blockName)] : [];
@@ -130,6 +133,7 @@ export function normalizeCadEntity(entity, index, options = {}) {
       sourceIndex: semantics.entityIndex,
       groupIndex: semantics.groupIndex,
       layerIndex: semantics.layerIndex,
+      layerScaleDenominator,
       semantics,
       raw: clone(source)
     },
@@ -155,10 +159,13 @@ export function createCadDocument(input = {}, options = {}) {
   const layers = new Map();
   let missingGeometry = 0;
   const semanticCounts = {};
+  const scaleCounts = {};
   for (const entity of normalized) {
     counts[entity.kind] = (counts[entity.kind] || 0) + 1;
     const role = entity.semantic?.role || "unclassified";
     semanticCounts[role] = (semanticCounts[role] || 0) + 1;
+    const scaleKey = entity.source.layerScaleDenominator == null ? "unknown" : String(entity.source.layerScaleDenominator);
+    scaleCounts[scaleKey] = (scaleCounts[scaleKey] || 0) + 1;
     if (!entity.bounds) missingGeometry++;
     const name = entity.source.layer ?? "(レイヤーなし)";
     layers.set(name, (layers.get(name) || 0) + 1);
@@ -185,6 +192,8 @@ export function createCadDocument(input = {}, options = {}) {
       kindCounts: counts,
       layerCounts: Object.fromEntries([...layers.entries()].sort((a,b) => a[0].localeCompare(b[0]))),
       semanticCounts,
+      layerScaleCounts: scaleCounts,
+      unscaledEntities: scaleCounts.unknown || 0,
       dimensionGraphics: semanticCounts.dimension || 0,
       blockInstances: semanticCounts["block-instance"] || 0,
       missingGeometry,
