@@ -19,6 +19,21 @@ export function decodeR2004CircleGeometry(reader){
  return {kind:"circle",center:{x,y,z},radius,thickness,extrusion};
 }
 
+function readR2004InsertScale(reader){
+ const flag=reader.readBits(2);let x=1,y=1,z=1;
+ if(flag===1){y=reader.readBitDoubleWithDefault(1);z=reader.readBitDoubleWithDefault(1);}
+ else if(flag===2){x=reader.readRawDouble();y=x;z=x;}
+ else if(flag===0){x=reader.readRawDouble();y=reader.readBitDoubleWithDefault(x);z=reader.readBitDoubleWithDefault(x);}
+ return {x,y,z,flag};
+}
+export function decodeR2004InsertGeometry(reader,{multiple=false,maxOwnedObjects=100000}={}){
+ const insertionPoint=reader.read3BD(),scale=readR2004InsertScale(reader),rotation=reader.readBitDouble(),extrusion=reader.readBitExtrusion();
+ const hasAttributes=reader.readBit()===1,ownedObjectCount=reader.readBitLong();
+ if(ownedObjectCount<0||ownedObjectCount>maxOwnedObjects)throw new RangeError("Invalid R2004 INSERT owned-object count");
+ const geometry={kind:multiple?"minsert":"insert",insertionPoint,scale,rotation,extrusion,hasAttributes,ownedObjectCount};
+ if(multiple){geometry.columns=reader.readBitShort();geometry.rows=reader.readBitShort();geometry.columnSpacing=reader.readBitDouble();geometry.rowSpacing=reader.readBitDouble();}
+ return geometry;
+}
 export function decodeR2004LwPolylineGeometry(reader,{maxVertices=1000000}={}){
  const flags=reader.readBitShort(),constantWidth=reader.readBitDouble(),elevation=reader.readBitDouble(),thickness=reader.readBitDouble(),extrusion=reader.readBitExtrusion();
  const count=reader.readBitLong();if(count<2||count>maxVertices)throw new RangeError("Invalid R2004 LWPOLYLINE vertex count");
@@ -48,6 +63,8 @@ export function decodeR2004Geometry(typeCode,input,bitOffset=0){
   case 17:return decodeR2004ArcGeometry(reader);
   case 18:return decodeR2004CircleGeometry(reader);
   case 19:return decodeR2004LineGeometry(reader);
+  case 7:return decodeR2004InsertGeometry(reader);
+  case 8:return decodeR2004InsertGeometry(reader,{multiple:true});
   case 77:return decodeR2004LwPolylineGeometry(reader);
   case 27:return decodeR2004PointGeometry(reader);
   case 31:return decodeR2004SolidGeometry(reader);
