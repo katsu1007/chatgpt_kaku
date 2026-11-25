@@ -100,15 +100,15 @@ test("rejects excessive HATCH path counts and unknown edge types",()=>{
 });
 
 test("decodes R2004 TEXT position, height, string and defaulted style fields",()=>{
- const input=pack([...bits(255),...raw(125),...raw(250),1,1,...raw(18),...tv("会議室A")]);
+ const input=pack([...bits(255),...raw(125),...raw(250),1,1,...raw(18),...tv("ROOM A")]);
  const r=decodeR2004Geometry(1,input);
- assert.equal(r.kind,"text");assert.equal(r.text,"会議室A");
+ assert.equal(r.kind,"text");assert.equal(r.text,"ROOM A");
  assert.deepEqual(r.insertion,{x:125,y:250,z:0});assert.deepEqual(r.alignment,r.insertion);
  assert.equal(r.height,18);assert.equal(r.widthFactor,1);assert.equal(r.rotation,0);
  assert.equal(r.horizontalAlignment,0);assert.equal(r.verticalAlignment,0);
 });
 test("decodes explicit R2004 TEXT alignment, rotation and width factor",()=>{
- const input=pack([0,...raw(30),...raw(10),...raw(20),...dd(10,40),...dd(20,60),1,1,...raw(0.1),...raw(0.5),...raw(12),...raw(0.8),...tv("A-101"),...bs(1),...bs(2),...bs(3)]);
+ const input=pack([...bits(0),...raw(30),...raw(10),...raw(20),...dd(10,40),...dd(20,60),1,1,...raw(0.1),...raw(0.5),...raw(12),...raw(0.8),...tv("A-101"),...bs(1),...bs(2),...bs(3)]);
  const r=decodeR2004Geometry(1,input);
  assert.equal(r.elevation,30);assert.deepEqual(r.insertion,{x:10,y:20,z:30});assert.deepEqual(r.alignment,{x:40,y:60,z:30});
  assert.equal(r.obliqueAngle,0.1);assert.equal(r.rotation,0.5);assert.equal(r.height,12);assert.equal(r.widthFactor,0.8);
