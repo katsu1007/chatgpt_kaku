@@ -188,3 +188,18 @@ test("decodes R2004 control-point and fit-point SPLINE scenarios",()=>{
  ]));
  assert.equal(fit.scenario,2);assert.equal(fit.fitPoints.length,3);assert.deepEqual(fit.fitPoints[1],[50,100,0]);
 });
+
+test("decodes R2004 MLINE vertices and per-style segment parameters",()=>{
+ const input=pack([
+  ...bd(1),...bs(1),...bd(0),...bd(0),...bd(0),...bd(0),...bd(0),...bd(1),...bs(3),...bits(2),...bs(2),
+  ...bd(0),...bd(0),...bd(0),...bd(1),...bd(0),...bd(0),...bd(0),...bd(1),...bd(0),
+  ...bs(0),...bs(0),...bs(0),...bs(0),
+  ...bd(100),...bd(0),...bd(0),...bd(1),...bd(0),...bd(0),...bd(0),...bd(1),...bd(0),
+  ...bs(0),...bs(0),...bs(0),...bs(0)
+ ]);
+ const r=decodeR2004Geometry(47,input);
+ assert.equal(r.kind,"mline");assert.equal(r.scale,1);assert.equal(r.closed,true);
+ assert.equal(r.linesInStyle,2);assert.equal(r.vertices.length,2);
+ assert.deepEqual(r.vertices[0].point,[0,0,0]);assert.deepEqual(r.vertices[1].point,[100,0,0]);
+ assert.equal(r.vertices[0].elements.length,2);
+});
