@@ -430,6 +430,15 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
   }
   const parentRooms=parents.kept.map((r,i)=>({...r,name:"大部屋 "+(i+1),level:1,children:[]}));
   const parentByRegion=new Map(parentRooms.map(p=>[p.id,p]));
+  const scaleLayers=[...allNames].map(name=>({name,scale:(layers||[]).find(layer=>String(layer?.name??"")===String(name))?.scale}));
+  const knownScales=scaleLayers.map(entry=>entry.scale).filter(value=>Number.isFinite(value)&&value>0);
+  const unknownScaleLayers=scaleLayers.filter(entry=>!(Number.isFinite(entry.scale)&&entry.scale>0)).map(entry=>entry.name);
+  const uniqueScales=[...new Set(knownScales.map(value=>Number(value.toPrecision(10))))];
+  const scaleAssessment={
+    status:!scaleLayers.length||unknownScaleLayers.length?"unknown":uniqueScales.length===1?"uniform":"mixed",
+    denominator:!unknownScaleLayers.length&&uniqueScales.length===1?uniqueScales[0]:null,
+    candidateLayers:scaleLayers.length,unknownLayers:unknownScaleLayers,distinctDenominators:uniqueScales
+  };
   const childRooms=[];let unassignedChildren=0;
   const childGroups=new Map();
   for(const child of children.kept){
@@ -479,9 +488,13 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
   }
   const layerInventory=[...layerStats.values()].sort((a,b)=>b.total-a.total);
   return {
-    rooms:displayRooms.map((r,i)=>({...r,id:i,drawingAreaCm2:r.area*cw*ch/100})),
+    rooms:displayRooms.map((r,i)=>{
+      const drawingAreaCm2=r.area*cw*ch/100;
+      return {...r,id:i,drawingAreaCm2,
+        realAreaM2:scaleAssessment.status==="uniform"?drawingAreaCm2*scaleAssessment.denominator*scaleAssessment.denominator/10000:null};
+    }),
     parents:parentRooms.map(p=>({...p,children:p.children.map(c=>c.name)})),
     grid:{ids,nx,ny,cw,ch},
-    diagnostics:{selectedLayers:selected.size,supplementalLayers:supplemental.size,autoMode:classified.mode+(fallbackUsed?" → 全図形レイヤー再判定":""),fallbackUsed,parentLayerNames:[...selected],wallLayerNames:[...allNames],layerInventory,parentRegions:parents.inner.length,childRegions:children.inner.length,parentsKept:parentRooms.length,childrenKept:childRooms.length,unassignedChildren,minParentCells:parents.minCells,minChildCells:children.minCells,minChildSpanCells:children.minSpanCells,minParentSpanCells:parents.minSpanCells,usedItems:childTrace.usedItems,usedSegments:childTrace.usedSegments,skippedHidden:childTrace.skippedHidden,skippedDimensionItems:childTrace.skippedDimensionItems,skippedDimensionSegments:childTrace.skippedDimensionSegments,skippedNonWallFills:childTrace.skippedNonWallFills,bridgedDoorGaps:childTrace.bridgedDoorGaps,snappedTJunctions:childTrace.snappedTJunctions,virtualBoothClosures:boothClosures.length,endpointCount:childTrace.endpointCount}
+    diagnostics:{scaleAssessment,selectedLayers:selected.size,supplementalLayers:supplemental.size,autoMode:classified.mode+(fallbackUsed?" → 全図形レイヤー再判定":""),fallbackUsed,parentLayerNames:[...selected],wallLayerNames:[...allNames],layerInventory,parentRegions:parents.inner.length,childRegions:children.inner.length,parentsKept:parentRooms.length,childrenKept:childRooms.length,unassignedChildren,minParentCells:parents.minCells,minChildCells:children.minCells,minChildSpanCells:children.minSpanCells,minParentSpanCells:parents.minSpanCells,usedItems:childTrace.usedItems,usedSegments:childTrace.usedSegments,skippedHidden:childTrace.skippedHidden,skippedDimensionItems:childTrace.skippedDimensionItems,skippedDimensionSegments:childTrace.skippedDimensionSegments,skippedNonWallFills:childTrace.skippedNonWallFills,bridgedDoorGaps:childTrace.bridgedDoorGaps,snappedTJunctions:childTrace.snappedTJunctions,virtualBoothClosures:boothClosures.length,endpointCount:childTrace.endpointCount}
   };
 }

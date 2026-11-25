@@ -513,3 +513,25 @@ test("real-world Jw_cad architectural layer names distinguish wall structure fro
   for(const name of ["0-1 平面図 / 躯体","0-1 平面図 / 壁","0-1 平面図 / 袖壁","0-1 平面図 / 耐力壁","0-1 平面図 / 改修壁","0-1 平面図 / トイレブース","0-2 平面図 / パーティション","0-1 平面図 / 壁塗りつぶし"]) assert.ok(actual.includes(name),name+" should remain a wall candidate");
   for(const name of ["0-1 平面図 / 外壁仕上","0-1 平面図 / 内壁仕上","0-1 平面図 / 壁仕上ライン","0-1 平面図 / 壁部分目地","0-1 平面図 / 外装ルーバー","0-1 平面図 / 基準線","0-1 平面図 / 床仕上","0-1 平面図 / タイル","0-1 平面図 / 寸法"]) assert.ok(!actual.includes(name),name+" must not become a wall boundary layer");
 });
+
+test("uniform Jw_cad group scale converts drawing area to real square metres",()=>{
+  const input={...fixture(),layers:[{name:"外壁",scale:50},{name:"間仕切壁",scale:50}]};
+  const result=extractRoomHierarchy(input);
+  assert.equal(result.diagnostics.scaleAssessment.status,"uniform");
+  assert.equal(result.diagnostics.scaleAssessment.denominator,50);
+  for(const room of result.rooms) assert.equal(room.realAreaM2,room.drawingAreaCm2*2500/10000);
+});
+test("mixed layer-group scales suppress real area instead of guessing",()=>{
+  const input={...fixture(),layers:[{name:"外壁",scale:50},{name:"間仕切壁",scale:10}]};
+  const result=extractRoomHierarchy(input);
+  assert.equal(result.diagnostics.scaleAssessment.status,"mixed");
+  assert.equal(result.diagnostics.scaleAssessment.denominator,null);
+  assert.ok(result.rooms.every(room=>room.realAreaM2===null));
+});
+test("missing layer scale suppresses real area and identifies affected layers",()=>{
+  const input={...fixture(),layers:[{name:"外壁",scale:50},{name:"間仕切壁"}]};
+  const result=extractRoomHierarchy(input);
+  assert.equal(result.diagnostics.scaleAssessment.status,"unknown");
+  assert.deepEqual(result.diagnostics.scaleAssessment.unknownLayers,["間仕切壁"]);
+  assert.ok(result.rooms.every(room=>room.realAreaM2===null));
+});
