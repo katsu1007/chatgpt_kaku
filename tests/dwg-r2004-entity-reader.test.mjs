@@ -132,7 +132,7 @@ test("decodes Japanese TEXT through the DWG code-page option",()=>{
 function dimensionRecord(){
  const geometry=[...bd(0),...bd(0),...bd(1),...raw(50),...raw(25),...bd(0),...bits(0),...tv("<>"),...bd(0),...bd(0),...bd(1),...bd(1),...bd(1),...bd(0),
   ...bs(1),...bs(0),...bd(1),...bd(100),...raw(50),...raw(25),
-  ...bd(0),...bd(0),...bd(0),...bd(100),...bd(0),...bd(0),...bd(0),...bd(20),...bd(0),...bd(0)];
+  ...bd(0),...bd(0),...bd(0),...bd(100),...bd(0),...bd(0),...bd(0),...bd(20),...bd(0),...bd(0),...bd(0)];
  const base=[0,1,...bits(21),...bytesBits([0,0,0,0]),...handleBits(900),...bs(0),0,
   0,0,1,0,1,1,0,1,...bits(7),0,1,0,0,0,0,1,0,...bits(0),...geometry];
  const handleStart=16+base.length,rl=[handleStart&255,(handleStart>>>8)&255,(handleStart>>>16)&255,(handleStart>>>24)&255];
