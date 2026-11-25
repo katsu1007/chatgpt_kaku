@@ -125,3 +125,22 @@ test("decodes R2004 MTEXT insertion, axis, layout and content",()=>{
  assert.equal(r.rectWidth,180);assert.equal(r.height,24);assert.equal(r.attachment,1);assert.equal(r.text,"ROOM\PMEETING");
  assert.equal(r.backgroundFlags,0);assert.equal(r.lineSpacingFactor,1);
 });
+
+function dimensionCommonBits({text="<>",x=50,y=25,measurement=100}={}){
+ return [...bd(0),...bd(0),...bd(1),...raw(x),...raw(y),...bd(0),...bits(0),...tv(text),...bd(0),...bd(0),...bd(1),...bd(1),...bd(1),...bd(0),
+  ...bs(1),...bs(0),...bd(1),...bd(measurement),...raw(x),...raw(y)];
+}
+test("decodes R2004 linear dimension measurement, text midpoint and extension geometry",()=>{
+ const input=pack([...dimensionCommonBits({text:"<>",x:50,y:25,measurement:100}),
+  ...bd(0),...bd(0),...bd(0),...bd(100),...bd(0),...bd(0),...bd(0),...bd(20),...bd(0),...bd(0),...bd(0)]);
+ const r=decodeR2004Geometry(21,input);
+ assert.equal(r.kind,"dimension");assert.equal(r.dimensionName,"linear");assert.equal(r.actualMeasurement,100);
+ assert.equal(r.userText,"<>");assert.deepEqual(r.textMidpoint,[50,25]);assert.deepEqual(r.point13,[0,0,0]);
+ assert.deepEqual(r.point14,[100,0,0]);assert.deepEqual(r.point10,[0,20,0]);
+});
+test("decodes R2004 ordinate dimension points and flags",()=>{
+ const input=pack([...dimensionCommonBits({text:"X=<>",x:20,y:40,measurement:20}),
+  ...bd(1),...bd(2),...bd(0),...bd(3),...bd(4),...bd(0),...bd(5),...bd(6),...bd(0),...bits(64)]);
+ const r=decodeR2004Geometry(20,input);
+ assert.equal(r.dimensionName,"ordinate");assert.equal(r.flags2,64);assert.deepEqual(r.point10,[1,2,0]);
+});
