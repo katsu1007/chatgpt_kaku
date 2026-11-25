@@ -58,12 +58,14 @@ export function parseR2004EntityRecord(input,offset=0,{maxEedBytes=1024*1024,max
  if(geometry.kind==="hatch")for(let i=0;i<geometry.boundaryObjectCount;i++)boundaryHandles.push(reader.readHandle(selfHandle.value));
  const styleHandle=geometry.kind==="text"||geometry.kind==="mtext"?reader.readHandle(selfHandle.value):null;
  const dimensionHandles=geometry.kind==="dimension"?{dimStyle:reader.readHandle(selfHandle.value),anonymousBlock:reader.readHandle(selfHandle.value)}:null;
+ let polylineHandles=null;
+ if(geometry.kind==="polyline2d"||geometry.kind==="polyline3d"){const vertices=[];for(let i=0;i<geometry.ownedObjectCount;i++)vertices.push(reader.readHandle(selfHandle.value));const seqend=reader.readHandle(selfHandle.value);polylineHandles={vertices,seqend};}
  return {...envelope,objectDataBits,selfHandle:selfHandle.value,entityMode,reactorCount,xdictionaryMissing,noLinks,color,linetypeScale,linetypeFlags,plotstyleFlags,invisibility,lineweight,
-  eed,graphic,geometry,geometryBitOffset,geometryEndBit,declaredHandleBitOffset:handleBitOffset,handles,insertHandles,boundaryHandles,styleHandle,dimensionHandles,ownerHandle:handles.owner.value,layerHandle:handles.layer.value,
+  eed,graphic,geometry,geometryBitOffset,geometryEndBit,declaredHandleBitOffset:handleBitOffset,handles,insertHandles,boundaryHandles,styleHandle,dimensionHandles,polylineHandles,ownerHandle:handles.owner.value,layerHandle:handles.layer.value,
   diagnostics:{...envelope.diagnostics,commonEntityDecoded:true,geometryDecoded:geometry.kind!=="unsupported",handleReferencesDecoded:true}};
 }
 export function readR2004EntityRecords(sectionBytes,objectMap,options){
- const records=[],skippedObjects=[],supported=new Set([1,7,8,17,18,19,20,21,22,23,24,25,26,27,31,44,77,78]);
+ const records=[],skippedObjects=[],supported=new Set([1,7,8,10,11,15,16,17,18,19,20,21,22,23,24,25,26,27,31,44,77,78]);
  for(const item of objectMap.entries){
   const offset=Number(item.offset),envelope=parseR2004ObjectRecordEnvelope(sectionBytes,offset);
   if(envelope.handle!==BigInt(item.handle))throw new Error("Object-map handle mismatch at entity offset "+item.offset);
@@ -73,14 +75,45 @@ export function readR2004EntityRecords(sectionBytes,objectMap,options){
  }
  return {records,skippedObjects,diagnostics:{recordCount:records.length,skippedObjectCount:skippedObjects.length,geometryCount:records.filter(x=>x.diagnostics.geometryDecoded).length,typeCounts:records.reduce((out,r)=>(out[r.typeName]=(out[r.typeName]||0)+1,out),{})}};
 }
+export function assembleR2004LegacyPolylines(records){
+ const source=records||[],byHandle=new Map(source.map(entity=>[BigInt(entity.selfHandle).toString(),entity]));
+ const output=[],diagnostics={polyline2d:0,polyline3d:0,assembled:0,missingVertices:0,wrongVertexTypes:0,orphanVertices:0};
+ const consumed=new Set();
+ for(const entity of source){
+  const kind=entity.geometry?.kind;
+  if(kind!=="polyline2d"&&kind!=="polyline3d")continue;
+  if(kind==="polyline2d")diagnostics.polyline2d++;else diagnostics.polyline3d++;
+  const vertices=[],bulges=[],sourceVertexHandles=[];
+  for(const ref of entity.polylineHandles?.vertices||[]){
+   const key=BigInt(ref.value).toString(),vertex=byHandle.get(key);
+   if(!vertex){diagnostics.missingVertices++;continue;}
+   const expected=kind==="polyline2d"?"vertex2d":"vertex3d";
+   if(vertex.geometry?.kind!==expected){diagnostics.wrongVertexTypes++;continue;}
+   consumed.add(key);sourceVertexHandles.push(ref.value);
+   const p=vertex.geometry.point||[0,0,0];
+   vertices.push({x:p[0],y:p[1],z:kind==="polyline2d"?entity.geometry.elevation:p[2]});
+   bulges.push(kind==="polyline2d"?vertex.geometry.bulge||0:0);
+  }
+  if(vertices.length>=2){
+   const g=entity.geometry;
+   output.push({...entity,geometry:{kind:"polyline",vertices,bulges,closed:g.closed,startWidth:g.startWidth||0,endWidth:g.endWidth||0,
+    thickness:g.thickness||0,elevation:g.elevation||0,extrusion:g.extrusion||[0,0,1],flags:g.flags,curveType:g.curveType,
+    sourceVertexHandles,ownedObjectCount:g.ownedObjectCount},polylineSourceHandles:entity.polylineHandles});
+   diagnostics.assembled++;
+  }else output.push({...entity,geometry:{...entity.geometry,kind:"unsupported",reason:"Legacy POLYLINE has fewer than two valid vertices"}});
+ }
+ for(const entity of source)if(["vertex2d","vertex3d","vertexMesh","vertexPface"].includes(entity.geometry?.kind)&&!consumed.has(BigInt(entity.selfHandle).toString()))diagnostics.orphanVertices++;
+ for(const entity of source)if(!["vertex2d","vertex3d","vertexMesh","vertexPface"].includes(entity.geometry?.kind))output.push(entity);
+ return {entities:output,diagnostics};
+}
 export function readR2004DrawingEntities(input,fileHeader,options){
  const sections=readR2004SectionMaps(input,fileHeader),objectMap=readR2004ObjectMap(input,sections.resolvedSections);
  const objects=readR2004SectionByName(input,sections.resolvedSections,"AcDb:AcDbObjects");
  const textEncoding=options?.textEncoding||dwgTextEncoding(fileHeader?.fileHeader?.codePage),readerOptions={...options,textEncoding};
  const entities=readR2004EntityRecords(objects.data,objectMap,readerOptions),layers=readR2004LayerRecords(objects.data,objectMap,readerOptions),blocks=readR2004BlockHeaders(objects.data,objectMap,readerOptions);
- const resolved=resolveR2004EntityLayers(entities.records,layers),expanded=expandR2004BlockReferences(resolved.entities,blocks.blocks,readerOptions?.blockExpansion);
+ const polylines=assembleR2004LegacyPolylines(entities.records),resolved=resolveR2004EntityLayers(polylines.entities,layers),expanded=expandR2004BlockReferences(resolved.entities,blocks.blocks,readerOptions?.blockExpansion);
  let units={code:null,name:"unknown",scaleToMm:null,known:false},headerWarning=null,headerVariables=null;
  try{const headerSection=readR2004SectionByName(input,sections.resolvedSections,"AcDb:Header");headerVariables=parseR2004HeaderVariables(headerSection.data);units=headerVariables.units;if(!headerVariables.endingSentinelValid)headerWarning="DWGヘッダー終端を検証できないため、INSUNITSは採用しません。";else if(!units.known)headerWarning="INSUNITSが未指定または未対応のため、mm換算は保留します。";}
  catch(error){headerWarning="DWG INSUNITSを取得できません："+(error?.message||error);}
- return {entities:expanded.entities,rawEntities:resolved.entities,objectMap,layers:layers.layers,blocks:blocks.blocks,blockExpansion:expanded.diagnostics,textEncoding,codePage:fileHeader?.fileHeader?.codePage??null,units,headerVariables,headerWarning,sections:sections.diagnostics,diagnostics:{...entities.diagnostics,...layers.diagnostics,...blocks.diagnostics,...resolved.diagnostics,...expanded.diagnostics,sectionCount:sections.resolvedSections.length,objectMapEntries:objectMap.entries.length}};
+ return {entities:expanded.entities,rawEntities:resolved.entities,objectMap,layers:layers.layers,blocks:blocks.blocks,blockExpansion:expanded.diagnostics,textEncoding,codePage:fileHeader?.fileHeader?.codePage??null,units,headerVariables,headerWarning,sections:sections.diagnostics,diagnostics:{...entities.diagnostics,...layers.diagnostics,...blocks.diagnostics,...polylines.diagnostics,...resolved.diagnostics,...expanded.diagnostics,sectionCount:sections.resolvedSections.length,objectMapEntries:objectMap.entries.length}};
 }
