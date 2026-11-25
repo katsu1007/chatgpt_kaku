@@ -1,6 +1,6 @@
-import { extractRoomHierarchy, suggestWallLayers } from "./room-engine.js?v=20261125-provenance1";
+import { extractRoomHierarchy, suggestWallLayers } from "./room-engine.js?v=20261125-roomscale3";
 import { createCadDocument } from "./cad-document.js?v=20261125-model1";
-import { analyzePlanarRoomCandidates } from "./planar-room-candidates.js?v=20261125-planar-semantic1";
+import { analyzePlanarRoomCandidates } from "./planar-room-candidates.js?v=20261125-dimsem3";
 import { inspectCadFileHeader } from "./cad-format-probe.js?v=20261125-dwg-probe1";
 import { parseR2004DwgHeader } from "./dwg-r2004-container.js?v=20261125-dwg-header2";
 import { parseR13R15DwgHeader } from "./dwg-r13-container.js?v=20261125-r2000-container1";
