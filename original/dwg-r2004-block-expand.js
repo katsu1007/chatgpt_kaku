@@ -1,5 +1,5 @@
 // KAKU-owned recursive INSERT/MINSERT expansion for R2004 drawings.
-import { createInsertTransform, createMInsertTransforms, transformBlockGeometry } from "./dwg-block-transform.js?v=20261125-text1";
+import { createInsertTransform, createMInsertTransforms, transformBlockGeometry } from "./dwg-block-transform.js?v=20261125-curves1";
 function p3(value){return Array.isArray(value)?{x:value[0],y:value[1],z:value[2]||0}:value;}
 function geometryForTransform(geometry){
  if(geometry?.kind==="line"&&Array.isArray(geometry.pts)&&geometry.pts[0]&&typeof geometry.pts[0]==="object")return {...geometry,pts:geometry.pts.flatMap(p=>[p.x,p.y])};
