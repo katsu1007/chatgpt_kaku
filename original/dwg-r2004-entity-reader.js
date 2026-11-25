@@ -115,9 +115,11 @@ export function resolveR2004MLineStyles(entities,styleResult){
   const style=styleResult?.byHandle?.get(BigInt(entity.mlineStyleHandle?.value??0).toString());
   if(!style){missing++;return {...entity,mlineStyleResolved:false,geometry:{...entity.geometry,boundaries:[]}};}
   if(style.elements.length!==entity.geometry.linesInStyle)offsetMismatch++;
-  const boundaries=style.elements.map((element,index)=>({elementIndex:index,offset:element.offset*entity.geometry.scale,color:element.color,
-   vertices:entity.geometry.vertices.map(vertex=>({x:vertex.point[0]+vertex.miter[0]*element.offset*entity.geometry.scale,
-    y:vertex.point[1]+vertex.miter[1]*element.offset*entity.geometry.scale,z:vertex.point[2]+vertex.miter[2]*element.offset*entity.geometry.scale}))}));
+  const scaledOffsets=style.elements.map(element=>element.offset*entity.geometry.scale);
+  const justificationShift=entity.geometry.justification===0?-Math.max(...scaledOffsets):entity.geometry.justification===2?-Math.min(...scaledOffsets):0;
+  const boundaries=style.elements.map((element,index)=>{const offset=scaledOffsets[index]+justificationShift;return {elementIndex:index,offset,color:element.color,
+   vertices:entity.geometry.vertices.map(vertex=>({x:vertex.point[0]+vertex.miter[0]*offset,
+    y:vertex.point[1]+vertex.miter[1]*offset,z:vertex.point[2]+vertex.miter[2]*offset}))};});
   resolved++;
   return {...entity,mlineStyleResolved:true,mlineStyleName:style.name,geometry:{...entity.geometry,mlineStyleName:style.name,boundaries}};
  });
