@@ -5,6 +5,7 @@ import { decodeR2004Geometry } from "./dwg-r2004-geometry.js";
 import { readR2004SectionByName } from "./dwg-r2004-section-reader.js";
 import { readR2004ObjectMap } from "./dwg-r2004-object-map.js";
 import { readR2004SectionMaps } from "./dwg-r2004-sections.js";
+import { readR2004LayerRecords, resolveR2004EntityLayers } from "./dwg-r2004-layer-reader.js";
 function readEntityColor(reader){
  const colorNumber=reader.readBitShort(),flags=colorNumber&0xe000;
  const color={colorNumber,aci:colorNumber&0x01ff,complex:!!(flags&0x8000),hasColorHandle:!!(flags&0x4000),hasTransparency:!!(flags&0x2000)};
@@ -61,6 +62,7 @@ export function readR2004EntityRecords(sectionBytes,objectMap,options){
 export function readR2004DrawingEntities(input,fileHeader,options){
  const sections=readR2004SectionMaps(input,fileHeader),objectMap=readR2004ObjectMap(input,sections.resolvedSections);
  const objects=readR2004SectionByName(input,sections.resolvedSections,"AcDb:AcDbObjects");
- const entities=readR2004EntityRecords(objects.data,objectMap,options);
- return {entities:entities.records,objectMap,sections:sections.diagnostics,diagnostics:{...entities.diagnostics,sectionCount:sections.resolvedSections.length,objectMapEntries:objectMap.entries.length}};
+ const entities=readR2004EntityRecords(objects.data,objectMap,options),layers=readR2004LayerRecords(objects.data,objectMap);
+ const resolved=resolveR2004EntityLayers(entities.records,layers);
+ return {entities:resolved.entities,objectMap,layers:layers.layers,sections:sections.diagnostics,diagnostics:{...entities.diagnostics,...layers.diagnostics,...resolved.diagnostics,sectionCount:sections.resolvedSections.length,objectMapEntries:objectMap.entries.length}};
 }
