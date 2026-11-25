@@ -72,6 +72,31 @@ export function decodeR2004TextGeometry(reader){
  const generation=(dataFlags&0x20)?0:reader.readBitShort(),horizontalAlignment=(dataFlags&0x40)?0:reader.readBitShort(),verticalAlignment=(dataFlags&0x80)?0:reader.readBitShort();
  return {kind:"text",dataFlags,elevation,insertion,alignment,extrusion,thickness,obliqueAngle,rotation,height,widthFactor,text,generation,horizontalAlignment,verticalAlignment};
 }
+export function decodeR2004EllipseGeometry(reader){
+ const center=reader.read3BD(),majorAxis=reader.read3BD(),extrusion=reader.read3BD(),axisRatio=reader.readBitDouble(),startParameter=reader.readBitDouble(),endParameter=reader.readBitDouble();
+ return {kind:"ellipse",center,majorAxis,extrusion,axisRatio,startParameter,endParameter};
+}
+export function decodeR2004SplineGeometry(reader,{maxKnots=100000,maxControlPoints=100000,maxFitPoints=100000}={}){
+ const scenario=reader.readBitLong();
+ if(scenario!==1&&scenario!==2)throw new Error("Unsupported R2004 SPLINE scenario "+scenario);
+ const degree=reader.readBitLong();
+ let rational=false,closed=false,periodic=false,knotTolerance=0,controlTolerance=0,fitTolerance=0,beginTangent=null,endTangent=null,knots=[],controlPoints=[],fitPoints=[],weightsPresent=false;
+ if(scenario===2){
+  fitTolerance=reader.readBitDouble();beginTangent=reader.read3BD();endTangent=reader.read3BD();
+  const fitCount=reader.readBitLong();if(fitCount<0||fitCount>maxFitPoints)throw new RangeError("Invalid R2004 SPLINE fit point count");
+  fitPoints=Array.from({length:fitCount},()=>reader.read3BD());
+ }else{
+  rational=reader.readBit()===1;closed=reader.readBit()===1;periodic=reader.readBit()===1;
+  knotTolerance=reader.readBitDouble();controlTolerance=reader.readBitDouble();
+  const knotCount=reader.readBitLong(),controlCount=reader.readBitLong();
+  if(knotCount<0||knotCount>maxKnots||controlCount<0||controlCount>maxControlPoints)throw new RangeError("Invalid R2004 SPLINE knot/control point count");
+  weightsPresent=reader.readBit()===1;
+  knots=Array.from({length:knotCount},()=>reader.readBitDouble());
+  controlPoints=Array.from({length:controlCount},()=>reader.read3BD());
+  if(weightsPresent)controlPoints=controlPoints.map(point=>({...point,weight:reader.readRawDouble()}));
+ }
+ return {kind:"spline",scenario,degree,rational,closed,periodic,knotTolerance,controlTolerance,fitTolerance,beginTangent,endTangent,knots,controlPoints,weightsPresent,fitPoints};
+}
 export function decodeR2004AttributeGeometry(typeCode,reader){
  const text=decodeR2004TextGeometry(reader),tag=reader.readText(4096),fieldLength=reader.readBitShort(),flags=reader.readRawChar();
  const prompt=typeCode===3?reader.readText(65535):null;
@@ -202,6 +227,8 @@ export function decodeR2004Geometry(typeCode,input,bitOffset=0){
   case 78:return decodeR2004HatchGeometry(reader);
   case 27:return decodeR2004PointGeometry(reader);
   case 31:return decodeR2004SolidGeometry(reader);
+  case 35:return decodeR2004EllipseGeometry(reader);
+  case 36:return decodeR2004SplineGeometry(reader);
   default:return {kind:"unsupported",typeCode,bitOffset:reader.bitOffset};
  }
 }
