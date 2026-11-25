@@ -47,6 +47,6 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
  const warnings=["DWG R2004の試験読込です。",units.known?"INSUNITS："+units.name+"。座標をmmへ換算しました。":"INSUNITS（図面単位）を確定できないため、座標はDWG元単位のままです。mm換算・面積・概算数量の計算は行いません。","現時点で変換できる図形はLINE・ARC・CIRCLE・POINT・SOLIDです。INSERT/ブロック変換、寸法、文字、HATCH等は未対応です。"];
  if(unsupported)warnings.push("未変換オブジェクト："+unsupported+"件");
  if(result?.diagnostics?.unresolvedLayerCount)warnings.push("レイヤー名未解決："+result.diagnostics.unresolvedLayerCount+"件");
- const sheet={name:fileName,items:mapped,size:{w:Math.max(1,maxX-minX),h:Math.max(1,maxY-minY)},origin,warnings,coordinateSpace:"dwg-native"};
- return {kind:"2d",sheets:[sheet],layers,meta:{format:"DWG",label:"DWG R2004（試験読込）",units:"unknown",coordinateSpace:"dwg-native",info:{items:mapped.length,figures:mapped.length,version:"R2004",layers:layers.length,unsupported,skippedObjects:result?.diagnostics?.skippedObjectCount??0},warnings}};
+ const sheet={name:fileName,items:mapped,size:{w:Math.max(1,maxX-minX),h:Math.max(1,maxY-minY)},origin,nativeOrigin:{x:minX/scale,y:minY/scale},warnings,coordinateSpace:units.known?"sheet-mm":"dwg-native"};
+ return {kind:"2d",sheets:[sheet],layers,meta:{format:"DWG",label:"DWG R2004（試験読込）",units:units.known?"mm":"unknown",coordinateSpace:units.known?"sheet-mm":"dwg-native",unitInfo:units,info:{items:mapped.length,figures:mapped.length,version:"R2004",layers:layers.length,units:units.name,scaleToMm:scale,unsupported,skippedObjects:result?.diagnostics?.skippedObjectCount??0},warnings}};
 }
