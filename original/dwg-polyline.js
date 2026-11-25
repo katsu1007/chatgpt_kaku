@@ -7,12 +7,13 @@ function normalizePoint(p,index){
  if(!p||typeof p!=="object")throw new TypeError("Invalid polyline vertex "+index);
  return {x:finite(p.x,"x at "+index),y:finite(p.y,"y at "+index),z:finite(p.z??0,"z at "+index)};
 }
-export function expandBulgedPolyline(input,{closed=false,bulges=null,tolerance=1e-10,maxSegments=100000}={}){
+export function expandBulgedPolyline(input,{closed=null,bulges=null,tolerance=1e-10,maxSegments=100000}={}){
  const source=Array.isArray(input)?input:input?.vertices;
  if(!Array.isArray(source)||source.length<2)throw new RangeError("Polyline requires at least two vertices");
  if(source.length>maxSegments)throw new RangeError("Polyline vertex count exceeds limit");
+ const valuesFromVertices=source.map(v=>Array.isArray(v)?0:(v?.bulge??0));
  const vertices=source.map(normalizePoint),isClosed=closed??!!input?.closed;
- const values=bulges??(Array.isArray(input)?null:input?.bulges)??vertices.map(v=>v.bulge??0);
+ const values=bulges??(Array.isArray(input)?null:input?.bulges)??valuesFromVertices;
  if(!Array.isArray(values)||values.length!==vertices.length)throw new RangeError("Polyline bulge count must match vertex count");
  const segments=[],count=isClosed?vertices.length:vertices.length-1;
  for(let i=0;i<count;i++){
