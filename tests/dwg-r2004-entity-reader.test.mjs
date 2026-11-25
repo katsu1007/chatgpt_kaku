@@ -160,6 +160,9 @@ test("reads R2004 legacy POLYLINE vertex ownership and assembles a bulged closed
  const poly=legacyEntityRecord(15,[...bs(1),...bs(0),...bd(0),...bd(0),1,...bd(5),1,...bl(2)],900,[501,502,600]);
  const v1=legacyEntityRecord(10,[...bits(0),...bd(0),...bd(0),...bd(0),...bd(0),...bd(0),...bd(1)],501);
  const v2=legacyEntityRecord(10,[...bits(0),...bd(100),...bd(0),...bd(0),...bd(0),...bd(0),...bd(0)],502);
+ assert.equal(parseR2004EntityRecord(poly).geometry.kind,"polyline2d");
+ assert.equal(parseR2004EntityRecord(v1).geometry.kind,"vertex2d");
+ assert.equal(parseR2004EntityRecord(v2).geometry.kind,"vertex2d");
  const bytes=new Uint8Array(poly.length+v1.length+v2.length);bytes.set(poly);bytes.set(v1,poly.length);bytes.set(v2,poly.length+v1.length);
  const result=readR2004EntityRecords(bytes,{entries:[{handle:900n,offset:0n},{handle:501n,offset:BigInt(poly.length)},{handle:502n,offset:BigInt(poly.length+v1.length)}]});
  const header=result.records.find(x=>x.selfHandle===900n);
