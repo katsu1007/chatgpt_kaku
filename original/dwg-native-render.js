@@ -3,6 +3,22 @@
 const finite=(v,fallback=0)=>Number.isFinite(Number(v))?Number(v):fallback;
 const xml=value=>String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&apos;"}[ch]));
 const fmt=value=>Number(finite(value).toFixed(3)).toString();
+// Convert common AutoCAD TEXT/MTEXT control sequences to displayable text.
+// This is a presentation transform only; the original source text remains intact.
+export function normalizeDwgText(input){
+ let value=String(input??"");
+ value=value.replace(/%%([dpc])/gi,(_,code)=>({d:"°",p:"±",c:"Ø"}[code.toLowerCase()]));
+ value=value.replace(/\\U\+([0-9a-f]{4,8})/gi,(_,hex)=>{
+  const cp=parseInt(hex,16);return cp<=0x10ffff?String.fromCodePoint(cp):"";
+ });
+ value=value.replace(/\\S([^;]*);/g,(_,stack)=>stack.replace(/[\^#]/g,"/"));
+ value=value.replace(/\\P/gi,"\n").replace(/\\~/g,"\u00a0");
+ value=value.replace(/\\[AaCcFfHhQqTtWw][^;]*;/g,"");
+ value=value.replace(/\\[LlOoKk]/g,"");
+ value=value.replace(/\\([\\{}])/g,"$1");
+ value=value.replace(/[{}]/g,"");
+ return value.split(/\r?\n/).map(line=>line.trimEnd());
+}
 export function prepareNativeDwgSheet(sheet,layers=[]){
  if(!sheet||!Array.isArray(sheet.items))throw new TypeError("Native DWG sheet items are required");
  const width=Math.max(1,finite(sheet.size?.w,1)),height=Math.max(1,finite(sheet.size?.h,1));
@@ -42,9 +58,10 @@ export function renderNativeDwgSvg(prepared,hidden=new Uint8Array(0)){
    body.push(`<circle cx="${fmt(item.x)}" cy="${fmt(item.y)}" r="2.5" fill="${color}"/>`);
   }else if(item.kind==="text"){
    const size=Math.max(7,Math.min(200,finite(item.height,12))),angle=-finite(item.rotation)*180/Math.PI;
-   const value=xml(String(item.text??"").replace(/\\P/g," "));
-   if(!value)continue;
-   body.push(`<g transform="translate(${fmt(item.x)} ${fmt(item.y)}) rotate(${fmt(angle)}) scale(1 -1)"><text x="0" y="0" font-family="sans-serif" font-size="${fmt(size)}" fill="${color}">${value}</text></g>`);
+   const lines=normalizeDwgText(item.text);
+   if(!lines.some(line=>line.trim()))continue;
+   const tspans=lines.map((line,index)=>`<tspan x="0" dy="${index===0?0:fmt(size*1.25)}">${xml(line)}</tspan>`).join("");
+   body.push(`<g transform="translate(${fmt(item.x)} ${fmt(item.y)}) rotate(${fmt(angle)}) scale(1 -1)"><text x="0" y="0" font-family="sans-serif" font-size="${fmt(size)}" fill="${color}">${tspans}</text></g>`);
   }else if(item.kind==="dimension"&&Number.isFinite(item.actualMeasurement)){
    const value=xml(String(item.actualMeasurement));
    body.push(`<g transform="translate(${fmt(item.x)} ${fmt(item.y)}) scale(1 -1)"><text x="0" y="0" font-family="sans-serif" font-size="10" fill="${color}">${value}</text></g>`);

@@ -25,3 +25,16 @@ test("respects hidden layers in the native DWG renderer",()=>{
  const svg=renderNativeDwgSvg(prepared,Uint8Array.from([0,1]));
  assert.match(svg,/stroke="#f00"/);assert.doesNotMatch(svg,/stroke="#00f"/);
 });
+
+test("normalizes common AutoCAD MTEXT controls without losing separate lines",()=>{
+ const prepared=prepareNativeDwgSheet({size:{w:300,h:120},items:[
+  {kind:"text",layer:"NOTES",x:10,y:80,text:"1\\P2\\S1#2;\\U+03A9 %%d %%p %%c",height:10,rotation:0},
+  {kind:"text",layer:"NOTES",x:10,y:40,text:"A <B> & C",height:10,rotation:0}
+ ]},[{name:"NOTES",color:"#111111"}]);
+ const svg=renderNativeDwgSvg(prepared);
+ assert.ok(svg.includes('<tspan x="0" dy="0">1</tspan>'));
+ assert.ok(svg.includes('<tspan x="0" dy="12.5">21/2Ω ° ± Ø</tspan>'));
+ assert.match(svg,/1\/2/);
+ assert.match(svg,/Ω ° ± Ø/);
+ assert.match(svg,/A &lt;B&gt; &amp; C/);
+});
