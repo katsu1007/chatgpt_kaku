@@ -8,7 +8,7 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
  const units=result?.units||{known:false,name:"unknown",scaleToMm:null},scale=units.known?units.scaleToMm:1;
  const entities=result?.entities||[],layers=(result?.layers||[]).map(layer=>({name:layer.name,color:rgbHex(layer.color?.rgb),visible:!!layer.flags?.on&&!layer.flags?.frozen,items:0,actualItems:0,dwgHandle:layer.handle}));
  const layerMap=new Map(layers.map(layer=>[layer.name,layer]));
- const mapped=[];let convertedEntities=0,polylineEntities=0,hatchEntities=0,hatchSegments=0,unsupportedHatchEdges=0;
+ const mapped=[];let convertedEntities=0,polylineEntities=0,hatchEntities=0,hatchSegments=0,unsupportedHatchEdges=0,textEntities=0;
  const add=(entity,geometry,item)=>{
   const layerName=entity.layerName||"DWG:UNRESOLVED:"+String(entity.layerHandle??"0");
   if(!layerMap.has(layerName)){const layer={name:layerName,color:"#808080",visible:true,items:0,actualItems:0,unresolved:true};layers.push(layer);layerMap.set(layerName,layer);}
@@ -19,6 +19,15 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
  for(const entity of entities){
   const g=entity.geometry;if(!g||g.kind==="unsupported")continue;
   const before=mapped.length;
+  if(g.kind==="text"){
+   add(entity,g,{kind:"text",x:g.insertion.x*scale,y:g.insertion.y*scale,z:g.insertion.z*scale,text:g.text,rotation:g.rotation,height:g.height*scale,widthFactor:g.widthFactor,
+    alignment:g.alignment,horizontalAlignment:g.horizontalAlignment,verticalAlignment:g.verticalAlignment,styleHandle:entity.styleHandle?String(entity.styleHandle.value):null});
+   textEntities++;
+  }else if(g.kind==="mtext"){
+   add(entity,g,{kind:"text",x:g.insertion[0]*scale,y:g.insertion[1]*scale,z:g.insertion[2]*scale,text:g.text,rotation:Math.atan2(g.xAxis[1],g.xAxis[0]),height:g.height*scale,width:g.rectWidth*scale,
+    attachment:g.attachment,drawingDirection:g.drawingDirection,mtext:true,styleHandle:entity.styleHandle?String(entity.styleHandle.value):null});
+   textEntities++;
+  }
   if(g.kind==="hatch"){
    for(let pathIndex=0;pathIndex<(g.paths||[]).length;pathIndex++){
     const path=g.paths[pathIndex],meta={hatchBoundary:true,hatchName:g.name,hatchSolidFill:g.solidFill,hatchPatternType:g.patternType,hatchPathIndex:pathIndex,hatchPathFlags:path.flags,boundaryHandles:(entity.boundaryHandles||[]).map(h=>String(h.value))};
@@ -74,7 +83,7 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
  for(const item of mapped){
   if(item.kind==="line"||item.kind==="fill"){for(let i=0;i+1<item.pts.length;i+=2)include(item.pts[i],item.pts[i+1]);}
   else if(item.kind==="arc"){include(item.cx-item.r,item.cy-item.r);include(item.cx+item.r,item.cy+item.r);}
-  else if(item.kind==="point")include(item.x,item.y);
+  else if(item.kind==="point"||item.kind==="text")include(item.x,item.y);
  }
  if(!Number.isFinite(minX)||!Number.isFinite(minY))throw new Error("DWG図形の座標範囲を計算できません");
  const origin={x:minX,y:minY};
@@ -93,7 +102,8 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
  if(result?.blockExpansion?.unresolvedBlockReferences)warnings.push("参照先ブロック未解決："+result.blockExpansion.unresolvedBlockReferences+"件");
  if(result?.blockExpansion?.limitReached)warnings.push("安全上限に達したためブロック展開を途中で停止しました。");
  if(hatchEntities)warnings.push("HATCHは境界線のみ表示します。塗りつぶし・パターン・グラデーションは未描画です。");
+ if(textEntities)warnings.push("TEXT/MTEXTの文字情報は読み込みました。文字の描画・フォント置換は表示側の対応に依存します。");
  if(unsupportedHatchEdges)warnings.push("未描画のHATCH楕円・スプライン境界："+unsupportedHatchEdges+"件");
  const sheet={name:fileName,items:mapped,size:{w:Math.max(1,maxX-minX),h:Math.max(1,maxY-minY)},origin,nativeOrigin:{x:minX/scale,y:minY/scale},warnings,coordinateSpace:units.known?"sheet-mm":"dwg-native"};
- return {kind:"2d",sheets:[sheet],layers,meta:{format:"DWG",label:"DWG R2004（試験読込）",units:units.known?"mm":"unknown",coordinateSpace:units.known?"sheet-mm":"dwg-native",unitInfo:units,info:{items:mapped.length,figures:convertedEntities,polylines:polylineEntities,hatches:hatchEntities,hatchBoundarySegments:hatchSegments,version:"R2004",layers:layers.length,units:units.name,scaleToMm:scale,headerWarning:result?.headerWarning||null,unsupported,skippedObjects:result?.diagnostics?.skippedObjectCount??0},warnings}};
+ return {kind:"2d",sheets:[sheet],layers,meta:{format:"DWG",label:"DWG R2004（試験読込）",units:units.known?"mm":"unknown",coordinateSpace:units.known?"sheet-mm":"dwg-native",unitInfo:units,info:{items:mapped.length,figures:convertedEntities,polylines:polylineEntities,hatches:hatchEntities,hatchBoundarySegments:hatchSegments,textEntities,version:"R2004",layers:layers.length,units:units.name,scaleToMm:scale,headerWarning:result?.headerWarning||null,unsupported,skippedObjects:result?.diagnostics?.skippedObjectCount??0},warnings}};
 }
