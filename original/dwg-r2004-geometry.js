@@ -1,6 +1,6 @@
 // KAKU-owned R2004 geometry payload decoders.
 // Call with the bit cursor positioned at the entity-specific data fields.
-import { DwgBitReader } from "./dwg-bitstream.js";
+import { DwgBitReader } from "./dwg-bitstream.js?v=20261125-codepage1";
 export function decodeR2004LineGeometry(reader){
  const zIsZero=reader.readBit()===1;
  const sx=reader.readRawDouble(),ex=reader.readBitDoubleWithDefault(sx);
