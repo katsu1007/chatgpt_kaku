@@ -32,3 +32,12 @@ test("bounds checks fail clearly and modular chars require byte alignment",()=>{
  assert.throws(()=>reader(0).readBits(9),/ended/);
  assert.throws(()=>new DwgBitReader(new Uint8Array([0,0]),{bitOffset:1}).readModularChar(),/byte boundary/);
 });
+
+test("decodes modular shorts using 15-bit little-endian groups",()=>{
+ assert.equal(reader(0x05,0x00).readModularShort(),5);
+ assert.equal(reader(0x31,0xf4,0x8d,0x00).readModularShort(),4650033);
+ assert.throws(()=>reader(0x01,0x80).readModularShort(),/ended/);
+});
+test("reads absolute object handles with code zero",()=>{
+ assert.deepEqual(reader(0x01,0x7f).readHandle(),{code:0,length:1,value:127n,hex:"7F"});
+});
