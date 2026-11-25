@@ -37,12 +37,16 @@ export function suggestWallLayers(layers=[]){
 function classifyLayers(layers,items,hidden){
   const visible=(layers||[]).filter(l=>!hidden.has(l.name));
   const namedWalls=visible.filter(l=>WALL_NAME.test(String(l.name))&&!NON_WALL_NAME.test(String(l.name)));
-  const geometryLayers=new Set(items.filter(it=>it.layer!=null&&["line","arc","fill"].includes(it.kind)).map(it=>it.layer));
-  // Numeric or non-semantic layer names fall back to geometric layers, excluding obvious annotations.
-  const candidates=namedWalls.length?namedWalls:visible.filter(l=>geometryLayers.has(l.name)&&!NON_WALL_NAME.test(String(l.name)));
+  // Never promote every anonymous geometry layer to a wall layer. Furniture,
+  // symbols, dimensions and title-block outlines often share ordinary CAD
+  // layers; treating all closed geometry as rooms creates convincing-looking
+  // but unrelated colored regions. Unknown layer names require an explicit
+  // user selection until a confidence-ranked geometry classifier is validated.
+  const candidates=namedWalls;
   const outer=candidates.filter(l=>OUTER_WALL_NAME.test(String(l.name)));
   const parent=outer.length?outer:candidates;
-  return {parent:new Set(parent.map(l=>l.name)),all:new Set(candidates.map(l=>l.name)),mode:namedWalls.length?(outer.length?"外周レイヤー＋壁レイヤー":"壁候補レイヤー"):"図形レイヤー自動判定"};
+  const mode=namedWalls.length?(outer.length?"外周レイヤー＋壁レイヤー":"壁候補レイヤー"):"壁レイヤー名を特定できません（明示選択が必要）";
+  return {parent:new Set(parent.map(l=>l.name)),all:new Set(candidates.map(l=>l.name)),mode};
 }
 function findBoothFrontClosures(items,names,hidden){
   // Detect repeated U-shaped toilet cubicles: two parallel side partitions meet a
@@ -380,7 +384,6 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
     ?(()=>{const exterior=[...new Set([...requested,...classified.all])].filter(name=>OUTER_WALL_NAME.test(String(name)));return new Set(exterior.length?exterior:requested);})()
     :new Set(classified.parent);
   if(!allNames.size)throw new Error("壁・図形候補レイヤーを自動判定できませんでした。図面の線分レイヤーを確認してください。");
-  const geometryNames=new Set(items.filter(it=>it.layer!=null&&["line","arc","fill"].includes(it.kind)&&!NON_WALL_NAME.test(String(it.layer))).map(it=>it.layer));
   let fallbackUsed=false;
   const supplemental=new Set([...allNames].filter(n=>!selected.has(n)));
   const aspect=width/height;
@@ -402,10 +405,9 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
   // If semantic wall-layer selection misses the building perimeter, retry with
   // every geometric layer except clearly non-architectural annotation/furniture.
   // This fallback is automatic and is used only when the first pass finds no room.
-  if(!parents.kept.length&&(selected.size<allNames.size||geometryNames.size>allNames.size)){
+  if(!parents.kept.length&&selected.size<allNames.size){
     fallbackUsed=true;
-    selected=new Set([...allNames,...geometryNames]);
-    allNames=new Set([...allNames,...geometryNames]);
+    selected=new Set(allNames);
     parentTrace=traceItems(items,selected,hidden,width,height,nx,ny,cw,ch);
     boothClosures=findBoothFrontClosures(items,new Set([...allNames].filter(name=>!OUTER_WALL_NAME.test(String(name)))),hidden);
     childItems=boothClosures.length?[...items,...boothClosures]:items;
