@@ -41,3 +41,23 @@ test("decodes modular shorts using 15-bit little-endian groups",()=>{
 test("reads absolute object handles with code zero",()=>{
  assert.deepEqual(reader(0x01,0x7f).readHandle(),{code:0,length:1,value:127n,hex:"7F"});
 });
+
+test("decodes bit-double-with-default patch forms",()=>{
+ const pack=a=>{const out=new Uint8Array(Math.ceil(a.length/8));a.forEach((v,i)=>{if(v)out[i>>3]|=1<<(7-(i&7));});return out;};
+ const bits=v=>Array.from({length:8},(_,i)=>(v>>(7-i))&1),bytesBits=a=>a.flatMap(bits);
+ assert.equal(new DwgBitReader(new Uint8Array([0])).readBitDoubleWithDefault(5.5),5.5);
+ const onePatch=pack([0,1,...bytesBits([1,0,0,0])]);
+ assert.ok(Math.abs(new DwgBitReader(onePatch).readBitDoubleWithDefault(1.0)-1.0000000000000002)<1e-15);
+ const sixPatch=pack([1,0,...bytesBits([0,0,1,0,0,0])]);
+ assert.equal(new DwgBitReader(sixPatch).readBitDoubleWithDefault(1.0),1.0000000000000002);
+ const raw=new Uint8Array(8);new DataView(raw.buffer).setFloat64(0,2.5,true);
+ assert.equal(new DwgBitReader(pack([1,1,...bytesBits([...raw])])).readBitDoubleWithDefault(1),2.5);
+});
+test("decodes thickness, extrusion and bit triplets",()=>{
+ const pack=a=>{const out=new Uint8Array(Math.ceil(a.length/8));a.forEach((v,i)=>{if(v)out[i>>3]|=1<<(7-(i&7));});return out;};
+ assert.equal(new DwgBitReader(new Uint8Array([0x80])).readBitThickness(),0);
+ assert.deepEqual(new DwgBitReader(new Uint8Array([0x80])).readBitExtrusion(),[0,0,1]);
+ assert.equal(new DwgBitReader(new Uint8Array([0b10100000])).read3B(),2);
+ const extrusionBits=[0,0,1,0,1,0,1];
+ assert.deepEqual(new DwgBitReader(pack(extrusionBits)).readBitExtrusion(),[1,1,1]);
+});
