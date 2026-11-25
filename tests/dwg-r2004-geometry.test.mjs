@@ -144,3 +144,18 @@ test("decodes R2004 ordinate dimension points and flags",()=>{
  const r=decodeR2004Geometry(20,input);
  assert.equal(r.dimensionName,"ordinate");assert.equal(r.flags2,64);assert.deepEqual(r.point10,[1,2,0]);
 });
+
+test("decodes R2004 2D and 3D legacy POLYLINE headers",()=>{
+ const p2=decodeR2004Geometry(15,pack([...bs(1),...bs(0),...bd(2),...bd(3),1,...bd(5),1,...bl(2)]));
+ assert.equal(p2.kind,"polyline2d");assert.equal(p2.closed,true);assert.equal(p2.startWidth,2);assert.equal(p2.endWidth,3);
+ assert.equal(p2.elevation,5);assert.equal(p2.ownedObjectCount,2);
+ const p3=decodeR2004Geometry(16,pack([...bits(9),...bl(3)]));
+ assert.equal(p3.kind,"polyline3d");assert.equal(p3.closed,true);assert.equal(p3.ownedObjectCount,3);
+});
+test("decodes 2D VERTEX bulge and compressed width fields",()=>{
+ const v=decodeR2004Geometry(10,pack([...bits(0),...bd(10),...bd(20),...bd(0),...bd(-4),...bd(0.5),...bd(0.25)]));
+ assert.equal(v.kind,"vertex2d");assert.deepEqual(v.point,[10,20,0]);assert.equal(v.startWidth,4);assert.equal(v.endWidth,4);
+ assert.equal(v.bulge,0.5);assert.equal(v.tangentDirection,0.25);
+ const v3=decodeR2004Geometry(11,pack([...bits(0),...bd(1),...bd(2),...bd(3)]));
+ assert.equal(v3.kind,"vertex3d");assert.deepEqual(v3.point,[1,2,3]);
+});
