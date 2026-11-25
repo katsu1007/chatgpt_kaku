@@ -56,17 +56,36 @@ test("all wall layers are classified automatically without manual selection",()=
   assert.deepEqual(result.diagnostics.wallLayerNames.sort(),["外壁","間仕切壁"]);
   assert.match(result.diagnostics.autoMode,/外周レイヤー/);
 });
-test("numeric layer names fall back to geometric classification",()=>{
+test("anonymous CAD layers are not guessed as walls without explicit selection",()=>{
   const items=[
     line("0",100,100,900,100),line("0",900,100,900,900),
     line("0",900,900,100,900),line("0",100,900,100,100),
     line("1",500,100,500,900),
     line("寸法",100,300,900,300)
   ];
-  const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"0"},{name:"1"},{name:"寸法"}],selectedLayers:[]});
-  assert.equal(result.parents.length,2);
+  assert.throws(
+    ()=>extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"0"},{name:"1"},{name:"寸法"}],selectedLayers:[]}),
+    /壁レイヤー/
+  );
+});
+
+test("explicit exterior selection keeps anonymous symbol outlines out while retaining named partitions",()=>{
+  const items=[
+    line("0",100,100,900,100),line("0",900,100,900,900),
+    line("0",900,900,100,900),line("0",100,900,100,100),
+    line("間仕切壁",500,100,500,900),
+    // A closed, unrelated symbol on an anonymous layer must not become a room.
+    line("2",180,180,320,180),line("2",320,180,320,320),
+    line("2",320,320,180,320),line("2",180,320,180,180)
+  ];
+  const result=extractRoomHierarchy({
+    items,width:1000,height:1000,
+    layers:[{name:"0"},{name:"間仕切壁"},{name:"2"}],
+    selectedLayers:["0"]
+  });
+  assert.equal(result.parents.length,1);
   assert.equal(result.rooms.length,2);
-  assert.deepEqual(result.diagnostics.wallLayerNames.sort(),["0","1"]);
+  assert.deepEqual(result.diagnostics.wallLayerNames.sort(),["0","間仕切壁"]);
 });
 
 test("separate parent spaces keep their own child-room ownership and label points",()=>{
