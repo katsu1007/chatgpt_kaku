@@ -1,7 +1,7 @@
 // KAKU-owned recursive INSERT/MINSERT expansion for R2004 drawings.
 import { createInsertTransform, createMInsertTransforms, transformBlockGeometry } from "./dwg-block-transform.js";
 function p3(value){return Array.isArray(value)?{x:value[0],y:value[1],z:value[2]||0}:value;}
-function insertTransformData(entity){
+function geometryForTransform(geometry){\n if(geometry?.kind==="line"&&Array.isArray(geometry.pts)&&geometry.pts[0]&&typeof geometry.pts[0]==="object")return {...geometry,pts:geometry.pts.flatMap(p=>[p.x,p.y])};\n if(geometry?.kind==="point"&&geometry.point)return {...geometry,x:geometry.point.x,y:geometry.point.y,z:geometry.point.z};\n return geometry;\n}\nfunction insertTransformData(entity){
  const g=entity.geometry||{};
  return {...g,insertionPoint:p3(g.insertionPoint),scale:g.scale||{x:1,y:1,z:1}};
 }
@@ -41,9 +41,9 @@ export function expandR2004BlockReferences(entities,blocks,{maxDepth=12,maxInsta
      continue;
     }
     let transformed;
-    try{transformed=transformBlockGeometry(child.geometry,matrix);}catch{diagnostics.skippedGeometry++;continue;}
+    try{transformed=transformBlockGeometry(geometryForTransform(child.geometry),matrix);}catch{diagnostics.skippedGeometry++;continue;}
     if(!transformed||transformed.kind==="unsupported"||transformed.kind==="ellipse"){diagnostics.skippedGeometry++;continue;}
-    if(!append({...child,geometry:transformed,sourceEntityHandle:child.selfHandle,sourceInsertHandle:rootInsertHandle??insert.selfHandle,
+    if(!append({...child,sourceGeometry:child.geometry,geometry:transformed,sourceEntityHandle:child.selfHandle,sourceInsertHandle:rootInsertHandle??insert.selfHandle,
       sourceBlockHandle:block.handle,blockPath:nextPath,blockInstanceIndex:instanceIndex,blockTransform:matrix}))return;
     diagnostics.expandedEntityCount++;
    }
