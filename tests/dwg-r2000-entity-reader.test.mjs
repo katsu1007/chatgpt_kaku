@@ -8,7 +8,7 @@ const bs=v=>v===0?[1,0]:[0,1,...bits(v)];
 const raw=v=>{const b=new Uint8Array(8);new DataView(b.buffer).setFloat64(0,v,true);return bytesBits([...b]);};
 const pack=a=>{const out=new Uint8Array(Math.ceil(a.length/8));a.forEach((v,i)=>{if(v)out[i>>3]|=1<<(7-(i&7));});return out;};
 const handleBits=v=>{if(v===0)return [...bits(0,4),...bits(0,4)];const a=[];let n=v;while(n>0){a.unshift(n&255);n=Math.floor(n/256);}return [...bits(0,4),...bits(a.length,4),...bytesBits(a)];};
-function lineRecord({handle=5,layer=200,noLinks=true,previous=0,next=0,owner=100}={}){
+// Synthetic R2000 object with the R15 common-entity field order.\nfunction lineRecord({handle=5,layer=200,noLinks=true,previous=0,next=0,owner=100}={}){
  const geometry=[1,...raw(100),0,0,...raw(200),0,0,1,1];
  const base=[0,1,...bits(19),...bytesBits([0,0,0,0]),...handleBits(handle),...bs(0),0,
   0,0,1,0,1,...bs(7),0,1,0,0,0,0,1,0,...bits(0),...geometry];
