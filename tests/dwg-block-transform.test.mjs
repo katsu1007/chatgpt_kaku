@@ -52,3 +52,13 @@ test("transforms TEXT and MTEXT positions, orientation and scale inside blocks",
  const unsupported=transformBlockGeometry({kind:"text",insertion:{x:0,y:0},rotation:0,height:10},[2,0,0,1,0,0]);
  assert.equal(unsupported.kind,"unsupported");
 });
+
+test("transforms ELLIPSE axes and SPLINE control/fit points in nested blocks",()=>{
+ const matrix=[0,2,-2,0,100,200];
+ const ellipse=transformBlockGeometry({kind:"ellipse",center:[1,0,0],majorAxis:[2,0,0],axisRatio:0.5,startParameter:0,endParameter:Math.PI*2},matrix);
+ assert.deepEqual(ellipse.center,[100,202,0]);assert.deepEqual(ellipse.majorAxis,[0,4,0]);assert.equal(ellipse.axisRatio,0.5);
+ const spline=transformBlockGeometry({kind:"spline",controlPoints:[[1,0,0],[2,1,0]],fitPoints:[[0,0,0]],beginTangent:[1,0,0],endTangent:[0,1,0]},matrix);
+ assert.deepEqual(spline.controlPoints,[[100,202,0],[98,204,0]]);
+ assert.deepEqual(spline.fitPoints,[[100,200,0]]);
+ assert.deepEqual(spline.beginTangent,[0,2,0]);assert.deepEqual(spline.endTangent,[-2,0,0]);
+});
