@@ -416,3 +416,16 @@ test("HATCH boundary outlines are excluded from room detection",()=>{
   assert.equal(result.rooms.length,4);
   assert.equal(result.parents.length,1);
 });
+
+test("solid HATCH wall-band candidates split rooms while ordinary area fills are ignored",()=>{
+ const items=[
+  line("外壁",100,100,900,100),line("外壁",900,100,900,900),
+  line("外壁",900,900,100,900),line("外壁",100,900,100,100),
+  {kind:"fill",layer:"間仕切壁",pts:[490,100,510,100,510,900,490,900],hatchFillCandidate:true},
+  {kind:"fill",layer:"間仕切壁",pts:[200,200,400,200,400,400,200,400],hatchFillCandidate:true}
+ ];
+ const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
+ assert.equal(result.parents.length,1);
+ assert.equal(result.rooms.length,2);
+ assert.equal(result.diagnostics.childrenKept,2);
+});

@@ -158,3 +158,29 @@ test("renders MLINESTYLE-derived parallel wall boundary lines",()=>{
  assert.equal(items[1].mlineOffset,50);assert.equal(drawing.meta.info.mlineEntities,1);
  assert.equal(drawing.meta.info.mlineBoundarySegments,2);
 });
+
+test("exposes only closed straight external solid HATCH paths as wall-fill candidates",()=>{
+ const drawing=createR2004DwgDrawing({units:{known:true,code:4,name:"millimeters",scaleToMm:1},entities:[
+  entity("A-WALL",280n,{kind:"hatch",name:"SOLID",solidFill:true,elevation:0,paths:[
+   {kind:"polyline",flags:3,closed:true,vertices:[{x:0,y:0},{x:1000,y:0},{x:1000,y:100},{x:0,y:100}],bulges:[0,0,0,0]},
+   {kind:"polyline",flags:2,closed:true,vertices:[{x:200,y:200},{x:300,y:200},{x:300,y:300},{x:200,y:300}],bulges:[0,0,0,0]},
+   {kind:"polyline",flags:3,closed:true,vertices:[{x:400,y:400},{x:500,y:400},{x:500,y:500},{x:400,y:500}],bulges:[0,0.5,0,0]}
+  ]},"H1")
+ ],layers:[]});
+ const items=drawing.sheets[0].items,fill=items.filter(item=>item.kind==="fill");
+ assert.equal(fill.length,1);assert.equal(fill[0].hatchFillCandidate,true);
+ assert.equal(fill[0].hatchPathFlags,3);assert.deepEqual(fill[0].pts,[0,0,1000,0,1000,100,0,100]);
+ assert.equal(drawing.meta.info.hatchFillCandidates,1);
+ assert.ok(drawing.meta.warnings.some(w=>w.includes("細長さを判定")));
+});
+
+test("DWG capability warning reflects decoded entity families without claiming full rendering",()=>{
+ const drawing=createR2004DwgDrawing({units:{known:true,code:4,name:"millimeters",scaleToMm:1},entities:[
+  entity("A-WALL",290n,{kind:"line",pts:[{x:0,y:0,z:0},{x:100,y:0,z:0}]})
+ ],layers:[]});
+ const warning=drawing.meta.warnings.join(" ");
+ assert.match(warning,/旧式POLYLINE\/VERTEX/);
+ assert.match(warning,/DIMENSION計測情報/);
+ assert.match(warning,/HATCH境界/);
+ assert.doesNotMatch(warning,/寸法・文字・HATCH等は未対応/);
+});

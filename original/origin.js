@@ -4,7 +4,7 @@ import { analyzePlanarRoomCandidates } from "./planar-room-candidates.js?v=20261
 import { inspectCadFileHeader } from "./cad-format-probe.js?v=20261125-dwg-probe1";
 import { parseR2004DwgHeader } from "./dwg-r2004-container.js?v=20261125-dwg-header2";
 import { readR2004DrawingEntities } from "./dwg-r2004-entity-reader.js?v=20261125-dwg-entities16";
-import { createR2004DwgDrawing } from "./dwg-r2004-sheet.js?v=20261125-dwg-sheet13";
+import { createR2004DwgDrawing } from "./dwg-r2004-sheet.js?v=20261125-dwg-sheet15";
 import { makeDrawingChoices, sliceSheetForFrame } from "./drawing-split.js?v=20261124-split2";
 let openCad,prepare,toSvg,findFrames;
 let cadImportPromise;
