@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { parseR2004EntityRecord, readR2004EntityRecords } from "../original/dwg-r2004-entity-reader.js";
 const bits=(v,n=8)=>Array.from({length:n},(_,i)=>(v>>(n-1-i))&1);
 const bytesBits=a=>a.flatMap(v=>bits(v));
+const bs=v=>v===0?[1,0]:[0,1,...bits(v)];
 const raw=v=>{const b=new Uint8Array(8);new DataView(b.buffer).setFloat64(0,v,true);return bytesBits([...b]);};
 const pack=a=>{const out=new Uint8Array(Math.ceil(a.length/8));a.forEach((v,i)=>{if(v)out[i>>3]|=1<<(7-(i&7));});return out;};
 function lineRecord({handle=5,eed=[],graphic=null,colorBits=[0,1,...bits(7)]}={}){
@@ -26,7 +27,7 @@ test("skips EED and optional proxy graphics before reading common attributes",()
  assert.deepEqual([...r.eed],[0xaa,0xbb]);assert.deepEqual([...r.graphic],[1,2,3]);assert.equal(r.geometry.kind,"line");
 });
 test("decodes complex entity color metadata",()=>{
- const colorBits=[0,0,...bytesBits([0,0x80,0x34,0x12])];
+ const colorBits=[0,0,...bytesBits([0,0x80]),0,0,...bytesBits([0x34,0x12])];
  const r=parseR2004EntityRecord(lineRecord({colorBits}));
  assert.equal(r.color.complex,true);assert.equal(r.color.rgb,0x1234);
 });
