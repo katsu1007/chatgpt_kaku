@@ -1,5 +1,5 @@
 // KAKU-owned R2004 BLOCK_HEADER object decoder.
-import { DwgBitReader } from "./dwg-bitstream.js";
+import { DwgBitReader } from "./dwg-bitstream.js?v=20261125-codepage1";
 import { parseR2004ObjectRecordEnvelope } from "./dwg-r2004-object-record.js";
 export function parseR2004BlockHeaderRecord(input,offset=0,{maxEedBytes=1024*1024,maxPreviewBytes=16*1024*1024,maxOwnedObjects=100000,maxInserts=100000,textEncoding="windows-1252"}={}){
  const bytes=input instanceof Uint8Array?input:new Uint8Array(input||0),env=parseR2004ObjectRecordEnvelope(bytes,offset);
