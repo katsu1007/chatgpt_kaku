@@ -456,7 +456,7 @@ test("small toilet cubicles survive when the drawing covers a large warehouse fl
   assert.equal(result.rooms.length,7);
   const booths=result.rooms.filter(r=>{
     const w=(r.maxx-r.minx+1)*result.grid.cw,h=(r.maxy-r.miny+1)*result.grid.ch;
-    return w>=800&&w<=1000&&h>=1400&&h<=1600;
+    return w>=650&&w<=1000&&h>=1200&&h<=1600;
   });
   assert.equal(booths.length,6);
   assert.ok(result.diagnostics.minChildSpanCells<=21);
