@@ -5,6 +5,11 @@ import { buildPlanarGraph } from "./planar-geometry.js";
 const NON_WALL_LAYER=/(寸法|寸法線|寸法補助|寸法記入|引出線|補助線|中心線|通り芯|グリッド|文字|注記|家具|什器|設備|器具|照明|電気|コンセント|記号|ハッチ|dimension|\bdim\b|annotation|leader|extension|center.?line|grid|axis|furniture|fixture|text|symbol|hatch)/i;
 const DIMENSION_LABEL=/^\s*[+-]?\d[\d,]*(?:\.\d+)?\s*(?:mm|ｍｍ|m|ｍ|cm|㎜|㎝|φ|ø)?\s*$/i;
 const finite=Number.isFinite;
+function isDimensionGraphicItem(item){
+ const kind=String(item?.kind||item?.type||"").toLowerCase();
+ const sourceKind=String(item?.sourceGeometry?.kind||item?.sourceGeometry?.type||"").toLowerCase();
+ return kind==="dimension"||sourceKind==="dimension"||item?.dimensionGraphic===true||item?.dimensionLine===true||item?.dimensionExtension===true||item?.dimensionArrow===true||item?.dimensionBoundary===true||item?.isDimension===true||item?.dimensionEntity===true;
+}
 const pointsOf=item=>{
  const p=item?.pts||item?.points||item?.vertices;
  if(!Array.isArray(p))return [];
@@ -40,6 +45,7 @@ function wallLikeFill(points){
 function entitySegments(item,index,stats,anchors){
  const kind=String(item?.kind||item?.type||"").toLowerCase(),layer=String(item?.layer??"");
  if(NON_WALL_LAYER.test(layer)){stats.skippedSemanticLayer++;return [];}
+ if(isDimensionGraphicItem(item)){stats.skippedDimensionItems++;return [];}
  // HATCH loops are fill boundaries, not automatically walls.
  if(item?.hatchBoundary&&!item?.hatchFillCandidate){stats.skippedHatchBoundary++;return [];}
  if(["dimension","text","point","block","insert","hatch"].includes(kind)){stats.skippedNonBoundaryKind++;return [];}
@@ -76,13 +82,13 @@ function doorwayBridges(items,allowed,hidden,anchors,stats){
  const endpoints=[],degree=new Map(),coordinateKey=(x,y)=>Math.round(x*10)+":"+Math.round(y*10);
  (items||[]).forEach(item=>{
   const layer=String(item?.layer??""),kind=String(item?.kind||item?.type||"").toLowerCase();
-  if(!allowed.has(layer)||hidden.has(layer)||NON_WALL_LAYER.test(layer)||!["line","polyline"].includes(kind))return;
+  if(!allowed.has(layer)||hidden.has(layer)||NON_WALL_LAYER.test(layer)||isDimensionGraphicItem(item)||!["line","polyline"].includes(kind))return;
   const p=pointsOf(item);if(p.length<2)return;
   for(const e of [p[0],p.at(-1)]){const k=coordinateKey(e.x,e.y);degree.set(k,(degree.get(k)||0)+1);}
  });
  (items||[]).forEach((item,index)=>{
   const layer=String(item?.layer??""),kind=String(item?.kind||item?.type||"").toLowerCase();
-  if(!allowed.has(layer)||hidden.has(layer)||NON_WALL_LAYER.test(layer)||!["line","polyline"].includes(kind))return;
+  if(!allowed.has(layer)||hidden.has(layer)||NON_WALL_LAYER.test(layer)||isDimensionGraphicItem(item)||!["line","polyline"].includes(kind))return;
   const p=pointsOf(item);if(p.length<2)return;
   const ends=[{p:p[0],toward:p[1]},{p:p.at(-1),toward:p.at(-2)}];
   for(const e of ends){
@@ -117,7 +123,7 @@ function doorwayBridges(items,allowed,hidden,anchors,stats){
 }
 export function analyzePlanarRoomCandidates({items=[],wallLayerNames=[],hiddenLayers=[]}={}){
  const allowed=new Set((wallLayerNames||[]).map(String)),hidden=new Set((hiddenLayers||[]).map(String));
- const stats={inputItems:0,acceptedItems:0,acceptedWallFills:0,approximatedArcs:0,skippedSemanticLayer:0,skippedNonBoundaryKind:0,skippedInvalidArc:0,skippedInvalidGeometry:0,skippedNonWallFill:0,skippedDimensionSegments:0,skippedHatchBoundary:0,bridgedDoorGaps:0};
+ const stats={inputItems:0,acceptedItems:0,acceptedWallFills:0,approximatedArcs:0,skippedSemanticLayer:0,skippedDimensionItems:0,skippedNonBoundaryKind:0,skippedInvalidArc:0,skippedInvalidGeometry:0,skippedNonWallFill:0,skippedDimensionSegments:0,skippedHatchBoundary:0,bridgedDoorGaps:0};
  const anchors=dimensionAnchors(items),segments=[];
  (items||[]).forEach((item,index)=>{
   if(!item||!allowed.has(String(item.layer??""))||hidden.has(String(item.layer??"")))return;

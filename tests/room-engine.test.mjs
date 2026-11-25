@@ -429,3 +429,15 @@ test("solid HATCH wall-band candidates split rooms while ordinary area fills are
  assert.equal(result.rooms.length,2);
  assert.equal(result.diagnostics.childrenKept,2);
 });
+
+
+test("explicit dimension-graphic metadata is excluded even when it shares a wall layer",()=>{
+  const items=[
+    line("外壁",100,100,900,100),line("外壁",900,100,900,900),
+    line("外壁",900,900,100,900),line("外壁",100,900,100,100),
+    {...line("外壁",500,100,500,900),dimensionGraphic:true}
+  ];
+  const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"外壁"}],selectedLayers:[]});
+  assert.equal(result.rooms.length,1);
+  assert.ok(result.diagnostics.skippedDimensionItems>0);
+});
