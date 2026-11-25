@@ -4,6 +4,7 @@ function p3(value){return Array.isArray(value)?{x:value[0],y:value[1],z:value[2]
 function geometryForTransform(geometry){
  if(geometry?.kind==="line"&&Array.isArray(geometry.pts)&&geometry.pts[0]&&typeof geometry.pts[0]==="object")return {...geometry,pts:geometry.pts.flatMap(p=>[p.x,p.y])};
  if(geometry?.kind==="point"&&geometry.point)return {...geometry,x:geometry.point.x,y:geometry.point.y,z:geometry.point.z};
+ if(geometry?.kind==="mtext")return {...geometry,insertion:p3(geometry.insertion),xAxis:p3(geometry.xAxis)};
  return geometry;
 }
 function insertTransformData(entity){
