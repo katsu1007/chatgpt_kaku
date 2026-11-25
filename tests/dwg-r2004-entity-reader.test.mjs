@@ -121,3 +121,10 @@ test("reads TEXT and MTEXT entities with their text-style handle references",()=
  const result=readR2004EntityRecords(annotationRecord(1,textGeometry,800),{entries:[{handle:800n,offset:0n}]});
  assert.equal(result.records[0].geometry.text,"ROOM A");
 });
+
+test("decodes Japanese TEXT through the DWG code-page option",()=>{
+ const sjis=[0x89,0xef,0x8b,0x63,0x8e,0xba];
+ const geometry=[...bits(255),...raw(10),...raw(20),1,1,...raw(15),...bs(sjis.length),...bytesBits(sjis)];
+ const r=parseR2004EntityRecord(annotationRecord(1,geometry,802),0,{textEncoding:"shift_jis"});
+ assert.equal(r.geometry.text,"会議室");
+});
