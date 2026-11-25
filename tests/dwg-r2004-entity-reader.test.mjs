@@ -87,7 +87,7 @@ function hatchRecord(){
   ...bl(2),0,1,...bl(4),...raw(0),...raw(0),...raw(100),...raw(0),...raw(100),...raw(50),...raw(0),...raw(50),...bl(1),
   ...bs(0),...bs(1),...bl(0)];
  const base=[0,1,...bits(78),...bytesBits([0,0,0,0]),...handleBits(700),...bs(0),0,
-  0,0,1,0,1,1,...bits(7),0,1,0,0,0,0,1,0,...bits(0),...geometry];
+  0,0,1,0,1,1,0,1,...bits(7),0,1,0,0,0,0,1,0,...bits(0),...geometry];
  const handleStart=16+base.length,rl=[handleStart&255,(handleStart>>>8)&255,(handleStart>>>16)&255,(handleStart>>>24)&255];
  base.splice(10,32,...bytesBits(rl));
  const body=pack([...base,...handleBits(100),...handleBits(200),...handleBits(301)]);
