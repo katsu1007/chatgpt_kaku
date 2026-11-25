@@ -227,3 +227,14 @@ test("labels R2000 imports and tags source primitives with the correct DWG famil
  assert.ok(drawing.meta.warnings[0].includes("R2000"));
  assert.ok(drawing.meta.warnings.some(w=>w.includes("HATCH・MLINE・ATTRIB")));
 });
+
+test("translates dimension definition points with drawing origin and includes them in bounds",()=>{
+ const drawing=createR2004DwgDrawing({units:{known:true,code:4,name:"millimeters",scaleToMm:1},entities:[
+  entity("A-DIM",240n,{kind:"dimension",dimensionName:"linear",textMidpoint:[50,25],actualMeasurement:100,point10:[10,35,0],point13:[10,10,0],point14:[110,10,0]})
+ ],layers:[]});
+ const item=drawing.sheets[0].items[0];
+ assert.deepEqual(item.points.point13,[0,0,0]);
+ assert.deepEqual(item.points.point14,[100,0,0]);
+ assert.deepEqual(item.points.point10,[0,25,0]);
+ assert.equal(drawing.sheets[0].size.h,25);
+});
