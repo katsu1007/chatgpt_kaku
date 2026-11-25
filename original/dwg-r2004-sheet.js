@@ -13,7 +13,7 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
   const layerName=entity.layerName||"DWG:UNRESOLVED:"+String(entity.layerHandle??"0");
   if(!layerMap.has(layerName)){const layer={name:layerName,color:"#808080",visible:true,items:0,actualItems:0,unresolved:true};layers.push(layer);layerMap.set(layerName,layer);}
   item.layer=layerName;item.handle=entity.handleHex||String(entity.selfHandle??"");item.layerHandle=String(entity.layerHandle??"");
-  item.sourceFormat="DWG-R2004";item.sourceGeometry=geometry;
+  item.sourceFormat="DWG-R2004";item.sourceGeometry=entity.sourceGeometry||geometry;if(entity.blockPath)item.blockPath=entity.blockPath;if(entity.blockTransform)item.blockTransform=entity.blockTransform;if(entity.sourceInsertHandle!==undefined)item.sourceInsertHandle=String(entity.sourceInsertHandle);if(entity.sourceBlockHandle!==undefined)item.sourceBlockHandle=String(entity.sourceBlockHandle);if(entity.sourceEntityHandle!==undefined)item.sourceEntityHandle=String(entity.sourceEntityHandle);if(entity.blockInstanceIndex!==undefined)item.blockInstanceIndex=entity.blockInstanceIndex;
   layerMap.get(layerName).items++;layerMap.get(layerName).actualItems++;mapped.push(item);
  };
  for(const entity of entities){
