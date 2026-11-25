@@ -109,3 +109,15 @@ test("preserves TEXT and MTEXT content and placement in sheet items",()=>{
  assert.equal(items[1].mtext,true);assert.equal(items[1].text,"CONFERENCE");assert.equal(items[1].rotation,Math.PI/2);
  assert.equal(items[1].width,160);assert.equal(drawing.meta.info.textEntities,2);
 });
+
+test("preserves dimension measurement, annotation text and referenced block handles",()=>{
+ const drawing=createR2004DwgDrawing({units:{known:true,code:4,name:"millimeters",scaleToMm:1},entities:[
+  {...entity("A-DIM",240n,{kind:"dimension",dimensionName:"linear",textMidpoint:[50,25],userText:"L=<> mm",actualMeasurement:100,textRotation:0,flags1:0,point10:[0,20,0],point13:[0,0,0],point14:[100,0,0]},
+   "D1"),dimensionHandles:{dimStyle:{value:300n},anonymousBlock:{value:400n}}}
+ ],layers:[]});
+ const items=drawing.sheets[0].items;
+ assert.equal(items.length,2);assert.equal(items[0].kind,"dimension");assert.equal(items[0].dimensionType,"linear");
+ assert.equal(items[0].dimensionHandles.dimStyle,"300");assert.equal(items[0].dimensionHandles.anonymousBlock,"400");
+ assert.equal(items[1].kind,"text");assert.equal(items[1].text,"L=100 mm");assert.equal(items[1].dimensionText,true);
+ assert.equal(drawing.meta.info.dimensionEntities,1);
+});
