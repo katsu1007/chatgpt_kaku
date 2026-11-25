@@ -30,5 +30,5 @@ test("parses R2004 system page header and bounds-checks payload",()=>{
 });
 test("rejects wrong versions and truncated R2004 headers",()=>{
  assert.throws(()=>parseR2004DwgHeader(new Uint8Array(20)),/truncated/);
- const bad=makeR2004();bad[0]=65;assert.throws(()=>parseR2004DwgHeader(bad),/requires AC1018/);
+ const bad=makeR2004();bad[0]=66;assert.throws(()=>parseR2004DwgHeader(bad),/requires AC1018/);
 });
