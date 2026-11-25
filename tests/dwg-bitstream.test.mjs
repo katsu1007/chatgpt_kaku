@@ -49,7 +49,7 @@ test("decodes bit-double-with-default patch forms",()=>{
  const onePatch=pack([0,1,...bytesBits([1,0,0,0])]);
  assert.ok(Math.abs(new DwgBitReader(onePatch).readBitDoubleWithDefault(1.0)-1.0000000000000002)<1e-15);
  const sixPatch=pack([1,0,...bytesBits([0,0,1,0,0,0])]);
- assert.equal(new DwgBitReader(sixPatch).readBitDoubleWithDefault(1.0),1.5);
+ assert.equal(new DwgBitReader(sixPatch).readBitDoubleWithDefault(1.0),1.0000000000000002);
  const raw=new Uint8Array(8);new DataView(raw.buffer).setFloat64(0,2.5,true);
  assert.equal(new DwgBitReader(pack([1,1,...bytesBits([...raw])])).readBitDoubleWithDefault(1),2.5);
 });
@@ -58,6 +58,6 @@ test("decodes thickness, extrusion and bit triplets",()=>{
  assert.equal(new DwgBitReader(new Uint8Array([0x80])).readBitThickness(),0);
  assert.deepEqual(new DwgBitReader(new Uint8Array([0x80])).readBitExtrusion(),[0,0,1]);
  assert.equal(new DwgBitReader(new Uint8Array([0b10100000])).read3B(),2);
- const extrusionBits=[0,1,0,1,0,1];
- assert.deepEqual(new DwgBitReader(pack(extrusionBits)).readBitExtrusion(),[1,2,3]);
+ const extrusionBits=[0,0,1,0,1,0,1];
+ assert.deepEqual(new DwgBitReader(pack(extrusionBits)).readBitExtrusion(),[1,1,1]);
 });
