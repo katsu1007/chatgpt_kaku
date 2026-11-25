@@ -76,3 +76,26 @@ test("signed polygon area preserves orientation",()=>{
   assert.equal(signedPolygonArea([[0,0],[10,0],[10,10],[0,10]]),100);
   assert.equal(signedPolygonArea([[0,0],[0,10],[10,10],[10,0]]),-100);
 });
+
+test("segments retain source layer kind semantic role scale and segment index",()=>{
+  const segments=segmentsFromEntities([{
+    kind:"polyline",id:"wall-A",layer:"0-1 平面図 / 躯体",
+    semantic:{role:"wall-boundary",layerScaleDenominator:50},
+    pts:[0,0,100,0,100,80]
+  }]);
+  assert.equal(segments.length,2);
+  assert.deepEqual(segments.map(s=>s.sourceLayer),["0-1 平面図 / 躯体","0-1 平面図 / 躯体"]);
+  assert.deepEqual(segments.map(s=>s.semanticRole),["wall-boundary","wall-boundary"]);
+  assert.deepEqual(segments.map(s=>s.layerScaleDenominator),[50,50]);
+  assert.deepEqual(segments.map(s=>s.sourceSegmentIndex),[0,1]);
+});
+
+test("bounded faces expose source provenance for every contributing boundary edge",()=>{
+  const segments=[
+    ...rectangle(0,0,100,80,"outer").map((s,i)=>({...s,sourceLayer:"0-1 平面図 / 躯体",sourceKind:"sen",semanticRole:"wall",layerScaleDenominator:50,sourceSegmentIndex:i})),
+  ];
+  const graph=buildPlanarGraph(segments);
+  assert.equal(graph.faces.length,1);
+  assert.equal(graph.faces[0].sourceRecords.length,4);
+  assert.ok(graph.faces[0].sourceRecords.every(s=>s.layer==="0-1 平面図 / 躯体"&&s.kind==="sen"&&s.layerScaleDenominator===50));
+});
