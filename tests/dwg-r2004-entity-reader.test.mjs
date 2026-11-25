@@ -180,3 +180,11 @@ test("assembles 3D legacy polylines without applying 2D elevation",()=>{
  assert.deepEqual(r.entities[0].geometry.vertices,[{x:1,y:2,z:3},{x:4,y:5,z:6}]);
  assert.equal(r.entities[0].geometry.closed,false);
 });
+
+test("reads ATTRIB and ATTDEF with their STYLE references",()=>{
+ const text=[...bits(255),...raw(10),...raw(20),1,1,...raw(15),...tv("VALUE"),...tv("ROOM_NAME"),...bs(12),...bits(1)];
+ const a=parseR2004EntityRecord(annotationRecord(2,text,810));
+ assert.equal(a.geometry.kind,"attrib");assert.equal(a.geometry.tag,"ROOM_NAME");assert.equal(a.styleHandle.value,300n);
+ const d=parseR2004EntityRecord(annotationRecord(3,[...text,...tv("Room name")],811));
+ assert.equal(d.geometry.kind,"attdef");assert.equal(d.geometry.prompt,"Room name");assert.equal(d.styleHandle.value,300n);
+});
