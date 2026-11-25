@@ -47,6 +47,6 @@ test("maps a bulged DWG polyline into one circular arc without flattening it",()
   entity("A-WALL",200n,{kind:"polyline",closed:false,vertices:[{x:0,y:0,bulge:Math.tan(Math.PI/8)},{x:100,y:0,bulge:0}]})
  ],layers:[]});
  const items=drawing.sheets[0].items;
- assert.equal(items.length,1);assert.equal(items[0].kind,"arc");assert.equal(items[0].r,50);assert.ok(Math.abs(items[0].a1-items[0].a0-Math.PI/2)<1e-9);
+ assert.equal(items.length,1);assert.equal(items[0].kind,"arc");assert.ok(Math.abs(items[0].r-100/Math.sqrt(2))<1e-9);assert.ok(Math.abs(items[0].a1-items[0].a0-Math.PI/2)<1e-9);
  assert.equal(items[0].sourceGeometry.kind,"polyline");
 });
