@@ -44,6 +44,20 @@ export function transformBlockGeometry(geometry,matrix){
   if((geometry.bulges||[]).some(v=>Math.abs(v)>1e-10)&&(Math.abs(scaleX-scaleY)>1e-8*Math.max(1,scaleX,scaleY)||Math.abs(orthogonality)>1e-8*Math.max(1,scaleX*scaleY)))return {kind:"unsupported",sourceGeometry:geometry,reason:"Bulged polyline under non-uniform scale requires ellipse tessellation"};
   return {...geometry,bulges:det<0?(geometry.bulges||[]).map(v=>-v):geometry.bulges,vertices:geometry.vertices.map(p=>({...p,...applyAffine2D(matrix,p)}))};
  }
+ if(geometry.kind==="text"||geometry.kind==="mtext"){
+  const [a,b,c,d]=matrix,scaleX=Math.hypot(a,b),scaleY=Math.hypot(c,d),orthogonality=a*c+b*d,det=a*d-b*c;
+  if(Math.abs(scaleX-scaleY)>1e-8*Math.max(1,scaleX,scaleY)||Math.abs(orthogonality)>1e-8*Math.max(1,scaleX*scaleY)||det<=0)
+   return {kind:"unsupported",sourceGeometry:geometry,reason:"Text under reflected, sheared or non-uniform block scale is not supported"};
+  const readPoint=p=>Array.isArray(p)?{x:p[0],y:p[1],z:p[2]||0}:p;
+  const move=p=>p?applyAffine2D(matrix,readPoint(p)):p;
+  if(geometry.kind==="text"){
+   const direction={x:Math.cos(geometry.rotation||0),y:Math.sin(geometry.rotation||0)};
+   const angle=Math.atan2(b*direction.x+d*direction.y,a*direction.x+c*direction.y);
+   return {...geometry,insertion:move(geometry.insertion),alignment:move(geometry.alignment),rotation:angle,height:geometry.height*scaleX};
+  }
+  const insertion=move(geometry.insertion),axis=readPoint(geometry.xAxis),xAxis={x:a*axis.x+c*axis.y,y:b*axis.x+d*axis.y,z:axis.z||0};
+  return {...geometry,insertion:[insertion.x,insertion.y,insertion.z||0],xAxis:[xAxis.x,xAxis.y,xAxis.z],height:geometry.height*scaleX,rectWidth:geometry.rectWidth*scaleX,extentsHeight:geometry.extentsHeight*scaleX,extentsWidth:geometry.extentsWidth*scaleX};
+ }
  if(geometry.kind==="point")return {...geometry,...applyAffine2D(matrix,geometry)};
  if(geometry.kind==="arc"||geometry.kind==="circle"){
   const [a,b,c,d]=matrix,scaleX=Math.hypot(a,b),scaleY=Math.hypot(c,d),orthogonality=a*c+b*d;
