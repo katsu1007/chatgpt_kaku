@@ -1,0 +1,78 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { buildPlanarGraph, segmentsFromEntities, signedPolygonArea } from "../original/planar-geometry.js";
+
+const line=(x1,y1,x2,y2,sourceId)=>({x1,y1,x2,y2,sourceId});
+const rectangle=(x1,y1,x2,y2,prefix="r")=>[
+  line(x1,y1,x2,y1,prefix+"-b"),line(x2,y1,x2,y2,prefix+"-r"),
+  line(x2,y2,x1,y2,prefix+"-t"),line(x1,y2,x1,y1,prefix+"-l")
+];
+
+test("closed rectangular boundary produces one bounded face with correct area",()=>{
+  const graph=buildPlanarGraph(rectangle(0,0,100,80));
+  assert.equal(graph.faces.length,1);
+  assert.equal(graph.faces[0].area,8000);
+  assert.equal(graph.diagnostics.graphEdges,4);
+});
+
+test("a partition connected to the boundary splits one rectangle into two faces",()=>{
+  const graph=buildPlanarGraph([
+    ...rectangle(0,0,100,100),
+    line(50,0,50,100,"partition")
+  ]);
+  assert.equal(graph.faces.length,2);
+  assert.deepEqual(graph.faces.map(f=>f.area).sort((a,b)=>a-b),[5000,5000]);
+});
+
+test("crossing segments are split at their exact intersection",()=>{
+  const graph=buildPlanarGraph([line(0,0,100,100,"a"),line(0,100,100,0,"b")]);
+  assert.equal(graph.diagnostics.intersectionCount,1);
+  assert.equal(graph.diagnostics.graphNodes,5);
+  assert.equal(graph.diagnostics.graphEdges,4);
+  assert.equal(graph.faces.length,0);
+});
+
+test("overlapping collinear segments are split and represented by unique graph edges",()=>{
+  const graph=buildPlanarGraph([line(0,0,100,0,"a"),line(40,0,140,0,"b")]);
+  assert.equal(graph.diagnostics.graphEdges,3);
+  const shared=graph.edges.find(e=>e.sourceIds.length===2);
+  assert.ok(shared);
+});
+
+test("duplicate and reversed segments do not create duplicate graph edges",()=>{
+  const graph=buildPlanarGraph([
+    line(0,0,100,0,"a"),line(100,0,0,0,"b"),line(0,0,100,0,"c")
+  ]);
+  assert.equal(graph.edges.length,1);
+  assert.deepEqual(graph.edges[0].sourceIds.sort(),["a","b","c"]);
+});
+
+test("snap tolerance joins near-coincident endpoints into a closed face",()=>{
+  const graph=buildPlanarGraph([
+    line(0,0,100,0),line(100.4,0,100,100),
+    line(100,100,0,100),line(0,100,0,0)
+  ],{snapTolerance:1});
+  assert.equal(graph.faces.length,1);
+});
+
+test("zero-length and invalid segments are discarded with diagnostics",()=>{
+  const graph=buildPlanarGraph([
+    line(0,0,0,0),line(0,0,10,0),{x1:NaN,y1:0,x2:1,y2:1}
+  ]);
+  assert.equal(graph.diagnostics.validSegments,1);
+  assert.equal(graph.diagnostics.discardedDegenerate,2);
+});
+
+test("polyline entities are decomposed into source-linked segments",()=>{
+  const segments=segmentsFromEntities([
+    {kind:"polyline",id:"wall-1",pts:[0,0,10,0,10,10]},
+    {kind:"text",id:"label",pts:[1,1,2,2]}
+  ]);
+  assert.equal(segments.length,2);
+  assert.ok(segments.every(s=>s.sourceId==="wall-1"));
+});
+
+test("signed polygon area preserves orientation",()=>{
+  assert.equal(signedPolygonArea([[0,0],[10,0],[10,10],[0,10]]),100);
+  assert.equal(signedPolygonArea([[0,0],[0,10],[10,10],[10,0]]),-100);
+});
