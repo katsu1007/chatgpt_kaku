@@ -128,3 +128,22 @@ test("decodes Japanese TEXT through the DWG code-page option",()=>{
  const r=parseR2004EntityRecord(annotationRecord(1,geometry,802),0,{textEncoding:"shift_jis"});
  assert.equal(r.geometry.text,"会議室");
 });
+
+function dimensionRecord(){
+ const geometry=[...bd(0),...bd(0),...bd(1),...raw(50),...raw(25),...bd(0),...bits(0),...tv("<>"),...bd(0),...bd(0),...bd(1),...bd(1),...bd(1),...bd(0),
+  ...bs(1),...bs(0),...bd(1),...bd(100),...raw(50),...raw(25),
+  ...bd(0),...bd(0),...bd(0),...bd(100),...bd(0),...bd(0),...bd(0),...bd(20),...bd(0),...bd(0),...bd(0)];
+ const base=[0,1,...bits(21),...bytesBits([0,0,0,0]),...handleBits(900),...bs(0),0,
+  0,0,1,0,1,1,0,1,...bits(7),0,1,0,0,0,0,1,0,...bits(0),...geometry];
+ const handleStart=16+base.length,rl=[handleStart&255,(handleStart>>>8)&255,(handleStart>>>16)&255,(handleStart>>>24)&255];
+ base.splice(10,32,...bytesBits(rl));
+ const body=pack([...base,...handleBits(100),...handleBits(200),...handleBits(300),...handleBits(400)]);
+ const out=new Uint8Array(2+body.length+2);out[0]=body.length&255;out[1]=body.length>>8;out.set(body,2);out.set([0x12,0x34],out.length-2);return out;
+}
+test("reads DIMENSION values and DIMSTYLE/anonymous block references",()=>{
+ const r=parseR2004EntityRecord(dimensionRecord());
+ assert.equal(r.typeName,"DIMENSION_LINEAR");assert.equal(r.geometry.kind,"dimension");assert.equal(r.geometry.actualMeasurement,100);
+ assert.equal(r.dimensionHandles.dimStyle.value,300n);assert.equal(r.dimensionHandles.anonymousBlock.value,400n);
+ const list=readR2004EntityRecords(dimensionRecord(),{entries:[{handle:900n,offset:0n}]});
+ assert.equal(list.records.length,1);assert.equal(list.records[0].geometry.dimensionName,"linear");
+});
