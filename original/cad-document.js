@@ -36,7 +36,7 @@ function sourceSemantics(source, rawType) {
     (kind === "dimension" || kind === "sunpou" || dimensionFlag ? "dimension" :
       (kind === "block" || kind === "insert" ? "block-instance" : "unclassified"));
   const layer = first(source?.layer, source?.layerName, source?.base?.layerName, null);
-  const match = String(layer ?? "").match(/^\s*([0-9a-f]+)-([0-9a-f]+)(?:\\s|$)/i);
+  const match = String(layer ?? "").match(/^\s*([0-9a-f]+)-([0-9a-f]+)(?:\s|$)/i);
   const groupIndex = first(source?.groupIndex, source?.group, match ? parseInt(match[1], 16) : null);
   const layerIndex = first(source?.layerIndex, match ? parseInt(match[2], 16) : null);
   return {
