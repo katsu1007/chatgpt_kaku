@@ -480,3 +480,20 @@ test("small toilet cubicles survive when the drawing covers a large warehouse fl
   assert.equal(booths.length,6);
   assert.ok(result.diagnostics.minChildSpanCells<=21);
 });
+
+
+test("automatic wall discovery ignores non-plan Jw_cad groups even when their layer is named 躯体",()=>{
+  const items=[
+    line("0-1 平面図 / 外壁",100,100,900,100),line("0-1 平面図 / 外壁",900,100,900,900),
+    line("0-1 平面図 / 外壁",900,900,100,900),line("0-1 平面図 / 外壁",100,900,100,100),
+    line("0-2 平面図 / 間仕切壁",500,100,500,900),
+    line("2-1 展開図 / 躯体",1100,100,1500,100),line("2-1 展開図 / 躯体",1500,100,1500,500),
+    line("2-1 展開図 / 躯体",1500,500,1100,500),line("2-1 展開図 / 躯体",1100,500,1100,100)
+  ];
+  const layers=[{name:"0-1 平面図 / 外壁"},{name:"0-2 平面図 / 間仕切壁"},{name:"2-1 展開図 / 躯体"}];
+  const result=extractRoomHierarchy({items,width:1600,height:1000,layers,selectedLayers:[]});
+  assert.equal(result.parents.length,1);
+  assert.equal(result.rooms.length,2);
+  assert.ok(!result.diagnostics.wallLayerNames.includes("2-1 展開図 / 躯体"));
+  assert.deepEqual(suggestWallLayers(layers).sort(),["0-1 平面図 / 外壁","0-2 平面図 / 間仕切壁"]);
+});
