@@ -134,7 +134,7 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
    const x=g.textMidpoint[0]*scale,y=g.textMidpoint[1]*scale,measurement=Number.isFinite(g.actualMeasurement)?Number(g.actualMeasurement.toFixed(3)).toString():"";
    const rawText=String(g.userText||"").trim(),label=rawText&&rawText!=="<>"?rawText.replace(/<>/g,measurement):measurement;
    add(entity,g,{kind:"dimension",x,y,dimensionType:g.dimensionName,actualMeasurement:g.actualMeasurement*scale,userText:g.userText,textRotation:g.textRotation,flags1:g.flags1,flags2:g.flags2,
-    points:{point10:g.point10,point13:g.point13,point14:g.point14,point15:g.point15,point16:g.point16},dimensionHandles:entity.dimensionHandles?{dimStyle:String(entity.dimensionHandles.dimStyle.value),anonymousBlock:String(entity.dimensionHandles.anonymousBlock.value)}:null});
+    points:Object.fromEntries(["point10","point13","point14","point15","point16"].map(key=>[key,Array.isArray(g[key])?g[key].map(value=>value*scale):g[key]])),dimensionHandles:entity.dimensionHandles?{dimStyle:String(entity.dimensionHandles.dimStyle.value),anonymousBlock:String(entity.dimensionHandles.anonymousBlock.value)}:null});
    if(label)add(entity,g,{kind:"text",x,y,text:label,rotation:g.textRotation,height:null,dimensionText:true,dimensionType:g.dimensionName,actualMeasurement:g.actualMeasurement*scale});
    dimensionEntities++;
   }
