@@ -45,12 +45,19 @@ export function parseR2004EntityRecord(input,offset=0,{maxEedBytes=1024*1024,max
  if(!Number.isSafeInteger(handleBitOffset)||handleBitOffset<geometryEndBit||handleBitOffset>envelope.recordEnd*8-16)throw new Error("Invalid R2004 declared handle-stream offset");
  reader.bitOffset=handleBitOffset;
  const handles=readEntityHandles(reader,selfHandle.value,reactorCount,xdictionaryMissing,color,linetypeFlags,plotstyleFlags);
+ let insertHandles=null;
+ if(geometry.kind==="insert"||geometry.kind==="minsert"){
+  const blockHeader=reader.readHandle(selfHandle.value),attributes=[];
+  for(let i=0;i<geometry.ownedObjectCount;i++)attributes.push(reader.readHandle(selfHandle.value));
+  const seqend=geometry.hasAttributes?reader.readHandle(selfHandle.value):null;
+  insertHandles={blockHeader,attributes,seqend};
+ }
  return {...envelope,objectDataBits,selfHandle:selfHandle.value,entityMode,reactorCount,xdictionaryMissing,noLinks,color,linetypeScale,linetypeFlags,plotstyleFlags,invisibility,lineweight,
-  eed,graphic,geometry,geometryBitOffset,geometryEndBit,declaredHandleBitOffset:handleBitOffset,handles,layerHandle:handles.layer.value,
+  eed,graphic,geometry,geometryBitOffset,geometryEndBit,declaredHandleBitOffset:handleBitOffset,handles,insertHandles,ownerHandle:handles.owner.value,layerHandle:handles.layer.value,
   diagnostics:{...envelope.diagnostics,commonEntityDecoded:true,geometryDecoded:geometry.kind!=="unsupported",handleReferencesDecoded:true}};
 }
 export function readR2004EntityRecords(sectionBytes,objectMap,options){
- const records=[],skippedObjects=[],supported=new Set([17,18,19,27,31,77]);
+ const records=[],skippedObjects=[],supported=new Set([7,8,17,18,19,27,31,77]);
  for(const item of objectMap.entries){
   const offset=Number(item.offset),envelope=parseR2004ObjectRecordEnvelope(sectionBytes,offset);
   if(envelope.handle!==BigInt(item.handle))throw new Error("Object-map handle mismatch at entity offset "+item.offset);
