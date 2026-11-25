@@ -7,6 +7,7 @@ import { parseR13R15DwgHeader } from "./dwg-r13-container.js?v=20261125-r2000-co
 import { readR2004DrawingEntities } from "./dwg-r2004-entity-reader.js?v=20261125-dwg-entities16";
 import { readR2000DrawingEntities } from "./dwg-r2000-entity-reader.js?v=20261125-r2000-reader1";
 import { createR2004DwgDrawing } from "./dwg-r2004-sheet.js?v=20261125-dwg-sheet17";
+import { prepareNativeDwgSheet, renderNativeDwgSvg } from "./dwg-native-render.js?v=20261125-native-svg1";
 import { makeDrawingChoices, sliceSheetForFrame } from "./drawing-split.js?v=20261124-split2";
 let openCad,prepare,toSvg,findFrames;
 let cadImportPromise;
@@ -14,6 +15,11 @@ async function ensureCadLibrary(){if(openCad&&prepare&&toSvg)return;if(!cadImpor
 const $=id=>document.getElementById(id);
 const state={drawing:null,rawSheet:null,sheet:null,prepared:null,layers:[],hidden:new Uint8Array(0),boundaryLayers:new Set(),busy:false,rooms:[],roomGrid:null,frames:[],frameIndex:-1,choices:[],choiceIndex:-1,sheetIndex:0,cadDocument:null};
 function status(s){$("status").textContent=s;}
+function prepareSheet(sheet,layerNames){
+ if(state.drawing?.meta?.format==="DWG")return prepareNativeDwgSheet(sheet,state.layers);
+ return prepare(sheet,layerNames);
+}
+
 function setProgress(ratio,message){$("progress").hidden=false;$("progressBar").style.width=Math.max(0,Math.min(100,ratio*100))+"%";if(message)status(message);}
 function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 
@@ -28,7 +34,7 @@ function activateChoice(index){
  state.boundaryLayers.clear();state.rooms=[];state.roomGrid=null;
  const counts=new Map();for(const it of state.sheet.items)if(it.layer!=null)counts.set(it.layer,(counts.get(it.layer)||0)+1);
  state.layers=state.layers.map(l=>({...l,actualItems:counts.get(l.name)||0}));
- state.prepared=prepare(state.sheet,state.layers.map(x=>x.name));
+ state.prepared=prepareSheet(state.sheet,state.layers.map(x=>x.name));
  const select=$("frameSelect");if(select)select.value=String(index);
  renderLayers();renderBoundaryLayers();renderDrawing();showReport();
  $("coords").textContent=state.sheet.size.w.toLocaleString()+" × "+state.sheet.size.h.toLocaleString()+" "+(state.drawing.meta.units==="unknown"?"DWG元単位":"mm");
@@ -63,7 +69,7 @@ function suggestBoundaryLayers(){
  renderBoundaryLayers();
  detectRooms();
 }
-function renderDrawing(){if(!state.prepared)return;$("canvas").innerHTML=toSvg(state.prepared,state.hidden);const node=$("canvas").querySelector("svg");if(node){node.style.width="100%";node.style.height="100%";node.style.minWidth="100%";node.style.minHeight="100%";node.setAttribute("preserveAspectRatio","xMidYMid meet");}if(state.rooms.length)renderRooms();}
+function renderDrawing(){if(!state.prepared)return;const svg=state.prepared.nativeDwg?renderNativeDwgSvg(state.prepared,state.hidden):toSvg(state.prepared,state.hidden);$("canvas").innerHTML=svg;const node=$("canvas").querySelector("svg");if(node){node.style.width="100%";node.style.height="100%";node.style.minWidth="100%";node.style.minHeight="100%";node.setAttribute("preserveAspectRatio","xMidYMid meet");}if(state.rooms.length)renderRooms();}
 function showReport(){const d=state.drawing,s=state.sheet,info=d.meta.info||{},model=state.cadDocument;$("entityCount").textContent=Number(info.items??s.items.length).toLocaleString();$("layerCount").textContent=state.layers.length.toLocaleString();$("textCount").textContent=s.items.filter(x=>x.kind==="text").length.toLocaleString();const rows=[["形式",d.meta.label||d.meta.format],["図面枠",state.frames.length?state.frames.length+"件検出（選択中 "+(state.frameIndex+1)+"）":"検出なし"],["バージョン",info.version||"—"],["図面メモ",info.memo||s.name||"—"],["用紙",info.paper||"—"],["縮尺",info.scales||"—"],["座標単位",d.meta.units==="unknown"?"DWG元単位（未換算）":"mm"],["シート",d.sheets.length],["解析対象",state.choices[state.choiceIndex]?.label||"未選択"],["解析要素",info.figures??s.items.length],["ブロック定義",info.blocks??"—"],["完全性",s.completeness||"未判定"]];$("meta").innerHTML=rows.map(([k,v])=>"<div><dt>"+esc(k)+"</dt><dd>"+esc(v)+"</dd></div>").join("");const warnings=[...(d.meta.warnings||[]),...(s.warnings||[])];const visible=state.layers.filter(x=>x.visible).length;const rawKinds=Object.entries(info).filter(([key,value])=>key.startsWith("count.")&&Number(value)>0).sort((a,b)=>Number(b[1])-Number(a[1]));const rawKindReport=rawKinds.length?"<details><summary>JWW元データの要素種別（展開前）</summary><p class='muted'>JWW内部で読み取った元オブジェクト数です。展開後の図形位置との対応付けはまだ行っていません。</p><ul>"+rawKinds.map(([key,value])=>"<li>"+esc(key.slice(6))+"："+Number(value).toLocaleString()+"件</li>").join("")+"</ul></details>":"";$("inspection").innerHTML="<strong>読込完了：レイヤー情報を保持</strong><ul><li>レイヤー："+state.layers.length+"件（読込時表示 "+visible+"件）</li><li>図形要素："+s.items.length.toLocaleString()+"件</li><li>座標："+(d.meta.units==="unknown"?"DWG元座標（単位未判定・mm換算なし）":"mm基準のシート座標")+"</li><li>各要素に元レイヤー名を保持</li><li>KAKU独自データモデル："+(model?model.diagnostics.entityCount.toLocaleString()+"要素 / "+Object.keys(model.diagnostics.kindCounts).length+"種別 / 形状情報欠落 "+model.diagnostics.missingGeometry+"件":"未生成")+"</li></ul>"+rawKindReport+(warnings.length?"<strong>警告（"+warnings.length+"件）</strong><ul>"+warnings.slice(0,30).map(w=>"<li>"+esc(w)+"</li>").join("")+"</ul>":"<p>パーサーからの警告はありません。</p>")+"<p class='muted'>※元のJw_cad画面との完全一致は、対象ファイルでの照合が必要です。</p>";}
 
 function detectRooms(){
