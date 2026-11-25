@@ -7,7 +7,7 @@ function sectionMapBytes(){
  const b=new Uint8Array(132),v=new DataView(b.buffer);put32(v,0,1);put32(v,4,2);put32(v,8,0x7400);put32(v,16,1);
  put64(v,20,0x1000);put32(v,28,1);put32(v,32,0x7400);put32(v,36,0);put32(v,40,2);put32(v,44,1);put32(v,48,0);
  const name="AcDb:AcDbObjects";for(let i=0;i<name.length;i++)b[52+i]=name.charCodeAt(i);
- put32(v,116,1);put32(v,120,24);put64(v,124,0);return b;
+ put32(v,116,2);put32(v,120,24);put64(v,124,0);return b;
 }
 function compressLiteral(bytes){
  const n=bytes.length;if(n<=18)return new Uint8Array([n-3,...bytes,0x11]);
@@ -37,7 +37,7 @@ test("decrypts data page header and verifies data/header checksums",()=>{
  const file=new Uint8Array(0x200+32+6),v=new DataView(file.buffer),offset=0x200,payload=new Uint8Array([1,65,66,67,68,0x11]);
  const h=new Uint8Array(32),d=new DataView(h.buffer);
  put32(d,0,0x4163043b);put32(d,4,1);put32(d,8,payload.length);put32(d,12,4);put32(d,16,0);put32(d,24,checksum(0,payload));
- put32(d,20,checksum(u32(d,24),h));
+ put32(d,20,checksum(d.getUint32(24,true),h));
  const mask=(0x4164536b^offset)>>>0;
  for(let p=0;p<32;p+=4)put32(v,offset+p,(new DataView(h.buffer).getUint32(p,true)^mask)>>>0);
  file.set(payload,offset+32);
@@ -55,7 +55,7 @@ test("walks the R2004 system page map into the section map",()=>{
  writePage(0x300,0x4163003b,sectionCompressed,sectionBytes.length);
  const result=readR2004SectionMaps(file,{container:{sectionPageMapAddress:0x200n,sectionMapId:3}});
  assert.equal(result.pageMap.entries.length,3);assert.equal(result.sectionMap.sections[0].name,"AcDb:AcDbObjects");
- assert.equal(result.resolvedSections[0].pages[0].fileOffset,0x100);
+ assert.equal(result.resolvedSections[0].pages[0].fileOffset,0x200);
 });
 test("rejects malformed maps and missing referenced pages",()=>{
  assert.throws(()=>parseR2004SectionPageMap(new Uint8Array([1,2])),/Truncated/);
