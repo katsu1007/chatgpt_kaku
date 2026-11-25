@@ -43,6 +43,23 @@ function makeR2000File(entity){
  const crcOffset=0x19+27;view.setUint16(crcOffset,(dwgR13Crc16(file.subarray(0,crcOffset))^0xa598)&0xffff,true);file.set(END,crcOffset+2);
  file.set(map,0x80);file.set(entity,0x100);return file;
 }
+function layerRecord({handle=200,name="A-WALL",values=18,color=7,layerControl=50,plotstyle=15,linetype=6}={}){
+ const base=[0,1,...bits(51),...bytesBits([0,0,0,0]),...handleBits(handle),...bs(0),1,0,
+  ...bs(name.length),...bytesBits([...name].map(c=>c.charCodeAt(0))),0,...bs(0),0,...bs(values),...bs(color)];
+ const handleStartBit=16+base.length,rl=[handleStartBit&255,(handleStartBit>>>8)&255,(handleStartBit>>>16)&255,(handleStartBit>>>24)&255];
+ base.splice(10,32,...bytesBits(rl));
+ const refs=[...handleBits(layerControl),...handleBits(0),...handleBits(0),...handleBits(plotstyle),...handleBits(linetype),...handleBits(0)];
+ const body=pack([...base,...refs]),out=new Uint8Array(2+body.length+2);out[0]=body.length&255;out[1]=body.length>>8;out.set(body,2);out.set([0x12,0x34],out.length-2);return out;
+}
+function makeR2000FileWithLayer(entity,layer){
+ const layerOffset=0x100+entity.length,map=mapBytes([[5,0x100],[195,entity.length]]),file=new Uint8Array(0x400),view=new DataView(file.buffer);
+ for(let i=0;i<6;i++)file[i]="AC1015".charCodeAt(i);
+ put32(view,0x0d,0x100);view.setUint16(0x13,932,true);put32(view,0x15,3);
+ const locators=[[0,0x50,16],[1,0x60,16],[2,0x80,map.length]];
+ for(let i=0;i<3;i++){const [id,offset,size]=locators[i],p=0x19+i*9;file[p]=id;put32(view,p+1,offset);put32(view,p+5,size);}
+ const crcOffset=0x19+27;view.setUint16(crcOffset,(dwgR13Crc16(file.subarray(0,crcOffset))^0xa598)&0xffff,true);file.set(END,crcOffset+2);
+ file.set(map,0x80);file.set(entity,0x100);file.set(layer,layerOffset);return file;
+}
 test("decodes R2000 common entity data, CMC color and LINE geometry",()=>{
  const r=parseR2000EntityRecord(lineRecord());assert.ok(r);
  assert.equal(r.typeName,"LINE");assert.equal(r.selfHandle,5n);assert.equal(r.noLinks,true);
@@ -66,4 +83,11 @@ test("R2000 synthetic LINE payload is independently readable at the expected bit
  assert.equal(reader.readRawDouble(),200);assert.equal(reader.readBits(2),0);assert.equal(reader.readBit(),1);assert.equal(reader.readBit(),1);
  const geometry=decodeR2004LineGeometry(new DwgBitReader(lineRecord(),{bitOffset:108}));
  assert.equal(geometry.zIsZero,true);assert.equal(geometry.pts[0].x,100);assert.equal(geometry.pts[0].y,200);
+});
+
+test("reads R2000 LAYER table records and resolves entity layer names",()=>{
+ const file=makeR2000FileWithLayer(lineRecord(),layerRecord()),header=parseR13R15DwgHeader(file),result=readR2000DrawingEntities(file,header);
+ assert.equal(result.layers.length,1);assert.equal(result.layers[0].name,"A-WALL");
+ assert.equal(result.entities.length,1);assert.equal(result.entities[0].layerName,"A-WALL");
+ assert.equal(result.entities[0].layerResolved,true);assert.equal(result.layerDiagnostics.layerCount,1);
 });
