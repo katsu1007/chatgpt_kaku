@@ -2,8 +2,8 @@
 // Grid-space topology engine. Coordinates are sheet mm; thresholds are relative to grid,
 // never interpreted as real-world m² without scale conversion.
 const OUTER_WALL_NAME=/(外壁|躯体|外周|建物外形|外形壁|exterior|outer.?wall)/i;
-const WALL_NAME=/(壁|間仕切|ブース|躯体|外壁|内壁|壁芯|(?:^|[-_ ])(?:a-)?wall(?:$|[-_ ])|wall|partition)/i;
-const NON_WALL_NAME=/(寸法|寸法線|寸法補助|寸法記入|寸法記号|引出線|引出|補助線|中心線|通り芯|グリッド|文字|注記|注釈|家具|什器|設備|器具|照明|電気|コンセント|記号|ハッチ|dimension|\bdim\b|measure|annotation|leader|extension|center.?line|grid|axis|furniture|fixture|text|symbol|hatch(?:ing)?)/i;
+const WALL_NAME=/(壁|間仕切|パーティション|ブース|躯体|外壁|内壁|壁芯|(?:^|[-_ ])(?:a-)?wall(?:$|[-_ ])|wall|partition)/i;
+const NON_WALL_NAME=/(寸法|寸法線|寸法補助|寸法記入|寸法記号|引出線|引出|補助線|基準線|中心線|通り芯|グリッド|文字|注記|注釈|家具|什器|設備|機器|器具|照明|電気|コンセント|記号|ハッチ|仕上|目地|ルーバー|建具|サッシ|開口|床|タイル|dimension|\\bdim\\b|measure|annotation|leader|extension|center.?line|grid|axis|furniture|fixture|text|symbol|hatch(?:ing)?)/i;
 // Jw_cad layer names may encode a group, e.g. "2-1 展開図 / 躯体".
 // A layer named 躯体 in an elevation/development group is not the floor-plan perimeter.
 // Exclude clearly non-plan groups from automatic wall discovery; explicit selections remain overrides.
