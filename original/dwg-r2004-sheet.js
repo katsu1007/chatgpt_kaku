@@ -225,13 +225,15 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
   if(item.kind==="line"||item.kind==="fill"){for(let i=0;i+1<item.pts.length;i+=2)include(item.pts[i],item.pts[i+1]);}
   else if(item.kind==="arc"){include(item.cx-item.r,item.cy-item.r);include(item.cx+item.r,item.cy+item.r);}
   else if(item.kind==="point"||item.kind==="text"||item.kind==="dimension")include(item.x,item.y);
+  if(item.kind==="dimension")for(const point of Object.values(item.points||{}))if(Array.isArray(point)&&point.length>=2)include(point[0],point[1]);
  }
  if(!Number.isFinite(minX)||!Number.isFinite(minY))throw new Error("DWG図形の座標範囲を計算できません");
  const origin={x:minX,y:minY};
  for(const item of mapped){
   if(item.kind==="line"||item.kind==="fill")for(let i=0;i<item.pts.length;i+=2){item.pts[i]-=minX;item.pts[i+1]-=minY;}
   else if(item.kind==="arc"){item.cx-=minX;item.cy-=minY;}
-  else if(item.kind==="point"||item.kind==="text"){item.x-=minX;item.y-=minY;}
+  else if(item.kind==="point"||item.kind==="text"||item.kind==="dimension"){item.x-=minX;item.y-=minY;}
+  if(item.kind==="dimension")for(const point of Object.values(item.points||{}))if(Array.isArray(point)&&point.length>=2){point[0]-=minX;point[1]-=minY;}
  }
  const unsupported=entities.length-convertedEntities;
  const warnings=["DWG "+version+"の独自読込です。",units.known?"INSUNITS："+units.name+"。座標をmmへ換算しました。":"INSUNITS（図面単位）を確定できないため、座標はDWG元単位のままです。mm換算・面積・概算数量の計算は行いません。",(version==="R2000"?"読み取り対象：LINE・ARC・CIRCLE・LWPOLYLINE・旧式POLYLINE/VERTEX・POINT・SOLID・INSERT/MINSERT・TEXT/MTEXT・DIMENSION計測情報・ELLIPSE/SPLINE近似。HATCH・MLINE・ATTRIB・寸法線/矢印の描画は未対応。":"読み取り対象：LINE・ARC・CIRCLE・LWPOLYLINE・旧式POLYLINE/VERTEX・POINT・SOLID・INSERT/MINSERT・TEXT/MTEXT/ATTRIB・DIMENSION計測情報・HATCH境界・ELLIPSE/SPLINE近似・MLINE。寸法線/矢印、HATCHパターン模様/グラデーション塗り表示は未対応。")];
