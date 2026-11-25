@@ -32,7 +32,7 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
   if(g.kind==="line"){
    add(entity,g,{kind:"line",pts:[g.pts[0].x*scale,g.pts[0].y*scale,g.pts[1].x*scale,g.pts[1].y*scale],z0:g.pts[0].z*scale,z1:g.pts[1].z*scale});
   }else if(g.kind==="arc"){
-   add(entity,g,{kind:"arc",cx:g.center.x*scale,cy:g.center.y*scale,r:g.radius*scale,a0:g.startAngle,a1:g.endAngle});
+   add(entity,g,{kind:"arc",cx:(g.center?.x??g.cx)*scale,cy:(g.center?.y??g.cy)*scale,r:(g.radius??g.r)*scale,a0:g.startAngle??g.a0,a1:g.endAngle??g.a1});
   }else if(g.kind==="circle"){
    add(entity,g,{kind:"arc",cx:g.center.x*scale,cy:g.center.y*scale,r:g.radius*scale,a0:0,a1:Math.PI*2,isCircle:true});
   }else if(g.kind==="solid"){
@@ -61,7 +61,7 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
  const warnings=["DWG R2004の試験読込です。",units.known?"INSUNITS："+units.name+"。座標をmmへ換算しました。":"INSUNITS（図面単位）を確定できないため、座標はDWG元単位のままです。mm換算・面積・概算数量の計算は行いません。","現時点で変換できる図形はLINE・ARC・CIRCLE・LWPOLYLINE・POINT・SOLIDです。INSERT/ブロック変換、寸法、文字、HATCH等は未対応です。"];
  if(unsupported)warnings.push("未変換オブジェクト："+unsupported+"件");
  if(result?.diagnostics?.unresolvedLayerCount)warnings.push("レイヤー名未解決："+result.diagnostics.unresolvedLayerCount+"件");
- if(result?.headerWarning)warnings.push(result.headerWarning);
+ if(result?.headerWarning)warnings.push(result.headerWarning);\n if(result?.blockExpansion?.reason)warnings.push("DWGブロック展開保留："+result.blockExpansion.reason);\n if(result?.blockExpansion?.skippedGeometry)warnings.push("ブロック変換できない図形："+result.blockExpansion.skippedGeometry+"件");
  const sheet={name:fileName,items:mapped,size:{w:Math.max(1,maxX-minX),h:Math.max(1,maxY-minY)},origin,nativeOrigin:{x:minX/scale,y:minY/scale},warnings,coordinateSpace:units.known?"sheet-mm":"dwg-native"};
  return {kind:"2d",sheets:[sheet],layers,meta:{format:"DWG",label:"DWG R2004（試験読込）",units:units.known?"mm":"unknown",coordinateSpace:units.known?"sheet-mm":"dwg-native",unitInfo:units,info:{items:mapped.length,figures:convertedEntities,polylines:polylineEntities,version:"R2004",layers:layers.length,units:units.name,scaleToMm:scale,headerWarning:result?.headerWarning||null,unsupported,skippedObjects:result?.diagnostics?.skippedObjectCount??0},warnings}};
 }
