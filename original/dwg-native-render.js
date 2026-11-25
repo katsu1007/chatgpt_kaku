@@ -3,6 +3,22 @@
 const finite=(v,fallback=0)=>Number.isFinite(Number(v))?Number(v):fallback;
 const xml=value=>String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&apos;"}[ch]));
 const fmt=value=>Number(finite(value).toFixed(3)).toString();
+// Convert common AutoCAD TEXT/MTEXT control sequences to displayable text.
+// This is a presentation transform only; the original source text remains intact.
+export function normalizeDwgText(input){
+ let value=String(input??"");
+ value=value.replace(/%%([dpc])/gi,(_,code)=>({d:"°",p:"±",c:"Ø"}[code.toLowerCase()]));
+ value=value.replace(/\\\\U\\+([0-9a-f]{4,8})/gi,(_,hex)=>{
+  const cp=parseInt(hex,16);return cp<=0x10ffff?String.fromCodePoint(cp):"";
+ });
+ value=value.replace(/\\\\S([^;]*);/g,(_,stack)=>stack.replace(/[\\^#]/g,"/"));
+ value=value.replace(/\\\\P/gi,"\\n").replace(/\\\\~/g,"\\u00a0");
+ value=value.replace(/\\\\[AaCcFfHhQqTtWw][^;]*;/g,"");
+ value=value.replace(/\\\\[LlOoKk]/g,"");
+ value=value.replace(/\\\\([\\\\{}])/g,"$1");
+ value=value.replace(/[{}]/g,"");
+ return value.split(/\\r?\\n/).map(line=>line.trimEnd());
+}
 export function prepareNativeDwgSheet(sheet,layers=[]){
  if(!sheet||!Array.isArray(sheet.items))throw new TypeError("Native DWG sheet items are required");
  const width=Math.max(1,finite(sheet.size?.w,1)),height=Math.max(1,finite(sheet.size?.h,1));
