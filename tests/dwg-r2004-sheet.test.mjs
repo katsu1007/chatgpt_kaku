@@ -93,7 +93,7 @@ test("maps HATCH polyline and arc boundaries without losing hatch metadata",()=>
  assert.equal(items.length,6);
  assert.ok(items.every(item=>item.hatchBoundary===true));
  assert.equal(items[0].hatchName,"SOLID");assert.equal(items[0].hatchPathIndex,0);
- assert.equal(items[4].kind,"arc");assert.equal(items[4].r,25);
+ assert.equal(items[5].kind,"arc");assert.equal(items[5].r,25);
  assert.equal(drawing.meta.info.hatches,1);
  assert.ok(drawing.meta.warnings.some(w=>w.includes("HATCH")));
 });
