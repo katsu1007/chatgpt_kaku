@@ -10,7 +10,7 @@ function layerRecord({handle=200,name="A-WALL",values=26,color=7,layerControl=50
   ...bs(name.length),...bytesBits([...name].map(c=>c.charCodeAt(0))),0,...bs(0),0,...bs(values),...bs(color)];
  const handleStart=16+base.length,rl=[handleStart&255,(handleStart>>>8)&255,(handleStart>>>16)&255,(handleStart>>>24)&255];
  base.splice(10,32,...bytesBits(rl));
- const refs=[...handleBits(layerControl),...handleBits(0),...handleBits(0),...handleBits(0),...handleBits(plotstyle),...handleBits(linetype),...handleBits(0)];
+ const refs=[...handleBits(layerControl),...handleBits(0),...handleBits(0),...handleBits(plotstyle),...handleBits(linetype),...handleBits(0)];
  const body=pack([...base,...refs]),out=new Uint8Array(2+body.length+2);out[0]=body.length&255;out[1]=body.length>>8;out.set(body,2);out.set([0x12,0x34],out.length-2);return out;
 }
 function genericRecord(type,handle){
