@@ -39,5 +39,6 @@ test("resolves common entity records through object-map handles",()=>{
 });
 test("rejects invalid EED and graphic lengths",()=>{
  const record=lineRecord();
- assert.throws(()=>parseR2004EntityRecord(lineRecord({eed:[1]}),0,{maxEedBytes:0}),/EED/);\n assert.throws(()=>parseR2004EntityRecord(lineRecord({graphic:[1]}),0,{maxGraphicBytes:0}),/graphic/);
+ assert.throws(()=>parseR2004EntityRecord(lineRecord({eed:[1]}),0,{maxEedBytes:0}),/EED/);
+ assert.throws(()=>parseR2004EntityRecord(lineRecord({graphic:[1]}),0,{maxGraphicBytes:0}),/graphic/);
 });
