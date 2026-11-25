@@ -29,10 +29,10 @@ export function parseR2000EntityRecord(input,offset=0,{maxEedBytes=1024*1024,max
  const colorNumber=reader.readBitShort(),color={colorNumber,aci:colorNumber&0x01ff};
  const linetypeScale=reader.readBitDouble(),linetypeFlags=reader.readBits(2),plotstyleFlags=reader.readBits(2);
  const invisibility=reader.readBitShort(),lineweight=reader.readRawChar();
- const geometryBitOffset=reader.bitOffset,geometryAvailableBits=reader.remainingBits,geometryCursor=reader.bitOffset,geometryPrefix=reader.readBits(Math.min(16,reader.remainingBits));reader.bitOffset=geometryCursor;
+ const geometryBitOffset=reader.bitOffset,geometryAvailableBits=reader.remainingBits;
  let geometry;
  try{geometry=SUPPORTED.has(envelope.objectType)?decodeR2004Geometry(envelope.objectType,reader):{kind:"unsupported",typeCode:envelope.objectType,reason:"R2000 entity family not yet implemented"};}
- catch(error){throw new Error("R2000 "+envelope.typeName+" geometry decode failed at bit "+geometryBitOffset+" with "+geometryAvailableBits+" bits remaining, prefix 0x"+geometryPrefix.toString(16)+": "+error.message);}
+ catch(error){throw new Error("R2000 "+envelope.typeName+" geometry decode failed at bit "+geometryBitOffset+" with "+geometryAvailableBits+" bits remaining: "+error.message);}
  const geometryEndBit=reader.bitOffset,handleBitOffset=offset*8+objectDataBits;
  if(geometryEndBit>envelope.recordEnd*8-16)throw new Error("R2000 geometry payload crosses record CRC boundary");
  if(!Number.isSafeInteger(handleBitOffset)||handleBitOffset<geometryEndBit||handleBitOffset>envelope.recordEnd*8-16)throw new Error("Invalid R2000 declared handle-stream offset");
