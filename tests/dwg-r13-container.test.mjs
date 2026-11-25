@@ -19,7 +19,7 @@ function makeFile(version="AC1015",count=3){
  const file=new Uint8Array(0x180),view=new DataView(file.buffer);
  for(let i=0;i<6;i++)file[i]=version.charCodeAt(i);
  put32(view,0x0d,0x100);view.setUint16(0x13,932,true);put32(view,0x15,count);
- const locators=[[0,0x80,16],[1,0x90,16],[2,0xa0,0x20]];
+ const locators=[[0,0x80,16],[1,0x90,16],[2,0xa0,mapBytes().length]];
  for(let i=0;i<count;i++){const [id,offset,size]=locators[i];const p=0x19+i*9;file[p]=id;put32(view,p+1,offset);put32(view,p+5,size);}
  const crcOffset=0x19+count*9,crc=(dwgR13Crc16(file.subarray(0,crcOffset))^({3:0xa598,4:0x8101,5:0x3cc4,6:0x8461}[count]))&0xffff;
  view.setUint16(crcOffset,crc,true);file.set(END,crcOffset+2);
