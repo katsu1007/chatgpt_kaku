@@ -56,3 +56,24 @@ test("skips non-entity objects in AcDb:AcDbObjects without treating them as enti
  const result=readR2004EntityRecords(section,{entries:[{handle:5n,offset:0n},{handle:99n,offset:BigInt(a.length)}]});
  assert.equal(result.records.length,1);assert.equal(result.skippedObjects.length,1);assert.equal(result.skippedObjects[0].objectType,44);
 });
+
+function insertRecord({handle=600,owner=100,layer=200,block=300}={}){
+ const geometry=[1,0,1,0,1,0,1,1,1,0,0,1,0];
+ const base=[0,1,...bits(7),...bytesBits([0,0,0,0]),...handleBits(handle),
+  ...bs(0),0,0,1,0,1,1,0,1,...bits(7),0,1,0,0,0,0,1,0,...bits(0),...geometry];
+ const handleStart=16+base.length,rl=[handleStart&255,(handleStart>>>8)&255,(handleStart>>>16)&255,(handleStart>>>24)&255];
+ base.splice(10,32,...bytesBits(rl));
+ const body=pack([...base,...handleBits(owner),...handleBits(layer),...handleBits(block)]);
+ const out=new Uint8Array(2+body.length+2);out[0]=body.length&255;out[1]=body.length>>8;out.set(body,2);out.set([0x12,0x34],out.length-2);return out;
+}
+test("decodes INSERT transform and its BLOCK_HEADER reference",()=>{
+ const r=parseR2004EntityRecord(insertRecord());
+ assert.equal(r.typeName,"INSERT");assert.equal(r.geometry.kind,"insert");
+ assert.deepEqual(r.geometry.insertionPoint,[0,0,0]);assert.deepEqual(r.geometry.scale,{x:1,y:1,z:1,flag:3});
+ assert.equal(r.layerHandle,200n);assert.equal(r.ownerHandle,100n);assert.equal(r.insertHandles.blockHeader.value,300n);
+ assert.equal(r.insertHandles.attributes.length,0);assert.equal(r.insertHandles.seqend,null);
+});
+test("INSERT records are retained by the object-map entity reader",()=>{
+ const record=insertRecord(),result=readR2004EntityRecords(record,{entries:[{handle:600n,offset:0n}]});
+ assert.equal(result.records.length,1);assert.equal(result.records[0].typeName,"INSERT");
+});
