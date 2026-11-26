@@ -172,7 +172,7 @@ test("projects tilted MLINE OCS boundary vertices into WCS before sheet mapping"
  assert.equal(item.kind,"line");
  assert.equal(item.ocsTransformed,true);
  assert.ok(Math.abs(Math.hypot(item.pts[2]-item.pts[0],item.pts[3]-item.pts[1])-100/Math.sqrt(2))<1e-8);
- assert.deepEqual(item.pts,[0,0,0,100/Math.sqrt(2)]);
+ assert.deepEqual(item.pts,[0,100/Math.sqrt(2),0,0]);
 });
 
 test("exposes closed external solid HATCH paths including bulged arcs as wall-fill candidates",()=>{
