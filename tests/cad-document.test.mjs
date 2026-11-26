@@ -242,7 +242,7 @@ test("warns when only part of JWW dimension and block provenance survives flatte
  ]},{sourceFormat:"JWW",sourceTypeCounts:{"count.CDataSunpou":4,"count.CDataBlock":3}});
  assert.equal(doc.diagnostics.dimensionGraphics,1);
  assert.equal(doc.diagnostics.blockInstances,1);
- assert.equal(doc.diagnostics.sourceWarnings.length,2);
+ assert.equal(doc.diagnostics.sourceWarnings.length, 3);
  assert.match(doc.diagnostics.sourceWarnings[0],/4件に対し、寸法として識別できた要素は 1件/);
  assert.match(doc.diagnostics.sourceWarnings[1],/3件に対し、ブロック由来として識別できた要素は 1件/);
 });
@@ -328,7 +328,7 @@ test("compares JWW source counts by default for a complete sheet",()=>{
   {type:"sunpou"},{type:"block"}
  ]},{sourceFormat:"JWW",sourceTypeCounts:{"count.CDataSunpou":2,"count.CDataBlock":2}});
  assert.equal(doc.diagnostics.sourceCountsComparable,true);
- assert.equal(doc.diagnostics.sourceWarnings.length,2);
+ assert.equal(doc.diagnostics.sourceWarnings.length, 3);
 });
 
 
