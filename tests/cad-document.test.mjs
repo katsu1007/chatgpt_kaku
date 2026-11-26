@@ -441,3 +441,21 @@ test("falls back to non-empty base block ancestry when top-level block path is e
  assert.deepEqual(entity.source.blockPath,["SYMBOLS","WASHBASIN"]);
  assert.equal(entity.semantic.role,"block-instance");
 });
+
+
+test("recovers original CAD provenance retained under expanded parser base objects",()=>{
+  const raw={kind:"line",layer:"WALL",pts:[0,0,100,0],base:{
+    type:"sunpou",sourceType:"CDataSunpou",handle:"BASE-17",sourceIndex:42,
+    layerGroup:3,blockPath:["PLAN","DIMENSIONS"],blockInstanceIndex:6,
+    blockTransform:[1,0,0,1,20,30]
+  }};
+  const entity=normalizeCadEntity(raw,0);
+  assert.equal(entity.source.type,"CDataSunpou");
+  assert.equal(entity.source.handle,"BASE-17");
+  assert.equal(entity.source.sourceIndex,42);
+  assert.equal(entity.source.layerGroup,"3");
+  assert.deepEqual(entity.source.blockPath,["PLAN","DIMENSIONS"]);
+  assert.equal(entity.source.blockInstanceIndex,6);
+  assert.deepEqual(entity.source.blockTransform,[1,0,0,1,20,30]);
+  assert.equal(entity.semantic.role,"dimension");
+});
