@@ -82,6 +82,11 @@ function geometryOf(entity, kind) {
         start: finite(entity?.startWidth) ? entity.startWidth : null,
         end: finite(entity?.endWidth) ? entity.endWidth : null,
         constant: finite(entity?.constantWidth) ? entity.constantWidth : null
+      } : kind === "line" && (finite(entity?.widthStart) || finite(entity?.widthEnd)) ? {
+        start: finite(entity?.widthStart) ? entity.widthStart : null,
+        end: finite(entity?.widthEnd) ? entity.widthEnd : null,
+        unit: entity?.widthUnit ?? null,
+        source: entity?.widthSource ?? null
       } : null
     };
   }
