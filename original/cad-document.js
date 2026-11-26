@@ -120,7 +120,13 @@ function geometryOf(entity, kind) {
       radius: finite(entity?.radius) ? entity.radius : finite(entity?.r) ? entity.r : null,
       startAngle: first(entity?.startAngle, entity?.start, null),
       endAngle: first(entity?.endAngle, entity?.end, null),
-      points: pts
+      points: pts,
+      widths: ((finite(entity?.widthStart) && entity.widthStart > 0) || (finite(entity?.widthEnd) && entity.widthEnd > 0)) ? {
+        start: finite(entity?.widthStart) && entity.widthStart > 0 ? entity.widthStart : null,
+        end: finite(entity?.widthEnd) && entity.widthEnd > 0 ? entity.widthEnd : null,
+        unit: entity?.widthUnit ?? null,
+        source: entity?.widthSource ?? null
+      } : null
     };
   }
   if (kind === "text" || kind === "dimension") {
