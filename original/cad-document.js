@@ -319,7 +319,7 @@ export function createCadDocument(input = {}, options = {}) {
   const preservedDimensionObjects = semanticCounts.dimension || 0;
   const preservedBlockInstances = semanticCounts["block-instance"] || 0;
   if (blockChildLayerProvenance.missing > 0) {
-    sourceWarnings.push(`ブロック内図形 ${blockChildLayerProvenance.missing}件で子図形本来のレイヤー情報を確認できません。挿入側レイヤーを子図形の属性とみなさず、該当図形の区画判定は保留または低信頼として扱ってください。`);
+    sourceWarnings.push(`ブロック内図形 ${blockChildLayerProvenance.missing}件で子図形本来のレイヤー情報を確認できません。挿入側レイヤーを子図形の属性とみなさず、誤った区画分割を防ぐため区画境界候補から除外しました。明示的に壁・間仕切りと分類された図形は例外です。`);
   }
   if (options.sourceCountsComparable !== false && rawDimensionObjects > preservedDimensionObjects) {
     sourceWarnings.push(`JWW元データの寸法オブジェクト ${rawDimensionObjects}件に対し、寸法として識別できた要素は ${preservedDimensionObjects}件です。一部または全部の寸法情報が通常図形へ展開されている可能性があります。寸法線を区画境界から確実に除外するには、元オブジェクトとの対応情報が必要です。`);
