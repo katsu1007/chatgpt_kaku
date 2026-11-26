@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { extractRoomHierarchy, suggestWallLayers } from "../original/room-engine.js";
+import { createCadDocument, attachCadEntityMetadata } from "../original/cad-document.js";
 
 const line=(layer,x1,y1,x2,y2)=>({kind:"line",layer,pts:[x1,y1,x2,y2]});
 function fixture(){
@@ -779,4 +780,31 @@ test("block-contained wall geometry remains usable while fixture blocks on the s
  assert.equal(result.rooms.length,2);
  assert.equal(result.parents[0].children.length,2);
  assert.ok(result.diagnostics.skippedSemanticItems>0);
+});
+
+
+test("DWG block provenance survives CAD normalization and drives production room extraction",()=>{
+ const rawItems=[
+  line("外壁",100,100,900,100),line("外壁",900,100,900,900),
+  line("外壁",900,900,100,900),line("外壁",100,900,100,100),
+  {...line("間仕切壁",500,100,500,900),blockPath:["WALL_ASSEMBLY"],blockTransform:[1,0,0,1,0,0],sourceInsertHandle:"A1",sourceBlockHandle:"B1",sourceEntityHandle:"C1",blockInstanceIndex:2},
+  {...line("間仕切壁",200,200,300,200),blockPath:["FIXTURE","SINK"],semanticRole:"fixture"},
+  {...line("間仕切壁",300,200,300,300),blockPath:["FIXTURE","SINK"],semanticRole:"fixture"},
+  {...line("間仕切壁",300,300,200,300),blockPath:["FIXTURE","SINK"],semanticRole:"fixture"},
+  {...line("間仕切壁",200,300,200,200),blockPath:["FIXTURE","SINK"],semanticRole:"fixture"}
+ ];
+ const layers=[{name:"外壁"},{name:"間仕切壁"}];
+ const model=createCadDocument({items:rawItems},{sourceFormat:"DWG",layers});
+ const items=attachCadEntityMetadata(rawItems,model.sheets[0].entities);
+ const wallBlock=items[4];
+ assert.equal(wallBlock.semanticRole,"block-instance");
+ assert.equal(wallBlock.blockInstance,true);
+ assert.deepEqual(wallBlock.blockPath,["WALL_ASSEMBLY"]);
+ assert.deepEqual(wallBlock.blockTransform,[1,0,0,1,0,0]);
+ assert.equal(wallBlock.sourceInsertHandle,"A1");
+ const result=extractRoomHierarchy({items,width:1000,height:1000,layers,selectedLayers:["外壁"]});
+ assert.equal(result.parents.length,1);
+ assert.equal(result.rooms.length,2);
+ assert.equal(result.parents[0].children.length,2);
+ assert.ok(result.diagnostics.skippedSemanticItems>=4);
 });
