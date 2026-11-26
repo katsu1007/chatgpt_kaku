@@ -501,11 +501,10 @@ function regionHasDoorOrFixtureEvidence(region,items,wallNames,hidden,cw,ch){
     if(hidden.has(layer))continue;
     const kind=String(it?.kind??it?.type??"").toLowerCase();
     const role=String(it?.semanticRole??it?.semantic?.role??it?.role??"").toLowerCase();
-    if(/fixture|plumb|toilet|sanitary|equipment/.test(role))return true;
-    if(!wallNames.has(layer)&&/(衛生|便器|洗面|設備|器具|給排水|toilet|fixture|plumb|sink|lavatory)/i.test(layer)){
-      const x=Number(it.x??it.cx??it.position?.x),y=Number(it.y??it.cy??it.position?.y);
-      if(Number.isFinite(x)&&Number.isFinite(y)&&x>=minX&&x<=maxX&&y>=minY&&y<=maxY)return true;
-    }
+    const x=Number(it.x??it.cx??it.position?.x),y=Number(it.y??it.cy??it.position?.y);
+    const inside=Number.isFinite(x)&&Number.isFinite(y)&&x>=minX&&x<=maxX&&y>=minY&&y<=maxY;
+    if(inside&&/fixture|plumb|toilet|sanitary|equipment/.test(role))return true;
+    if(inside&&!wallNames.has(layer)&&/(衛生|便器|洗面|設備|器具|給排水|toilet|fixture|plumb|sink|lavatory)/i.test(layer))return true;
     if(!["arc","circle"].includes(kind))continue;
     const center=it.center??it.centre;
     const x=Number(it.cx??it.x??center?.x??center?.[0]),y=Number(it.cy??it.y??center?.y??center?.[1]);
