@@ -1106,3 +1106,23 @@ test("an explicit room label preserves a small room despite nearby furniture geo
  assert.equal(result.rooms.length,2);
  assert.equal(result.diagnostics.filteredFurnitureIslands,0);
 });
+
+
+test("furniture strokes on the same wall layer do not create extra rooms",()=>{
+ const items=[
+  line("壁",100,100,10000,100),line("壁",10000,100,10000,10000),
+  line("壁",10000,10000,100,10000),line("壁",100,10000,100,100),
+  line("壁",4000,4000,5200,4000),line("壁",5200,4000,5200,6000),
+  line("壁",5200,6000,4000,6000),line("壁",4000,6000,4000,4000)
+ ];
+ const addRect=(x1,y1,x2,y2)=>{
+  items.push(line("壁",x1,y1,x2,y1),line("壁",x2,y1,x2,y2),line("壁",x2,y2,x1,y2),line("壁",x1,y2,x1,y1));
+ };
+ addRect(3400,4100,3800,4500);
+ addRect(3400,4700,3800,5100);
+ addRect(5400,4100,5800,4500);
+ addRect(5400,4700,5800,5100);
+ const result=extractRoomHierarchy({items,width:11000,height:11000,layers:[{name:"壁"}],selectedLayers:["壁"]});
+ assert.equal(result.rooms.length,1);
+ assert.equal(result.diagnostics.filteredFurnitureIslands,1);
+});
