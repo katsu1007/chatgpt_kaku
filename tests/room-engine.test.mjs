@@ -1155,6 +1155,6 @@ test("large isolated table outline with chair strokes is not accepted as a room"
  addRect(3400,5800,3800,6200);addRect(5700,4200,6100,4600);
  addRect(5700,5000,6100,5400);addRect(5700,5800,6100,6200);
  const result=extractRoomHierarchy({items,width:10000,height:10000,layers:[{name:"壁"}],selectedLayers:["壁"]});
- assert.equal(result.rooms.length,0);
+ assert.equal(result.rooms.length,0,JSON.stringify({rooms:result.rooms.map(r=>({area:r.area,minx:r.minx,maxx:r.maxx,miny:r.miny,maxy:r.maxy})),diag:result.diagnostics}));
  assert.ok(result.diagnostics.filteredFurnitureIslands>=1);
 });
