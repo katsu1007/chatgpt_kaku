@@ -21,29 +21,38 @@ function segmentRecord(value, index) {
   };
 }
 
-export function segmentsFromEntities(entities = []) {
+export function segmentsFromEntities(entities = [], options = {}) {
   const out = [];
-  for (let i=0;i<entities.length;i++) {
-    const entity=entities[i];
-    if (!entity || !["line","polyline"].includes(String(entity.kind||entity.type||"").toLowerCase())) continue;
-    const pts=entity.pts||entity.points||entity.vertices;
-    if (!Array.isArray(pts)) continue;
-    const pairs=pts.length&&typeof pts[0]==="object"
-      ?pts.filter(p=>finite(p?.x)&&finite(p?.y)).map(p=>[p.x,p.y])
-      :Array.from({length:Math.floor(pts.length/2)},(_,j)=>[pts[j*2],pts[j*2+1]]).filter(p=>p.every(finite));
-    for(let j=0;j+1<pairs.length;j++) out.push({
-      x1:pairs[j][0],y1:pairs[j][1],x2:pairs[j+1][0],y2:pairs[j+1][1],
-      sourceId:entity.handle??entity.id??"entity:"+i,
-      sourceLayer:entity.layer??entity.layerName??null,
-      sourceKind:entity.sourceType??entity.entityType??entity.kind??entity.type??null,
-      semanticRole:entity.semantic?.role??entity.semanticRole??entity.role??null,
-      layerScaleDenominator:entity.layerScaleDenominator??entity.semantic?.layerScaleDenominator??null,
-      sourceSegmentIndex:j
-    });
+  const arcStep = finite(options.arcStepRadians) && options.arcStepRadians > 0 ? Math.min(Math.PI/4,options.arcStepRadians) : Math.PI/18;
+  const add = (entity,index,points,closed=false) => {
+    if(points.length<2)return;
+    const ring=[...points];
+    if(closed&&Math.hypot(ring[0][0]-ring.at(-1)[0],ring[0][1]-ring.at(-1)[1])>1e-8)ring.push(ring[0]);
+    for(let j=0;j+1<ring.length;j++){
+      const a=ring[j],b=ring[j+1];if(Math.hypot(b[0]-a[0],b[1]-a[1])<=1e-10)continue;
+      out.push({x1:a[0],y1:a[1],x2:b[0],y2:b[1],sourceId:entity.handle??entity.id??'entity:'+index,sourceLayer:entity.layer??entity.layerName??null,sourceKind:entity.sourceType??entity.entityType??entity.kind??entity.type??null,semanticRole:entity.semantic?.role??entity.semanticRole??entity.role??null,layerScaleDenominator:entity.layerScaleDenominator??entity.semantic?.layerScaleDenominator??null,sourceSegmentIndex:j});
+    }
+  };
+  for(let i=0;i<entities.length;i++){
+    const entity=entities[i];if(!entity)continue;
+    const kind=String(entity.kind||entity.type||'').toLowerCase();
+    if(kind==='line'||kind==='polyline'){
+      const pts=entity.pts||entity.points||entity.vertices;if(!Array.isArray(pts))continue;
+      const pairs=pts.length&&typeof pts[0]==='object'?pts.filter(p=>finite(p?.x)&&finite(p?.y)).map(p=>[p.x,p.y]):Array.from({length:Math.floor(pts.length/2)},(_,j)=>[pts[j*2],pts[j*2+1]]).filter(p=>p.every(finite));
+      add(entity,i,pairs,entity.closed===true||entity.isClosed===true||entity.closedFlag===true||entity.flags?.closed===true);continue;
+    }
+    if(kind!=='arc'&&kind!=='circle')continue;
+    const cx=Number(entity.cx??entity.x??entity.center?.x),cy=Number(entity.cy??entity.y??entity.center?.y),r=Number(entity.r??entity.radius);
+    if(![cx,cy,r].every(finite)||r<=0)continue;
+    const circle=kind==='circle'||entity.isCircle===true,a0=circle?0:Number(entity.a0??entity.startAngle??0);
+    let sweep=circle?Math.PI*2:Number(entity.a1??entity.endAngle??Math.PI*2)-a0;
+    if(!finite(sweep)||Math.abs(sweep)<=1e-12)continue;if(Math.abs(sweep)>Math.PI*2)sweep=Math.sign(sweep)*Math.PI*2;
+    const count=Math.max(8,Math.ceil(Math.abs(sweep)/arcStep));
+    const points=Array.from({length:count+1},(_,j)=>{const a=a0+sweep*j/count;return[cx+r*Math.cos(a),cy+r*Math.sin(a)];});
+    add(entity,i,points,circle);
   }
   return out;
 }
-
 function paramOnSegment(x,y,s) {
   const dx=s.x2-s.x1,dy=s.y2-s.y1;
   return Math.abs(dx)>=Math.abs(dy)?(x-s.x1)/dx:(y-s.y1)/dy;
