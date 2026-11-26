@@ -507,17 +507,6 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
   }
   const parentRooms=parents.kept.map((r,i)=>({...r,name:"大部屋 "+(i+1),level:1,children:[]}));
   const parentByRegion=new Map(parentRooms.map(p=>[p.id,p]));
-  const scaleTrace=childRooms.length?childTrace:parentTrace;
-  const scaleLayerNames=new Set([...(scaleTrace.usedLayers||[]),...(floorFillUsed?floorMask.layers:[])]);
-  const scaleLayers=[...scaleLayerNames].map(name=>({name,scale:(layers||[]).find(layer=>String(layer?.name??"")===String(name))?.scale}));
-  const knownScales=scaleLayers.map(entry=>entry.scale).filter(value=>Number.isFinite(value)&&value>0);
-  const unknownScaleLayers=scaleLayers.filter(entry=>!(Number.isFinite(entry.scale)&&entry.scale>0)).map(entry=>entry.name);
-  const uniqueScales=[...new Set(knownScales.map(value=>Number(value.toPrecision(10))))];
-  const scaleAssessment={
-    status:!scaleLayers.length||unknownScaleLayers.length?"unknown":uniqueScales.length===1?"uniform":"mixed",
-    denominator:!unknownScaleLayers.length&&uniqueScales.length===1?uniqueScales[0]:null,
-    candidateLayers:scaleLayers.length,usedBoundaryLayers:[...scaleLayerNames],unknownLayers:unknownScaleLayers,distinctDenominators:uniqueScales
-  };
   const childRooms=[];let unassignedChildren=0;
   const childGroups=new Map();
   for(const child of children.kept){
@@ -537,6 +526,17 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
       parent.children.push(room);childRooms.push(room);
     }
   }
+  const scaleTrace=childRooms.length?childTrace:parentTrace;
+  const scaleLayerNames=new Set([...(scaleTrace.usedLayers||[]),...(floorFillUsed?floorMask.layers:[])]);
+  const scaleLayers=[...scaleLayerNames].map(name=>({name,scale:(layers||[]).find(layer=>String(layer?.name??"")===String(name))?.scale}));
+  const knownScales=scaleLayers.map(entry=>entry.scale).filter(value=>Number.isFinite(value)&&value>0);
+  const unknownScaleLayers=scaleLayers.filter(entry=>!(Number.isFinite(entry.scale)&&entry.scale>0)).map(entry=>entry.name);
+  const uniqueScales=[...new Set(knownScales.map(value=>Number(value.toPrecision(10))))];
+  const scaleAssessment={
+    status:!scaleLayers.length||unknownScaleLayers.length?"unknown":uniqueScales.length===1?"uniform":"mixed",
+    denominator:!unknownScaleLayers.length&&uniqueScales.length===1?uniqueScales[0]:null,
+    candidateLayers:scaleLayers.length,usedBoundaryLayers:[...scaleLayerNames],unknownLayers:unknownScaleLayers,distinctDenominators:uniqueScales
+  };
   // Prefer the finer partition for rendering, falling back to parent spaces if no inner walls were found.
   const displayRooms=childRooms.length?childRooms:parentRooms;
   const ids=new Int32Array(N);ids.fill(-1);
