@@ -821,3 +821,40 @@ test("layer inventory counts DWG block paths and insert handles as source proven
  assert.equal(wall.sourceTagged,1);
  assert.equal(wall.blockTagged,1);
 });
+
+
+test("unused unknown-scale wall candidate layers do not block conversion from actual boundary layers",()=>{
+ const items=[
+  line("外壁",100,100,900,100),line("外壁",900,100,900,900),
+  line("外壁",900,900,100,900),line("外壁",100,900,100,100),
+  line("間仕切壁",500,100,500,900)
+ ];
+ const layers=[
+  {name:"外壁",scale:50},
+  {name:"間仕切壁",scale:50},
+  {name:"壁_予備レイヤー",scale:null}
+ ];
+ const result=extractRoomHierarchy({items,width:1000,height:1000,layers,selectedLayers:["外壁"]});
+ assert.equal(result.diagnostics.scaleAssessment.status,"uniform");
+ assert.equal(result.diagnostics.scaleAssessment.denominator,50);
+ assert.deepEqual(result.diagnostics.scaleAssessment.usedBoundaryLayers.sort(),["外壁","間仕切壁"]);
+ assert.ok(result.rooms.every(room=>room.realAreaM2!=null));
+});
+
+test("hidden and unused wall candidates do not enter the used boundary scale set",()=>{
+ const items=[
+  line("外壁",100,100,900,100),line("外壁",900,100,900,900),
+  line("外壁",900,900,100,900),line("外壁",100,900,100,100),
+  line("間仕切壁",500,100,500,900),
+  line("壁_非表示",200,200,800,200)
+ ];
+ const layers=[
+  {name:"外壁",scale:50},
+  {name:"間仕切壁",scale:50},
+  {name:"壁_非表示",scale:10},
+  {name:"壁_未使用",scale:null}
+ ];
+ const result=extractRoomHierarchy({items,width:1000,height:1000,layers,selectedLayers:["外壁"],hiddenLayers:["壁_非表示"]});
+ assert.deepEqual(result.diagnostics.scaleAssessment.usedBoundaryLayers.sort(),["外壁","間仕切壁"]);
+ assert.equal(result.diagnostics.scaleAssessment.status,"uniform");
+});
