@@ -1,5 +1,5 @@
 import { extractRoomHierarchy, suggestWallLayers } from "./room-engine.js?v=20261126-scalearea1";
-import { createCadDocument } from "./cad-document.js?v=20261126-model2";
+import { createCadDocument, attachCadEntityMetadata } from "./cad-document.js?v=20261126-model3";
 import { analyzePlanarRoomCandidates } from "./planar-room-candidates.js?v=20261126-face-scale1";
 import { inspectCadFileHeader } from "./cad-format-probe.js?v=20261125-dwg-probe1";
 import { parseR2004DwgHeader } from "./dwg-r2004-container.js?v=20261125-dwg-header2";
@@ -34,7 +34,7 @@ function activateChoice(index){
  // Attach normalized source metadata back to the matching parser items. Geometry stays untouched;
  // this makes layer scale and any parser-recognized semantics available to both room analyzers.
  const normalizedEntities=state.cadDocument?.sheets?.[0]?.entities||[];
- state.sheet.items=state.sheet.items.map((item,index)=>{const normalized=normalizedEntities[index];if(!normalized)return item;return {...item,sourceType:item.sourceType??normalized.source?.type??null,semanticRole:item.semanticRole??normalized.semantic?.role??null,dimensionGraphic:item.dimensionGraphic??normalized.semantic?.dimensionGraphic??false,layerScaleDenominator:item.layerScaleDenominator??normalized.source?.layerScaleDenominator??null,blockPath:item.blockPath??normalized.source?.blockPath??[]};});
+ state.sheet.items=attachCadEntityMetadata(state.sheet.items,normalizedEntities);
  state.boundaryLayers.clear();state.rooms=[];state.roomGrid=null;
  const counts=new Map();for(const it of state.sheet.items)if(it.layer!=null)counts.set(it.layer,(counts.get(it.layer)||0)+1);
  state.layers=state.layers.map(l=>({...l,actualItems:counts.get(l.name)||0}));
