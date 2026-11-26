@@ -2,7 +2,6 @@
 // Converts entity-local OCS coordinates into WCS before the 2D sheet projection.
 import { tessellateBulgedPolyline } from "./cad-curve-tessellation.js";
 const finite=Number.isFinite;
-const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
 const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
 const unit=v=>{const n=Math.hypot(...v);if(!finite(n)||n<1e-12)throw new RangeError("OCS normal must be a non-zero finite vector");return v.map(x=>x/n);};
 export function ocsBasis(normal=[0,0,1]){
@@ -21,7 +20,7 @@ export function transformOcsPoint(point,normal=[0,0,1]){
 }
 export function isWorldZNormal(normal=[0,0,1],tolerance=1e-7){
  const n=unit([Number(normal?.[0]??0),Number(normal?.[1]??0),Number(normal?.[2]??1)]);
- return Math.abs(n[0])<=tolerance&&Math.abs(n[1])<=tolerance&&Math.abs(Math.abs(n[2])-1)<=tolerance;
+ return Math.abs(n[0])<=tolerance&&Math.abs(n[1])<=tolerance&&Math.abs(n[2]-1)<=tolerance;
 }
 export function tessellateOcsArc({center,radius,startAngle=0,endAngle=Math.PI*2,normal=[0,0,1],circle=false},{maxSegments=4096,maxStepRadians=Math.PI/36}={}){
  const c=Array.isArray(center)?center:[center?.x,center?.y,center?.z??0],r=Number(radius),a0=Number(startAngle),a1=Number(endAngle);
