@@ -31,7 +31,7 @@ function isDimensionGraphicItem(it){
 // fixture, furniture and unknown blocks remain non-boundary even on wall layers.
 function isArchitecturalWallBlock(it){
   const path=Array.isArray(it?.blockPath)?it.blockPath:[];
-  const names=[...path,it?.blockName,it?.sourceBlockName].filter(value=>value!=null).map(String);
+  const names=[...path,it?.blockName,it?.sourceBlockName,it?.sourceNativeLayer].filter(value=>value!=null).map(String);
   return names.some(name=>name.split(/[\\/\\s:_-]+/).some(token=>/^(?:wall|walls|partition|partitions|structural|structure)$/i.test(token))||/(?:壁|間仕切|躯体|パーティション)/.test(name));
 }
 // Numeric dimension labels help identify dimension strokes even when they share a wall layer.
