@@ -1141,3 +1141,20 @@ test("an isolated small room with a door swing is retained",()=>{
  assert.equal(result.rooms.length,2);
  assert.equal(result.diagnostics.filteredFurnitureIslands,0);
 });
+
+
+test("large isolated table outline with chair strokes is not accepted as a room",()=>{
+ const items=[
+  line("壁",4000,4000,5500,4000),line("壁",5500,4000,5500,7000),
+  line("壁",5500,7000,4000,7000),line("壁",4000,7000,4000,4000)
+ ];
+ const addRect=(x1,y1,x2,y2)=>{
+  items.push(line("壁",x1,y1,x2,y1),line("壁",x2,y1,x2,y2),line("壁",x2,y2,x1,y2),line("壁",x1,y2,x1,y1));
+ };
+ addRect(3400,4200,3800,4600);addRect(3400,5000,3800,5400);
+ addRect(3400,5800,3800,6200);addRect(5700,4200,6100,4600);
+ addRect(5700,5000,6100,5400);addRect(5700,5800,6100,6200);
+ const result=extractRoomHierarchy({items,width:10000,height:10000,layers:[{name:"壁"}],selectedLayers:["壁"]});
+ assert.equal(result.rooms.length,0,JSON.stringify({rooms:result.rooms.map(r=>({area:r.area,minx:r.minx,maxx:r.maxx,miny:r.miny,maxy:r.maxy})),diag:result.diagnostics}));
+ assert.ok(result.diagnostics.filteredFurnitureIslands>=1);
+});

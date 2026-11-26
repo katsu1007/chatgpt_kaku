@@ -552,19 +552,69 @@ function wallComponentRegionMeasures(wall,regionAt,nx,ny,cw,ch){
   }
   return {measures,sharedRegionCounts,largestMeasure:largestCells*Math.min(cw,ch)};
 }
-function filterFurnitureIslands(regions,items,wallNames,hidden,cw,ch,wall,regionAt,nx,ny){
+function regionHasFurnitureHaloEvidence(region,items,hidden,cw,ch){
+  const areaM2=region.area*cw*ch/1e6;
+  if(areaM2<.3||areaM2>8||regionHasRoomLabel(region,items,cw,ch))return false;
+  const minX=region.minx*cw,maxX=(region.maxx+1)*cw,minY=region.miny*ch,maxY=(region.maxy+1)*ch;
+  const sideCounts={left:0,right:0,top:0,bottom:0},centers=new Set();
+  for(const it of items||[]){
+    const layer=String(it?.layer??"");
+    if(!layer||hidden.has(layer)||/寸法|注記|文字|annotation|dimension|leader|\bdim\b/i.test(layer))continue;
+    const kind=String(it?.kind??it?.type??"").toLowerCase();
+    if(!["line","polyline"].includes(kind))continue;
+    const raw=it.pts??it.points??it.vertices;
+    if(!Array.isArray(raw)||raw.length<4)continue;
+    const pts=[];
+    if(typeof raw[0]==="object"){
+      for(const p of raw)if(Number.isFinite(p?.x)&&Number.isFinite(p?.y))pts.push([p.x,p.y]);
+    }else{
+      for(let i=0;i+1<raw.length;i+=2)if(Number.isFinite(raw[i])&&Number.isFinite(raw[i+1]))pts.push([raw[i],raw[i+1]]);
+    }
+    for(let i=0;i+1<pts.length;i++){
+      const [x1,y1]=pts[i],[x2,y2]=pts[i+1],length=Math.hypot(x2-x1,y2-y1);
+      if(length<20||length>500)continue;
+      const x=(x1+x2)/2,y=(y1+y2)/2;
+      const vertical=y>=minY-300&&y<=maxY+300,horizontal=x>=minX-300&&x<=maxX+300;
+      let side=null;
+      if(x<minX&&minX-x<=500&&vertical)side="left";
+      else if(x>maxX&&x-maxX<=500&&vertical)side="right";
+      else if(y<minY&&minY-y<=500&&horizontal)side="bottom";
+      else if(y>maxY&&y-maxY<=500&&horizontal)side="top";
+      if(side){sideCounts[side]++;centers.add(Math.round(x/100)+":"+Math.round(y/100));}
+    }
+  }
+  const values=Object.values(sideCounts).sort((a,b)=>b-a);
+  const opposite=(sideCounts.left>=6&&sideCounts.right>=6)||(sideCounts.top>=6&&sideCounts.bottom>=6);
+  const densePair=values[0]>=20&&values[1]>=8&&values.reduce((sum,value)=>sum+value,0)>=32;
+  return centers.size>=8&&(opposite||densePair);
+}
+function filterFurnitureIslands(regions,items,wallNames,hidden,cw,ch,wall,regionAt,nx,ny,furnitureSeeds=[]){
   const {measures,sharedRegionCounts,largestMeasure}=wallComponentRegionMeasures(wall,regionAt,nx,ny,cw,ch);
+  const source=regions.kept||[];
   const filteredKeys=[];
-  const kept=(regions.kept||[]).filter(region=>{
+  const kept=source.filter(region=>{
+    const key=[region.id,region.seed,region.area].join(":");
     const areaM2=region.area*cw*ch/1e6;
-    if(areaM2<.05||areaM2>4)return true;
+    if(areaM2<.05||areaM2>8)return true;
     if(regionHasRoomLabel(region,items,cw,ch)||regionHasDoorOrFixtureEvidence(region,items,wallNames,hidden,cw,ch))return true;
-    // Small closed loops that do not join a larger architectural wall network
-    // are furniture/equipment candidates, even when every stroke is on 壁.
-    const wallNetworkMeasure=measures.get(region.id)||0;
+    // Furniture evidence must be evaluated before shared-wall topology:
+    // a table/chair cluster can touch or share a raster wall component and
+    // otherwise be incorrectly promoted to a room by the shared-count shortcut.
+    const minX=region.minx*cw,maxX=(region.maxx+1)*cw,minY=region.miny*ch,maxY=(region.maxy+1)*ch;
+    const nearFurnitureSeed=areaM2<.3&&furnitureSeeds.some(other=>{
+      if(other===region)return false;
+      const ox0=other.minx*cw,ox1=(other.maxx+1)*cw,oy0=other.miny*ch,oy1=(other.maxy+1)*ch;
+      const dx=Math.max(0,ox0-maxX,minX-ox1),dy=Math.max(0,oy0-maxY,minY-oy1);
+      return Math.hypot(dx,dy)<=800;
+    });
+    const furnitureHalo=furnitureSeeds.includes(region);
+    if(furnitureHalo||nearFurnitureSeed){filteredKeys.push(key);return false;}
+    // A partition component shared by several adjacent regions is useful
+    // evidence only after furniture-cluster rejection has been applied.
     if((sharedRegionCounts.get(region.id)||0)>=3)return true;
-    if(largestMeasure>0&&wallNetworkMeasure>=largestMeasure*.25)return true;
-    filteredKeys.push([region.id,region.seed,region.area].join(":"));return false;
+    const wallNetworkMeasure=measures.get(region.id)||0;
+    if(largestMeasure>0&&wallNetworkMeasure>=largestMeasure*.6)return true;
+    filteredKeys.push(key);return false;
   });
   return {...regions,kept,filteredFurnitureIslands:filteredKeys.length,filteredFurnitureKeys:filteredKeys};
 }
@@ -648,8 +698,9 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
   // not a room; retain it only when an explicit room label provides evidence.
   let filteredFurnitureIslands=0;
   if(!floorFillUsed){
-    parents=filterFurnitureIslands(parents,items,allNames,hidden,cw,ch,parentTrace.wall,parentFlood.regionAt,nx,ny);
-    children=filterFurnitureIslands(children,items,allNames,hidden,cw,ch,childTrace.wall,childFlood.regionAt,nx,ny);
+    const furnitureSeeds=[...parents.kept,...children.kept].filter(region=>regionHasFurnitureHaloEvidence(region,items,hidden,cw,ch));
+    parents=filterFurnitureIslands(parents,items,allNames,hidden,cw,ch,parentTrace.wall,parentFlood.regionAt,nx,ny,furnitureSeeds);
+    children=filterFurnitureIslands(children,items,allNames,hidden,cw,ch,childTrace.wall,childFlood.regionAt,nx,ny,furnitureSeeds);
     filteredFurnitureIslands=new Set([...(parents.filteredFurnitureKeys||[]),...(children.filteredFurnitureKeys||[])]).size;
   }
   const parentRooms=parents.kept.map((r,i)=>({...r,name:"大部屋 "+(i+1),level:1,children:[]}));
