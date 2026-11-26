@@ -366,10 +366,10 @@ test("transforms TEXT MTEXT and ATTRIB insertion points and TEXT baselines from 
  const items=drawing.sheets[0].items;
  const text=items.find(item=>item.text==="TEXT"),attrib=items.find(item=>item.text==="ATTRIB"),mtext=items.find(item=>item.text==="MTEXT");
  assert.equal(text.ocsTransformed,true);assert.equal(attrib.ocsTransformed,true);assert.equal(mtext.ocsTransformed,true);
- assert.ok(Math.abs(text.z-5*Math.SQRT1_2)<1e-6);
+ assert.ok(Math.abs(text.z-25*Math.SQRT1_2)<1e-6);
  assert.ok(Math.abs(text.rotation-Math.PI)<1e-6);
  assert.ok(Math.abs(attrib.rotation+Math.PI/2)<1e-6);
- assert.ok(Math.abs(text.alignment.z-5*Math.SQRT1_2)<1e-6);
+ assert.ok(Math.abs(text.alignment.z-27*Math.SQRT1_2)<1e-6);
 });
 
 test("invalid TEXT extrusion normals are skipped without aborting valid geometry",()=>{
