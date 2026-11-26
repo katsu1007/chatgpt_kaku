@@ -1224,3 +1224,29 @@ test("slanted partition branch four millimetres short is not snapped across the 
  // Other endpoints elsewhere in the outer boundary may legitimately snap;
  // the room count proves this four-millimetre branch was not joined.
 });
+
+
+test("fixed 150 mm near-miss gap does not become scale-dependent T-junction",()=>{
+  // The same real-world gap must remain open regardless of the overall sheet
+  // extent. At 100,000 mm square, the current 2.25-cell tolerance exceeds 150 mm.
+  for(const extent of [1000,100000]){
+    const edge=extent-100;
+    const items=[
+      line("外壁",100,100,edge,100),
+      line("外壁",edge,100,edge,edge),
+      line("外壁",edge,edge,100,edge),
+      line("外壁",100,edge,100,100),
+      // Partition joins the top wall but stops 150 mm short of the bottom wall.
+      line("間仕切壁",extent/2,100,extent/2,edge-150)
+    ];
+    const result=extractRoomHierarchy({
+      items,width:extent,height:extent,
+      layers:[{name:"外壁"},{name:"間仕切壁"}],
+      selectedLayers:["外壁"]
+    });
+    assert.equal(
+      result.rooms.length,1,
+      `150 mm opening must remain open at ${extent} mm drawing extent`
+    );
+  }
+});
