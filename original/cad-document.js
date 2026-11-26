@@ -182,12 +182,13 @@ export function normalizeCadEntity(entity, index, options = {}) {
   const layerScaleDenominator = finite(layerInfo?.scale) && layerInfo.scale > 0 ? layerInfo.scale : null;
   const semantics = sourceSemantics({ ...inherited, ...source }, sourceType, layerScaleDenominator);
   const handle = first(source.handle, source.id, source.objectId, inherited.handle, inherited.id, inherited.objectId, null);
+  const lineage = sourceLineage(source);
+  const inheritedBlockPath = lineage.map(entry => entry.blockPath).find(path => Array.isArray(path) && path.length) || [];
+  const inheritedBlockName = first(...lineage.map(entry => entry.blockName));
   const blockPath = Array.isArray(source.blockPath) && source.blockPath.length ? [...source.blockPath] :
-    Array.isArray(inherited.blockPath) && inherited.blockPath.length ? [...inherited.blockPath] :
-    Array.isArray(source.blockPath) ? [...source.blockPath] :
-    Array.isArray(inherited.blockPath) ? [...inherited.blockPath] :
+    inheritedBlockPath.length ? [...inheritedBlockPath] :
     source.blockName != null ? [String(source.blockName)] :
-    inherited.blockName != null ? [String(inherited.blockName)] : [];
+    inheritedBlockName != null ? [String(inheritedBlockName)] : [];
   return {
     id: String(first(source.kakuId, handle, options.idPrefix ? options.idPrefix + ":" + index : "entity:" + index)),
     index,
@@ -200,11 +201,11 @@ export function normalizeCadEntity(entity, index, options = {}) {
       layerGroup: layerGroup == null ? null : String(layerGroup),
       blockPath,
       blockTransform: clone(first(source.blockTransform, inherited.blockTransform, null)),
-      sourceInsertHandle: first(source.sourceInsertHandle, inherited.sourceInsertHandle, null) == null ? null : String(first(source.sourceInsertHandle, source.base?.sourceInsertHandle)),
-      sourceBlockHandle: first(source.sourceBlockHandle, inherited.sourceBlockHandle, null) == null ? null : String(first(source.sourceBlockHandle, source.base?.sourceBlockHandle)),
-      sourceEntityHandle: first(source.sourceEntityHandle, inherited.sourceEntityHandle, null) == null ? null : String(first(source.sourceEntityHandle, source.base?.sourceEntityHandle)),
+      sourceInsertHandle: first(source.sourceInsertHandle, inherited.sourceInsertHandle, null) == null ? null : String(first(source.sourceInsertHandle, inherited.sourceInsertHandle)),
+      sourceBlockHandle: first(source.sourceBlockHandle, inherited.sourceBlockHandle, null) == null ? null : String(first(source.sourceBlockHandle, inherited.sourceBlockHandle)),
+      sourceEntityHandle: first(source.sourceEntityHandle, inherited.sourceEntityHandle, null) == null ? null : String(first(source.sourceEntityHandle, inherited.sourceEntityHandle)),
       blockInstanceIndex: Number.isInteger(source.blockInstanceIndex) ? source.blockInstanceIndex :
-         Number.isInteger(inherited.blockInstanceIndex) ? source.base.blockInstanceIndex : null,
+         Number.isInteger(inherited.blockInstanceIndex) ? inherited.blockInstanceIndex : null,
       sourceIndex: semantics.entityIndex,
       groupIndex: semantics.groupIndex,
       layerIndex: semantics.layerIndex,
