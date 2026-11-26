@@ -606,3 +606,46 @@ test("decoded R2004 arc center and angle fields are traced",()=>{
  const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"外壁"}],selectedLayers:[]});
  assert.equal(result.parents.length,1);
 });
+
+test("dimension labels using height and rotation fields suppress dimension strokes",()=>{
+ const items=[
+  line("壁",100,100,900,100),line("壁",900,100,900,900),line("壁",900,900,100,900),line("壁",100,900,100,100),
+  line("壁",100,300,900,300),
+  {kind:"text",layer:"文字",x:455,y:310,height:20,text:"8000",rotation:0}
+ ];
+ const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"壁"},{name:"文字"}],selectedLayers:[]});
+ assert.equal(result.rooms.length,1);
+ assert.ok(result.diagnostics.skippedDimensionSegments>0);
+});
+
+test("dimension labels with W/H prefixes and width factors are recognized",()=>{
+ const items=[
+  line("壁",100,100,900,100),line("壁",900,100,900,900),line("壁",900,900,100,900),line("壁",100,900,100,100),
+  line("壁",100,300,900,300),
+  {kind:"text",layer:"文字",x:455,y:310,height:20,widthFactor:1.2,text:"W=8000 mm",rotation:0}
+ ];
+ const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"壁"},{name:"文字"}],selectedLayers:[]});
+ assert.equal(result.rooms.length,1);
+ assert.ok(result.diagnostics.skippedDimensionSegments>0);
+});
+
+test("rotated dimension labels suppress matching diagonal dimension strokes",()=>{
+ const items=[
+  line("壁",100,100,900,100),line("壁",900,100,900,900),line("壁",900,900,100,900),line("壁",100,900,100,100),
+  line("壁",100,100,900,900),
+  {kind:"text",layer:"文字",x:450,y:450,height:20,text:"1131",rotation:Math.PI/4}
+ ];
+ const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"壁"},{name:"文字"}],selectedLayers:[]});
+ assert.equal(result.rooms.length,1);
+ assert.ok(result.diagnostics.skippedDimensionSegments>0);
+});
+
+test("ordinary room text containing a number does not suppress real partitions",()=>{
+ const items=[
+  line("壁",100,100,900,100),line("壁",900,100,900,900),line("壁",900,900,100,900),line("壁",100,900,100,100),
+  line("壁",100,300,900,300),
+  {kind:"text",layer:"文字",x:455,y:310,height:20,text:"ROOM 8000",rotation:0}
+ ];
+ const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"壁"},{name:"文字"}],selectedLayers:[]});
+ assert.equal(result.rooms.length,2);
+});
