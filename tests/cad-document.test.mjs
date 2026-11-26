@@ -253,3 +253,34 @@ test("does not warn when preserved JWW provenance meets or exceeds source counts
  ]},{sourceFormat:"JWW",sourceTypeCounts:{"count.CDataSunpou":1,"count.CDataBlock":1}});
  assert.deepEqual(doc.diagnostics.sourceWarnings,[]);
 });
+
+
+test("attaches complete normalized provenance to parser items without changing geometry",()=>{
+ const items=[{kind:"line",pts:[0,0,100,0],layer:"WALL"},{kind:"text",text:"ROOM"}];
+ const normalized=[
+  {source:{type:"sen",layerScaleDenominator:50,groupIndex:2,layerIndex:1,sourceIndex:17,blockPath:["SYMBOLS","TOILET"]},semantic:{role:"block-instance",dimensionGraphic:false,blockInstance:true}},
+  {source:{type:"moji",layerScaleDenominator:null,groupIndex:2,layerIndex:2,sourceIndex:18,blockPath:[]},semantic:{role:"dimension",dimensionGraphic:true,blockInstance:false}}
+ ];
+ const {attachCadEntityMetadata}=await import("../original/cad-document.js");
+ const out=attachCadEntityMetadata(items,normalized);
+ assert.deepEqual(out[0].pts,[0,0,100,0]);
+ assert.equal(out[0].semanticRole,"block-instance");
+ assert.equal(out[0].blockInstance,true);
+ assert.equal(out[0].sourceGroupIndex,2);
+ assert.equal(out[0].sourceLayerIndex,1);
+ assert.equal(out[0].sourceEntityIndex,17);
+ assert.deepEqual(out[0].blockPath,["SYMBOLS","TOILET"]);
+ assert.equal(out[0].layerScaleDenominator,50);
+ assert.equal(out[1].dimensionGraphic,true);
+ assert.equal(out[1].semanticRole,"dimension");
+ assert.equal(items[0].semanticRole,undefined);
+});
+
+test("preserves explicit parser metadata when normalized metadata is absent or weaker",()=>{
+ const {attachCadEntityMetadata}=await import("../original/cad-document.js");
+ const input=[{kind:"line",semanticRole:"wall",dimensionGraphic:false,blockPath:["EXISTING"],layerScaleDenominator:25}];
+ const out=attachCadEntityMetadata(input,[{source:{blockPath:[],layerScaleDenominator:50},semantic:{role:"unclassified",dimensionGraphic:false}}]);
+ assert.equal(out[0].semanticRole,"wall");
+ assert.equal(out[0].layerScaleDenominator,25);
+ assert.deepEqual(out[0].blockPath,["EXISTING"]);
+});
