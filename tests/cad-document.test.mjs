@@ -197,3 +197,15 @@ test("normalizes ellipse and spline curves into bounded geometry",()=>{
  assert.ok(spline.geometry.points.length>=24);
  assert.ok(spline.bounds.maxY>0);
 });
+
+test("CAD document accepts decoded center arrays for arcs and circles",()=>{
+ const doc=createCadDocument({items:[
+  {kind:"circle",center:[10,20,0],radius:5},
+  {kind:"arc",center:[0,0,0],radius:10,startAngle:0,endAngle:Math.PI}
+ ]});
+ const [circle,arc]=doc.sheets[0].entities;
+ assert.deepEqual(circle.geometry.center,{x:10,y:20});
+ assert.deepEqual(circle.bounds,{minX:5,minY:15,maxX:15,maxY:25});
+ assert.deepEqual(arc.geometry.center,{x:0,y:0});
+ assert.deepEqual(arc.geometry.startAngle,0);
+});
