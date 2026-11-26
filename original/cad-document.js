@@ -183,6 +183,30 @@ export function normalizeCadEntity(entity, index, options = {}) {
   };
 }
 
+/** Attach normalized provenance to parser geometry without changing coordinates or mutating inputs. */
+export function attachCadEntityMetadata(items = [], normalizedEntities = []) {
+  if (!Array.isArray(items)) return [];
+  return items.map((item, index) => {
+    const normalized = normalizedEntities[index];
+    if (!normalized) return item;
+    const source = normalized.source || {};
+    const semantic = normalized.semantic || {};
+    return {
+      ...item,
+      sourceType: item?.sourceType ?? source.type ?? null,
+      semanticRole: item?.semanticRole ?? semantic.role ?? null,
+      semantic: item?.semantic ?? semantic,
+      dimensionGraphic: item?.dimensionGraphic ?? semantic.dimensionGraphic ?? false,
+      blockInstance: item?.blockInstance ?? semantic.blockInstance ?? false,
+      layerScaleDenominator: item?.layerScaleDenominator ?? source.layerScaleDenominator ?? null,
+      sourceGroupIndex: item?.sourceGroupIndex ?? source.groupIndex ?? null,
+      sourceLayerIndex: item?.sourceLayerIndex ?? source.layerIndex ?? null,
+      sourceEntityIndex: item?.sourceEntityIndex ?? source.sourceIndex ?? null,
+      blockPath: item?.blockPath ?? source.blockPath ?? []
+    };
+  });
+}
+
 /** Build a stable, loss-aware document envelope around parser entities. */
 export function createCadDocument(input = {}, options = {}) {
   const entities = Array.isArray(input.entities) ? input.entities :
