@@ -295,6 +295,9 @@ export function createCadDocument(input = {}, options = {}) {
   }
   if (options.sourceCountsComparable !== false && rawBlockInstances > preservedBlockInstances) {
     sourceWarnings.push(`JWW元データのブロック参照 ${rawBlockInstances}件に対し、ブロック由来として識別できた要素は ${preservedBlockInstances}件です。一部または全部のブロック情報が通常図形へ展開されている可能性があります。記号・什器の誤判定を避けるには、展開後の図形にブロック経路を引き継ぐ必要があります。`);
+    if (String(options.sourceFormat || "").toUpperCase() === "JWW") {
+      sourceWarnings.push("JWWパーサーがブロック内図形を展開した後は、子図形本来のレイヤーと挿入側レイヤーを区別できない場合があります。ブロック内に壁・器具・注記が混在する図面では、レイヤー選択だけで区画対象を確定しないでください。");
+    }
   }
   const size = input.size || input.sheet?.size || {}; 
   return {
