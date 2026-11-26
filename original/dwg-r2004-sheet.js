@@ -1,6 +1,6 @@
 import { polylineToSheetItems } from "./dwg-polyline.js";
 import { tessellateCadCurve } from "./cad-curve-tessellation.js";
-import { isWorldZNormal, tessellateOcsArc, tessellateOcsPolyline, transformOcsPoint } from "./dwg-ocs.js";
+import { isValidOcsNormal, isWorldZNormal, tessellateOcsArc, tessellateOcsPolyline, transformOcsPoint } from "./dwg-ocs.js";
 // Convert decoded R2004 DWG primitives into KAKU's SheetItem shape.
 // Coordinates remain in native DWG units until INSUNITS is decoded.
 function rgbHex(value){
@@ -9,7 +9,7 @@ function rgbHex(value){
 function point3(value){return Array.isArray(value)?{x:value[0],y:value[1],z:value[2]||0}:value;}
 function sampleEllipse(g){
  const center=point3(g.center),major=point3(g.majorAxis),normal=g.extrusion||[0,0,1];
- if(!center||!major||Math.abs(major.z||0)>1e-7)return [];
+ if(!center||!major||Math.abs(major.z||0)>1e-7||!isValidOcsNormal(normal))return [];
  const curve=tessellateCadCurve({...g,kind:"ellipse"});
  if(curve.points.length<2)return [];
  return {vertices:curve.points.map(([x,y])=>{const p=transformOcsPoint([x,y,center.z||0],normal);return {x:p[0],y:p[1],z:p[2]};}),closed:curve.closed};
@@ -209,10 +209,10 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
     const c=point3(center);add(entity,g,{kind:"arc",cx:c.x*scale,cy:c.y*scale,r:radius*scale,a0:g.startAngle??g.a0,a1:g.endAngle??g.a1});
    }
   }else if(g.kind==="solid"){
-   const normal=g.extrusion||[0,0,1],points=g.points.map(p=>transformOcsPoint([p.x,p.y,p.z??g.elevation??0],normal));
+   const normal=g.extrusion||[0,0,1];if(!isValidOcsNormal(normal))continue;const points=g.points.map(p=>transformOcsPoint([p.x,p.y,p.z??g.elevation??0],normal));
    add(entity,g,{kind:"fill",pts:points.flatMap(p=>[p[0]*scale,p[1]*scale]),elevation:(g.elevation||0)*scale,ocsTransformed:!isWorldZNormal(normal)});
   }else if(g.kind==="point"){
-   const normal=g.extrusion||[0,0,1],p=g.point??[g.x,g.y,g.z??0],wcs=transformOcsPoint(Array.isArray(p)?p:[p.x,p.y,p.z??0],normal);
+   const normal=g.extrusion||[0,0,1];if(!isValidOcsNormal(normal))continue;const p=g.point??[g.x,g.y,g.z??0],wcs=transformOcsPoint(Array.isArray(p)?p:[p.x,p.y,p.z??0],normal);
    add(entity,g,{kind:"point",x:wcs[0]*scale,y:wcs[1]*scale,z:wcs[2]*scale,ocsTransformed:!isWorldZNormal(normal)});
   }
   if(mapped.length>before)convertedEntities++;
