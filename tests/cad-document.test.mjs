@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createCadDocument, normalizeCadEntity, transformCadPoint } from "../original/cad-document.js";
+import { createCadDocument, normalizeCadEntity, transformCadPoint, attachCadEntityMetadata } from "../original/cad-document.js";
 
 test("normalizes line geometry while preserving complete source entity and layer metadata", () => {
   const raw = { type:"sen", layer:"A-WALL", layer_group:2, pts:[0,0,100,0], handle:"AB12", color:3, custom:{flag:true} };
@@ -252,4 +252,33 @@ test("does not warn when preserved JWW provenance meets or exceeds source counts
   {type:"block",layer:"SYMBOL"}
  ]},{sourceFormat:"JWW",sourceTypeCounts:{"count.CDataSunpou":1,"count.CDataBlock":1}});
  assert.deepEqual(doc.diagnostics.sourceWarnings,[]);
+});
+
+
+test("attaches complete normalized provenance to parser items without changing geometry",()=>{
+ const items=[{kind:"line",pts:[0,0,100,0],layer:"WALL"},{kind:"text",text:"ROOM"}];
+ const normalized=[
+  {source:{type:"sen",layerScaleDenominator:50,groupIndex:2,layerIndex:1,sourceIndex:17,blockPath:["SYMBOLS","TOILET"]},semantic:{role:"block-instance",dimensionGraphic:false,blockInstance:true}},
+  {source:{type:"moji",layerScaleDenominator:null,groupIndex:2,layerIndex:2,sourceIndex:18,blockPath:[]},semantic:{role:"dimension",dimensionGraphic:true,blockInstance:false}}
+ ];
+ const out=attachCadEntityMetadata(items,normalized);
+ assert.deepEqual(out[0].pts,[0,0,100,0]);
+ assert.equal(out[0].semanticRole,"block-instance");
+ assert.equal(out[0].blockInstance,true);
+ assert.equal(out[0].sourceGroupIndex,2);
+ assert.equal(out[0].sourceLayerIndex,1);
+ assert.equal(out[0].sourceEntityIndex,17);
+ assert.deepEqual(out[0].blockPath,["SYMBOLS","TOILET"]);
+ assert.equal(out[0].layerScaleDenominator,50);
+ assert.equal(out[1].dimensionGraphic,true);
+ assert.equal(out[1].semanticRole,"dimension");
+ assert.equal(items[0].semanticRole,undefined);
+});
+
+test("preserves explicit parser metadata when normalized metadata is absent or weaker",()=>{
+ const input=[{kind:"line",semanticRole:"wall",dimensionGraphic:false,blockPath:["EXISTING"],layerScaleDenominator:25}];
+ const out=attachCadEntityMetadata(input,[{source:{blockPath:[],layerScaleDenominator:50},semantic:{role:"unclassified",dimensionGraphic:false}}]);
+ assert.equal(out[0].semanticRole,"wall");
+ assert.equal(out[0].layerScaleDenominator,25);
+ assert.deepEqual(out[0].blockPath,["EXISTING"]);
 });
