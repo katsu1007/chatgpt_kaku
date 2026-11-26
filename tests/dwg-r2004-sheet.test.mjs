@@ -343,3 +343,15 @@ test("transforms angular dimension OCS text and arc points into WCS",()=>{
  assert.ok(Math.abs(item.points.point16[1]-(-40*Math.SQRT1_2-drawing.sheets[0].origin.y))<1e-6);
  assert.ok(Math.abs(item.points.point16[2]-40*Math.SQRT1_2)<1e-6);
 });
+
+test("formats angular DWG measurements as degrees instead of linear units",()=>{
+ const drawing=createR2004DwgDrawing({units:{known:true,code:4,name:"millimeters",scaleToMm:1},entities:[
+  entity("A-DIM",360n,{kind:"dimension",dimensionName:"angular-3pt",textMidpoint:[50,50],userText:"<>",actualMeasurement:Math.PI/2,textRotation:0,
+   point10:[30,30,0],point13:[100,0,0],point14:[0,100,0],point15:[0,0,0]})
+ ],layers:[]});
+ const item=drawing.sheets[0].items.find(x=>x.kind==="dimension");
+ const label=drawing.sheets[0].items.find(x=>x.dimensionText);
+ assert.equal(item.measurementUnit,"deg");
+ assert.equal(item.actualMeasurement,90);
+ assert.equal(label.text,"90°");
+});
