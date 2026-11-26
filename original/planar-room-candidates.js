@@ -28,11 +28,11 @@ function wallLikeFill(points){
  const major=Math.sqrt(Math.max(0,(tr+disc)/2)),minor=Math.sqrt(Math.max(0,(tr-disc)/2));
  return major>=75&&major/Math.max(minor,1e-6)>=3.5;
 }
-function entitySegments(item,index,stats,anchors){
+function entitySegments(item,index,stats,anchors,allowBlockInstance=false){
  const kind=String(item?.kind||item?.type||"").toLowerCase(),layer=String(item?.layer??"");
  if(NON_WALL_LAYER.test(layer)){stats.skippedSemanticLayer++;return [];}
  if(isDimensionGraphicItem(item)){stats.skippedDimensionItems++;return [];}
- if(isNonBoundarySemanticItem(item)){stats.skippedSemanticItems++;return [];}
+ if(isNonBoundarySemanticItem(item,{allowBlockInstance})){stats.skippedSemanticItems++;return [];}
  // HATCH loops are fill boundaries, not automatically walls.
  if(item?.hatchBoundary&&!item?.hatchFillCandidate){stats.skippedHatchBoundary++;return [];}
  if(["dimension","text","point","block","insert","hatch"].includes(kind)){stats.skippedNonBoundaryKind++;return [];}
@@ -120,7 +120,7 @@ export function analyzePlanarRoomCandidates({items=[],wallLayerNames=[],hiddenLa
  const anchors=dimensionTextAnchors(items),segments=[];
  (items||[]).forEach((item,index)=>{
   if(!item||!allowed.has(String(item.layer??""))||hidden.has(String(item.layer??"")))return;
-  stats.inputItems++;segments.push(...entitySegments(item,index,stats,anchors));
+  stats.inputItems++;segments.push(...entitySegments(item,index,stats,anchors,allowed.has(String(item?.layer??""))));
  });
  const bridges=doorwayBridges(items,allowed,hidden,anchors,stats);segments.push(...bridges);
  const graph=buildPlanarGraph(segments);
