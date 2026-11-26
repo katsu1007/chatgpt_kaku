@@ -726,10 +726,10 @@ test("floor fill mask is split by real partition walls while furniture stays non
  const items=[
   {kind:"fill",layer:"床",semanticRole:"floor",pts:[100,100,900,100,900,900,100,900]},
   line("壁",500,100,500,900),
-  {...line("什器",250,300,400,300),semanticRole:"furniture"},
-  {...line("什器",400,300,400,600),semanticRole:"furniture"},
-  {...line("什器",400,600,250,600),semanticRole:"furniture"},
-  {...line("什器",250,600,250,300),semanticRole:"furniture"}
+  {...line("壁",250,300,400,300),semanticRole:"furniture"},
+  {...line("壁",400,300,400,600),semanticRole:"furniture"},
+  {...line("壁",400,600,250,600),semanticRole:"furniture"},
+  {...line("壁",250,600,250,300),semanticRole:"furniture"}
  ];
  const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"壁"}],selectedLayers:["壁"]});
  assert.equal(result.rooms.length,2);
