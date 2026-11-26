@@ -355,3 +355,28 @@ test("formats angular DWG measurements as degrees instead of linear units",()=>{
  assert.equal(item.actualMeasurement,90);
  assert.equal(label.text,"90°");
 });
+
+test("transforms TEXT MTEXT and ATTRIB insertion points and TEXT baselines from OCS",()=>{
+ const normal=[0,Math.SQRT1_2,Math.SQRT1_2];
+ const drawing=createR2004DwgDrawing({units:{known:true,code:4,name:"millimeters",scaleToMm:1},entities:[
+  entity("A-TEXT",370n,{kind:"text",insertion:[10,20,5],alignment:[12,22,5],extrusion:normal,rotation:0,height:2,widthFactor:1,text:"TEXT"}),
+  entity("A-TEXT",371n,{kind:"attrib",insertion:[30,40,5],alignment:[32,42,5],extrusion:normal,rotation:Math.PI/2,height:2,widthFactor:1,text:"ATTRIB",tag:"TAG"}),
+  entity("A-TEXT",372n,{kind:"mtext",insertion:[50,60,5],xAxis:[1,0,0],extrusion:normal,height:2,rectWidth:100,text:"MTEXT"})
+ ],layers:[]});
+ const items=drawing.sheets[0].items;
+ const text=items.find(item=>item.text==="TEXT"),attrib=items.find(item=>item.text==="ATTRIB"),mtext=items.find(item=>item.text==="MTEXT");
+ assert.equal(text.ocsTransformed,true);assert.equal(attrib.ocsTransformed,true);assert.equal(mtext.ocsTransformed,true);
+ assert.ok(Math.abs(text.z-5*Math.SQRT1_2)<1e-6);
+ assert.ok(Math.abs(text.rotation-Math.PI)<1e-6);
+ assert.ok(Math.abs(attrib.rotation+Math.PI/2)<1e-6);
+ assert.ok(Math.abs(text.alignment.z-5*Math.SQRT1_2)<1e-6);
+});
+
+test("invalid TEXT extrusion normals are skipped without aborting valid geometry",()=>{
+ const drawing=createR2004DwgDrawing({units:{known:true,code:4,name:"millimeters",scaleToMm:1},entities:[
+  entity("A-TEXT",373n,{kind:"text",insertion:[10,20,0],extrusion:[0,0,0],rotation:0,height:2,text:"BAD"}),
+  entity("A-WALL",374n,{kind:"line",pts:[0,0,100,0]})
+ ],layers:[]});
+ assert.equal(drawing.sheets[0].items.length,1);
+ assert.equal(drawing.meta.info.unsupported,1);
+});
