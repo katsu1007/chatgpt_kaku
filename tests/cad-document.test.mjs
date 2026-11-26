@@ -355,3 +355,15 @@ test("reports preserved width metadata without treating it as wall thickness",()
  assert.equal(doc.diagnostics.widthMetadataEntities,1);
  assert.deepEqual(doc.sheets[0].entities[0].geometry.widths,{start:4,end:6,unit:"mm",source:null});
 });
+
+
+test("preserves original source entity type when rendered geometry is expanded into segments",()=>{
+ const doc=createCadDocument({items:[
+  {kind:"line",pts:[0,0,100,0],sourceGeometry:{kind:"polyline",closed:true,vertices:[[0,0],[100,0],[100,100]]}},
+  {kind:"line",pts:[0,0,0,100],sourceGeometry:{kind:"mline",boundaries:[]}}
+ ]},{sourceFormat:"DWG"});
+ assert.equal(doc.sheets[0].entities[0].kind,"line");
+ assert.equal(doc.sheets[0].entities[0].source.type,"polyline");
+ assert.equal(doc.sheets[0].entities[0].source.raw.sourceGeometry.kind,"polyline");
+ assert.equal(doc.sheets[0].entities[1].source.type,"mline");
+});
