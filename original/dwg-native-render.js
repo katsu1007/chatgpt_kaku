@@ -80,7 +80,7 @@ export function renderNativeDwgSvg(prepared,hidden=new Uint8Array(0)){
    if((item.dimensionType==="linear"||item.dimensionType==="aligned")&&[a,b,d].every(v=>Array.isArray(v)&&Number.isFinite(v[0])&&Number.isFinite(v[1]))){
     const dx=b[0]-a[0],dy=b[1]-a[1],length=Math.hypot(dx,dy);
     if(length>1e-9){
-     const nx=-dy/length,ny=dx/length,offset=(d[0]-a[0])*nx+(d[1]-a[1])*ny;
+     const ux=dx/length,uy=dy/length,nx=-uy,ny=ux,offset=(d[0]-a[0])*nx+(d[1]-a[1])*ny;
      const q1=[a[0]+nx*offset,a[1]+ny*offset],q2=[b[0]+nx*offset,b[1]+ny*offset];
      const ext=2,arrowLength=Math.min(8,Math.max(2.5,length*0.12)),arrowWidth=arrowLength*0.42;
      const line=(x1,y1,x2,y2)=>"<line x1=\""+fmt(x1)+"\" y1=\""+fmt(y1)+"\" x2=\""+fmt(x2)+"\" y2=\""+fmt(y2)+"\" "+stroke+"/>";
