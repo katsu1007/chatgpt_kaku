@@ -155,7 +155,7 @@ export function normalizeCadEntity(entity, index, options = {}) {
   const geometry = geometryOf(source, kind);
   const layer = first(source.layer, source.layerName, source.base?.layerName, null);
   const layerGroup = first(source.layerGroup, source.layer_group, source.base?.layer_group, null);
-  const sourceType = first(source.sourceType, source.entityType, source.type, source.kind, "unknown");
+  const sourceType = first(source.sourceType, source.entityType, source.originalType, source.type, source.sourceGeometry?.kind, source.kind, "unknown");
   const layerInfo = (options.layers || []).find(entry => String(entry?.name ?? "") === String(layer ?? ""));
   const layerScaleDenominator = finite(layerInfo?.scale) && layerInfo.scale > 0 ? layerInfo.scale : null;
   const semantics = sourceSemantics(source, sourceType, layerScaleDenominator);
