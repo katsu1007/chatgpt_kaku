@@ -189,8 +189,7 @@ export function normalizeCadEntity(entity, index, options = {}) {
   const layerScaleDenominator = finite(layerInfo?.scale) && layerInfo.scale > 0 ? layerInfo.scale : null;
   const semantics = sourceSemantics({ ...inherited, ...source }, sourceType, layerScaleDenominator);
   const handle = first(source.handle, source.id, source.objectId, inherited.handle, inherited.id, inherited.objectId, null);
-  const lineage = sourceLineage(source);
-  const inheritedBlockPath = lineage.map(entry => entry.blockPath).find(path => Array.isArray(path) && path.length) || [];
+    const inheritedBlockPath = lineage.map(entry => entry.blockPath).find(path => Array.isArray(path) && path.length) || [];
   const inheritedBlockName = first(...lineage.map(entry => entry.blockName));
   const blockPath = Array.isArray(source.blockPath) && source.blockPath.length ? [...source.blockPath] :
     inheritedBlockPath.length ? [...inheritedBlockPath] :
