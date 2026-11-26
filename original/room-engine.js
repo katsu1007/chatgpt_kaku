@@ -530,12 +530,12 @@ function furnitureHaloEvidence(region,items,wallNames,hidden,cw,ch){
   return centers.size>=4&&((sides.has("left")&&sides.has("right"))||(sides.has("top")&&sides.has("bottom")));
 }
 function filterFurnitureIslands(regions,items,wallNames,hidden,cw,ch){
-  let filtered=0;
+  const filteredKeys=[];
   const kept=(regions.kept||[]).filter(region=>{
     if(!furnitureHaloEvidence(region,items,wallNames,hidden,cw,ch))return true;
-    filtered++;return false;
+    filteredKeys.push([region.id,region.seed,region.area].join(":"));return false;
   });
-  return {...regions,kept,filteredFurnitureIslands:filtered};
+  return {...regions,kept,filteredFurnitureIslands:filteredKeys.length,filteredFurnitureKeys:filteredKeys};
 }
 export function extractRoomHierarchy({items,width,height,layers,selectedLayers,hiddenLayers=[]}){
   if(!(width>0&&height>0))throw new Error("図面サイズを取得できません");
@@ -619,7 +619,7 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
   if(!floorFillUsed){
     parents=filterFurnitureIslands(parents,items,allNames,hidden,cw,ch);
     children=filterFurnitureIslands(children,items,allNames,hidden,cw,ch);
-    filteredFurnitureIslands=parents.filteredFurnitureIslands+children.filteredFurnitureIslands;
+    filteredFurnitureIslands=new Set([...(parents.filteredFurnitureKeys||[]),...(children.filteredFurnitureKeys||[])]).size;
   }
   const parentRooms=parents.kept.map((r,i)=>({...r,name:"大部屋 "+(i+1),level:1,children:[]}));
   const parentByRegion=new Map(parentRooms.map(p=>[p.id,p]));
