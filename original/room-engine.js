@@ -1,5 +1,6 @@
 import { tessellateCadCurve, tessellateBulgedPolyline } from "./cad-curve-tessellation.js";
 import { dimensionTextAnchors, isDimensionSegment } from "./dimension-line-classifier.js";
+import { isNonBoundarySemanticItem } from "./cad-semantic-classifier.js";
 // KAKU ORIGIN room extraction engine
 // Grid-space topology engine. Coordinates are sheet mm; thresholds are relative to grid,
 // never interpreted as real-world m² without scale conversion.
@@ -48,7 +49,7 @@ function findBoothFrontClosures(items,names,hidden){
   // are collinear with their wall and therefore do not satisfy this geometry.
   const raw=[];
   for(const it of items){
-    if(it.hatchBoundary||isDimensionGraphicItem(it)||!["line","polyline"].includes(it.kind)||!names.has(it.layer)||hidden.has(it.layer)||!Array.isArray(it.pts))continue;
+    if(it.hatchBoundary||isDimensionGraphicItem(it)||isNonBoundarySemanticItem(it)||!["line","polyline"].includes(it.kind)||!names.has(it.layer)||hidden.has(it.layer)||!Array.isArray(it.pts))continue;
     for(let k=0;k+3<it.pts.length;k+=2){
       const x1=it.pts[k],y1=it.pts[k+1],x2=it.pts[k+2],y2=it.pts[k+3],dx=x2-x1,dy=y2-y1,len=Math.hypot(dx,dy);
       if(len>1)raw.push({it,x1,y1,x2,y2,dx:dx/len,dy:dy/len,len});
@@ -174,7 +175,7 @@ function isWallLikeFill(pts,cw,ch){
   return ratio>=3.5&&major*2>=Math.max(cw,ch)*12;
 }
 function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
-  const wall=new Uint8Array(nx*ny); let usedItems=0,usedSegments=0,skippedHidden=0,skippedDimensionItems=0,skippedDimensionSegments=0,skippedNonWallFills=0,snappedTJunctions=0; const endpoints=[]; const doorEndpoints=[]; const geometrySegments=[]; const dimAnchors=dimensionTextAnchors(items);
+  const wall=new Uint8Array(nx*ny); let usedItems=0,usedSegments=0,skippedHidden=0,skippedDimensionItems=0,skippedDimensionSegments=0,skippedSemanticItems=0,skippedNonWallFills=0,snappedTJunctions=0; const endpoints=[]; const doorEndpoints=[]; const geometrySegments=[]; const dimAnchors=dimensionTextAnchors(items);
   const mark=(x,y)=>{
     const ix=Math.round(x/cw),iy=Math.round(y/ch);
     // 8-neighbour raster stroke reduces diagonal leaks.
@@ -201,6 +202,7 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
     if(it.hatchBoundary||!names.has(it.layer))continue;
     if(hidden.has(it.layer)){skippedHidden++;continue;}
     if(isDimensionGraphicItem(it)){skippedDimensionItems++;continue;}
+    if(isNonBoundarySemanticItem(it)){skippedSemanticItems++;continue;}
     if((it.kind==="line"||it.kind==="polyline")&&Array.isArray(it.pts)&&it.pts.length>=4){
       usedItems++;
       const segments=[];
@@ -340,7 +342,7 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
     }
     const key=bx+":"+by;if(!bins.has(key))bins.set(key,[]);bins.get(key).push([x,y]);
   }
-  return {wall,usedItems,usedSegments,skippedHidden,skippedDimensionItems,skippedDimensionSegments,skippedNonWallFills,endpointCount:endpoints.length,bridgedDoorGaps,snappedTJunctions};
+  return {wall,usedItems,usedSegments,skippedHidden,skippedDimensionItems,skippedDimensionSegments,skippedSemanticItems,skippedNonWallFills,endpointCount:endpoints.length,bridgedDoorGaps,snappedTJunctions};
 }
 function floodRegions(wall,nx,ny){
   const N=nx*ny,seen=new Uint8Array(N),queue=new Int32Array(N),regionAt=new Int32Array(N),regions=[];regionAt.fill(-1);let rid=0;
@@ -502,6 +504,6 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
     }),
     parents:parentRooms.map(p=>({...p,children:p.children.map(c=>c.name)})),
     grid:{ids,nx,ny,cw,ch},
-    diagnostics:{scaleAssessment,selectedLayers:selected.size,supplementalLayers:supplemental.size,autoMode:classified.mode+(fallbackUsed?" → 全図形レイヤー再判定":""),fallbackUsed,parentLayerNames:[...selected],wallLayerNames:[...allNames],layerInventory,parentRegions:parents.inner.length,childRegions:children.inner.length,parentsKept:parentRooms.length,childrenKept:childRooms.length,unassignedChildren,minParentCells:parents.minCells,minChildCells:children.minCells,minChildSpanCells:children.minSpanCells,minParentSpanCells:parents.minSpanCells,usedItems:childTrace.usedItems,usedSegments:childTrace.usedSegments,skippedHidden:childTrace.skippedHidden,skippedDimensionItems:childTrace.skippedDimensionItems,skippedDimensionSegments:childTrace.skippedDimensionSegments,skippedNonWallFills:childTrace.skippedNonWallFills,bridgedDoorGaps:childTrace.bridgedDoorGaps,snappedTJunctions:childTrace.snappedTJunctions,virtualBoothClosures:boothClosures.length,endpointCount:childTrace.endpointCount}
+    diagnostics:{scaleAssessment,selectedLayers:selected.size,supplementalLayers:supplemental.size,autoMode:classified.mode+(fallbackUsed?" → 全図形レイヤー再判定":""),fallbackUsed,parentLayerNames:[...selected],wallLayerNames:[...allNames],layerInventory,parentRegions:parents.inner.length,childRegions:children.inner.length,parentsKept:parentRooms.length,childrenKept:childRooms.length,unassignedChildren,minParentCells:parents.minCells,minChildCells:children.minCells,minChildSpanCells:children.minSpanCells,minParentSpanCells:parents.minSpanCells,usedItems:childTrace.usedItems,usedSegments:childTrace.usedSegments,skippedHidden:childTrace.skippedHidden,skippedDimensionItems:childTrace.skippedDimensionItems,skippedDimensionSegments:childTrace.skippedDimensionSegments,skippedSemanticItems:childTrace.skippedSemanticItems,skippedNonWallFills:childTrace.skippedNonWallFills,bridgedDoorGaps:childTrace.bridgedDoorGaps,snappedTJunctions:childTrace.snappedTJunctions,virtualBoothClosures:boothClosures.length,endpointCount:childTrace.endpointCount}
   };
 }

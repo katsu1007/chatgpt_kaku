@@ -677,3 +677,27 @@ test("full-sweep JWW arcs close into room boundaries without open-arc endpoint t
  assert.equal(result.parents.length,1);
  assert.equal(result.rooms.length,1);
 });
+
+test("explicit furniture and fixture semantics cannot become production room boundaries",()=>{
+ const items=[
+  {...line("壁",100,100,900,100),semanticRole:"fixture.toilet"},
+  {...line("壁",900,100,900,900),semanticRole:"fixture.toilet"},
+  {...line("壁",900,900,100,900),semanticRole:"fixture.toilet"},
+  {...line("壁",100,900,100,100),semanticRole:"fixture.toilet"}
+ ];
+ const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"壁"}],selectedLayers:["壁"]});
+ assert.equal(result.rooms.length,0);
+ assert.equal(result.diagnostics.skippedSemanticItems,4);
+});
+
+test("explicit partition semantics remain eligible for room boundaries",()=>{
+ const items=[
+  {...line("壁",100,100,900,100),semanticRole:"partition"},
+  {...line("壁",900,100,900,900),semanticRole:"partition"},
+  {...line("壁",900,900,100,900),semanticRole:"partition"},
+  {...line("壁",100,900,100,100),semanticRole:"partition"}
+ ];
+ const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"壁"}],selectedLayers:["壁"]});
+ assert.equal(result.rooms.length,1);
+ assert.equal(result.diagnostics.skippedSemanticItems,0);
+});
