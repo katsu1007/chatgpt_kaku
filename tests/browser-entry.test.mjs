@@ -59,6 +59,6 @@ test('CAD inspection report exposes short wall-fragment repair counts',async()=>
 
 test('CAD inspection report exposes furniture-island exclusions',async()=>{
  const origin=await read('original/origin.js');
- assert.match(origin,/家具輪郭除外/);
+ assert.match(origin,/家具・孤立輪郭除外/);
  assert.match(origin,/d\.filteredFurnitureIslands/);
 });
