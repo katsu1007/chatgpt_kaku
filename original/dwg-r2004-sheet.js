@@ -1,5 +1,6 @@
 import { polylineToSheetItems } from "./dwg-polyline.js";
 import { tessellateCadCurve } from "./cad-curve-tessellation.js";
+import { isValidOcsNormal, isWorldZNormal, tessellateOcsArc, tessellateOcsPolyline, transformOcsPoint } from "./dwg-ocs.js";
 // Convert decoded R2004 DWG primitives into KAKU's SheetItem shape.
 // Coordinates remain in native DWG units until INSUNITS is decoded.
 function rgbHex(value){
@@ -8,10 +9,10 @@ function rgbHex(value){
 function point3(value){return Array.isArray(value)?{x:value[0],y:value[1],z:value[2]||0}:value;}
 function sampleEllipse(g){
  const center=point3(g.center),major=point3(g.majorAxis),normal=g.extrusion||[0,0,1];
- if(!center||!major||Math.abs(major.z||0)>1e-7||Math.abs(normal[0]||0)>1e-7||Math.abs(normal[1]||0)>1e-7)return [];
+ if(!center||!major||Math.abs(major.z||0)>1e-7||!isValidOcsNormal(normal))return [];
  const curve=tessellateCadCurve({...g,kind:"ellipse"});
  if(curve.points.length<2)return [];
- return {vertices:curve.points.map(([x,y])=>({x,y,z:center.z||0})),closed:curve.closed};
+ return {vertices:curve.points.map(([x,y])=>{const p=transformOcsPoint([x,y,center.z||0],normal);return {x:p[0],y:p[1],z:p[2]};}),closed:curve.closed};
 }
 function sampleSpline(g){
  const source=g.scenario===2?(g.fitPoints||[]):(g.controlPoints||[]);
@@ -77,6 +78,13 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
   item.sourceFormat=sourceFormat;item.sourceGeometry=entity.sourceGeometry||geometry;if(entity.blockPath)item.blockPath=entity.blockPath;if(entity.blockTransform)item.blockTransform=entity.blockTransform;if(entity.sourceInsertHandle!==undefined)item.sourceInsertHandle=String(entity.sourceInsertHandle);if(entity.sourceBlockHandle!==undefined)item.sourceBlockHandle=String(entity.sourceBlockHandle);if(entity.sourceEntityHandle!==undefined)item.sourceEntityHandle=String(entity.sourceEntityHandle);if(entity.blockInstanceIndex!==undefined)item.blockInstanceIndex=entity.blockInstanceIndex;
   layerMap.get(layerName).items++;layerMap.get(layerName).actualItems++;mapped.push(item);
  };
+ const addPointChain=(entity,geometry,points,closed,metadata={})=>{
+  if(!Array.isArray(points)||points.length<2)return 0;
+  const vertices=points.map(p=>Array.isArray(p)?{x:p[0],y:p[1],z:p[2]||0}:p);
+  const segments=polylineToSheetItems({kind:"polyline",vertices,bulges:vertices.map(()=>0),closed},{layer:entity.layerName,handle:entity.handleHex,sourceFormat});
+  for(const segment of segments)if(segment.kind==="line")add(entity,geometry,{...segment,pts:segment.pts.map(v=>v*scale),z0:(segment.z0||0)*scale,z1:(segment.z1||0)*scale,...metadata});
+  return segments.length;
+ };
  for(const entity of entities){
   const g=entity.geometry;if(!g||g.kind==="unsupported")continue;
   const before=mapped.length;
@@ -98,7 +106,7 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
    else{
     const segments=polylineToSheetItems({kind:"polyline",vertices:sampled.vertices,bulges:sampled.vertices.map(()=>0),closed:sampled.closed},{layer:entity.layerName,handle:entity.handleHex,sourceFormat:sourceFormat});
     for(const segment of segments){
-     if(segment.kind==="line")add(entity,g,{...segment,pts:segment.pts.map(v=>v*scale),z0:(segment.z0||0)*scale,z1:(segment.z1||0)*scale,curveApproximation:g.kind,curveClosed:sampled.closed});
+     if(segment.kind==="line")add(entity,g,{...segment,pts:segment.pts.map(v=>v*scale),z0:(segment.z0||0)*scale,z1:(segment.z1||0)*scale,curveApproximation:g.kind,curveClosed:sampled.closed,ocsTransformed:g.kind==="ellipse"&&!isWorldZNormal(g.extrusion||[0,0,1])});
      else add(entity,g,{...segment,cx:segment.cx*scale,cy:segment.cy*scale,r:segment.r*scale,curveApproximation:g.kind});
      curveSegments++;
     }
@@ -176,25 +184,37 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
   }
   if(g.kind==="polyline"){
    const normal=g.extrusion||[0,0,1];
-   if(Math.abs(normal[0])>1e-6||Math.abs(normal[1])>1e-6||Math.abs(Math.abs(normal[2])-1)>1e-6)continue;
-   const segments=polylineToSheetItems(g,{layer:entity.layerName,handle:entity.handleHex,sourceFormat:sourceFormat});
-   for(const segment of segments){
-    if(segment.kind==="line")add(entity,g,{...segment,pts:segment.pts.map(v=>v*scale),z0:(segment.z0||0)*scale,z1:(segment.z1||0)*scale,segmentIndex:segment.sourceGeometry.index});
-    else add(entity,g,{...segment,cx:segment.cx*scale,cy:segment.cy*scale,r:segment.r*scale,segmentIndex:segment.sourceGeometry.index});
+   if(!isWorldZNormal(normal)){
+    const curve=tessellateOcsPolyline(g);
+    addPointChain(entity,g,curve.points,curve.closed,{ocsTransformed:true,curveApproximation:"ocs-polyline"});
+   }else{
+    const segments=polylineToSheetItems(g,{layer:entity.layerName,handle:entity.handleHex,sourceFormat:sourceFormat});
+    for(const segment of segments){
+     if(segment.kind==="line")add(entity,g,{...segment,pts:segment.pts.map(v=>v*scale),z0:(segment.z0||0)*scale,z1:(segment.z1||0)*scale,segmentIndex:segment.sourceGeometry.index});
+     else add(entity,g,{...segment,cx:segment.cx*scale,cy:segment.cy*scale,r:segment.r*scale,segmentIndex:segment.sourceGeometry.index});
+    }
    }
    if(mapped.length>before)polylineEntities++;
   }
   if(g.kind==="line"){
    const pts=Array.isArray(g.pts)&&typeof g.pts[0]==="number"?g.pts:Array.isArray(g.pts)?g.pts.flatMap(p=>[p.x,p.y]):[];
    if(pts.length>=4)add(entity,g,{kind:"line",pts:pts.slice(0,4).map(v=>v*scale),z0:(g.pts[0]?.z??0)*scale,z1:(g.pts[1]?.z??0)*scale});
-  }else if(g.kind==="arc"){
-   add(entity,g,{kind:"arc",cx:(g.center?.x??g.cx)*scale,cy:(g.center?.y??g.cy)*scale,r:(g.radius??g.r)*scale,a0:g.startAngle??g.a0,a1:g.endAngle??g.a1});
-  }else if(g.kind==="circle"){
-   add(entity,g,{kind:"arc",cx:g.center.x*scale,cy:g.center.y*scale,r:g.radius*scale,a0:0,a1:Math.PI*2,isCircle:true});
+  }else if(g.kind==="arc"||g.kind==="circle"){
+   const normal=g.extrusion||[0,0,1],center=g.center??[g.cx,g.cy,0],radius=g.radius??g.r,circle=g.kind==="circle";
+   if(!isWorldZNormal(normal)){
+    const curve=tessellateOcsArc({center,radius,startAngle:g.startAngle??g.a0??0,endAngle:g.endAngle??g.a1??Math.PI*2,normal,circle});
+    addPointChain(entity,g,curve.points,curve.closed,{ocsTransformed:true,curveApproximation:circle?"ocs-circle":"ocs-arc"});
+   }else if(circle){
+    const c=point3(center);add(entity,g,{kind:"arc",cx:c.x*scale,cy:c.y*scale,r:radius*scale,a0:0,a1:Math.PI*2,isCircle:true});
+   }else{
+    const c=point3(center);add(entity,g,{kind:"arc",cx:c.x*scale,cy:c.y*scale,r:radius*scale,a0:g.startAngle??g.a0,a1:g.endAngle??g.a1});
+   }
   }else if(g.kind==="solid"){
-   add(entity,g,{kind:"fill",pts:g.points.flatMap(p=>[p.x*scale,p.y*scale]),elevation:g.elevation*scale});
+   const normal=g.extrusion||[0,0,1];if(!isValidOcsNormal(normal))continue;const points=g.points.map(p=>transformOcsPoint([p.x,p.y,p.z??g.elevation??0],normal));
+   add(entity,g,{kind:"fill",pts:points.flatMap(p=>[p[0]*scale,p[1]*scale]),elevation:(g.elevation||0)*scale,ocsTransformed:!isWorldZNormal(normal)});
   }else if(g.kind==="point"){
-   add(entity,g,{kind:"point",x:(g.point?.x??g.x)*scale,y:(g.point?.y??g.y)*scale,z:(g.point?.z??g.z??0)*scale});
+   const normal=g.extrusion||[0,0,1];if(!isValidOcsNormal(normal))continue;const p=g.point??[g.x,g.y,g.z??0],wcs=transformOcsPoint(Array.isArray(p)?p:[p.x,p.y,p.z??0],normal);
+   add(entity,g,{kind:"point",x:wcs[0]*scale,y:wcs[1]*scale,z:wcs[2]*scale,ocsTransformed:!isWorldZNormal(normal)});
   }
   if(mapped.length>before)convertedEntities++;
  }
