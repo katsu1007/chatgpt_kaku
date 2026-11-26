@@ -367,3 +367,13 @@ test("preserves original source entity type when rendered geometry is expanded i
  assert.equal(doc.sheets[0].entities[0].source.raw.sourceGeometry.kind,"polyline");
  assert.equal(doc.sheets[0].entities[1].source.type,"mline");
 });
+
+
+test("explicit source entity type takes precedence over its flattened geometry kind",()=>{
+ const doc=createCadDocument({items:[
+  {kind:"line",type:"sunpou",pts:[0,0,100,0],sourceGeometry:{kind:"line"}}
+ ]},{sourceFormat:"JWW"});
+ assert.equal(doc.sheets[0].entities[0].kind,"line");
+ assert.equal(doc.sheets[0].entities[0].source.type,"sunpou");
+ assert.equal(doc.sheets[0].entities[0].semantic.role,"dimension");
+});
