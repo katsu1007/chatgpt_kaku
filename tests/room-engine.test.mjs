@@ -1207,3 +1207,20 @@ test("slanted partition branch snaps to a receiving wall at a near-miss T-juncti
  assert.equal(result.rooms.length,3);
  assert.ok(result.diagnostics.snappedTJunctions>0);
 });
+
+
+test("slanted partition branch four millimetres short is not snapped across the T-junction",()=>{
+ const items=[
+  line("外壁",100,100,1400,100),line("外壁",1400,100,1400,1400),
+  line("外壁",1400,1400,100,1400),line("外壁",100,1400,100,100),
+  line("間仕切壁",750,100,750,1400),
+  // Four millimetres exceeds the 2.25-cell T-junction snap tolerance.
+  line("間仕切壁",100,650,746,700)
+ ];
+ const result=extractRoomHierarchy({items,width:1500,height:1500,
+  layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
+ assert.equal(result.parents.length,1);
+ assert.equal(result.rooms.length,2);
+ // Other endpoints elsewhere in the outer boundary may legitimately snap;
+ // the room count proves this four-millimetre branch was not joined.
+});
