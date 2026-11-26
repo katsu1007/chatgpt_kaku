@@ -712,3 +712,42 @@ test("supercover rasterization seals slanted room boundaries with a single-cell 
  assert.equal(result.diagnostics.rasterization,"supercover");
  assert.ok(result.diagnostics.rasterizedCells>0);
 });
+
+test("explicit floor fill polygon can seed one room when wall boundaries are absent",()=>{
+ const items=[{kind:"fill",layer:"床",semanticRole:"floor",pts:[100,100,900,100,900,900,100,900]}];
+ const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"床"}],selectedLayers:[]});
+ assert.equal(result.rooms.length,1);
+ assert.equal(result.diagnostics.floorFillCount,1);
+ assert.equal(result.diagnostics.floorFillUsed,true);
+ assert.ok(result.diagnostics.floorMaskCells>0);
+});
+
+test("floor fill mask is split by real partition walls while furniture stays non-boundary",()=>{
+ const items=[
+  {kind:"fill",layer:"床",semanticRole:"floor",pts:[100,100,900,100,900,900,100,900]},
+  line("壁",500,100,500,900),
+  {...line("什器",250,300,400,300),semanticRole:"furniture"},
+  {...line("什器",400,300,400,600),semanticRole:"furniture"},
+  {...line("什器",400,600,250,600),semanticRole:"furniture"},
+  {...line("什器",250,600,250,300),semanticRole:"furniture"}
+ ];
+ const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"壁"}],selectedLayers:["壁"]});
+ assert.equal(result.rooms.length,2);
+ assert.equal(result.diagnostics.floorFillCount,1);
+ assert.ok(result.diagnostics.skippedSemanticItems>=4);
+});
+
+test("disjoint explicit floor polygons create separate fallback room regions",()=>{
+ const items=[
+  {kind:"fill",layer:"床",semanticRole:"floor",pts:[100,100,400,100,400,500,100,500]},
+  {kind:"fill",layer:"床",semanticRole:"floor",pts:[600,100,900,100,900,500,600,500]}
+ ];
+ const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"床"}],selectedLayers:[]});
+ assert.equal(result.rooms.length,2);
+ assert.equal(result.diagnostics.floorFillCount,2);
+});
+
+test("untagged decorative fills are not treated as floor regions",()=>{
+ const items=[{kind:"fill",layer:"HATCH",pts:[100,100,900,100,900,900,100,900]}];
+ assert.throws(()=>extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"HATCH"}],selectedLayers:[]}),/壁レイヤー/);
+});
