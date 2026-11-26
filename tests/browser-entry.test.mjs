@@ -48,3 +48,10 @@ test('CAD inspection report exposes block child native-layer provenance counts',
  assert.match(origin,/provenance\.missing/);
  assert.match(origin,/不明な子図形は区画境界から除外/);
 });
+
+
+test('CAD inspection report exposes short wall-fragment repair counts',async()=>{
+ const origin=await read('original/origin.js');
+ assert.match(origin,/短い壁線隙間補完/);
+ assert.match(origin,/d\.bridgedFragmentGaps/);
+});
