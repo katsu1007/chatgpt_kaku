@@ -176,7 +176,7 @@ function isWallLikeFill(pts,cw,ch){
   return ratio>=3.5&&major*2>=Math.max(cw,ch)*12;
 }
 function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
-  const wall=new Uint8Array(nx*ny); let usedItems=0,usedSegments=0,skippedHidden=0,skippedDimensionItems=0,skippedDimensionSegments=0,skippedSemanticItems=0,skippedNonWallFills=0,snappedTJunctions=0,rasterizedCells=0; const endpoints=[]; const doorEndpoints=[]; const geometrySegments=[]; const dimAnchors=dimensionTextAnchors(items);
+  const wall=new Uint8Array(nx*ny); let usedItems=0,usedSegments=0,skippedHidden=0,skippedDimensionItems=0,skippedDimensionSegments=0,skippedSemanticItems=0,skippedNonWallFills=0,snappedTJunctions=0,rasterizedCells=0; const usedLayers=new Set(); let activeLayer=null; const endpoints=[]; const doorEndpoints=[]; const geometrySegments=[]; const dimAnchors=dimensionTextAnchors(items);
   const markCell=(ix,iy)=>{
     if(ix<0||iy<0||ix>=nx||iy>=ny)return false;
     const index=iy*nx+ix;if(wall[index])return false;
@@ -192,6 +192,7 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
   const line=(x1,y1,x2,y2)=>{
     if(![x1,y1,x2,y2].every(Number.isFinite))return false;
     if(isDimensionSegment(x1,y1,x2,y2,dimAnchors)){skippedDimensionSegments++;return false;}
+    if(activeLayer!=null)usedLayers.add(String(activeLayer));
     endpoints.push([Math.round(x1/cw),Math.round(y1/ch)],[Math.round(x2/cw),Math.round(y2/ch)]);
     geometrySegments.push({x1:x1/cw,y1:y1/ch,x2:x2/cw,y2:y2/ch});
     markEndpoint(x1,y1);
@@ -205,6 +206,7 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
   };
   const rememberEndpoint=(x,y)=>{if(Number.isFinite(x)&&Number.isFinite(y))endpoints.push([Math.round(x/cw),Math.round(y/ch)]);};
   for(const it of items){
+    activeLayer=it.layer;
     if(it.hatchBoundary||!names.has(it.layer))continue;
     if(hidden.has(it.layer)){skippedHidden++;continue;}
     if(isDimensionGraphicItem(it)){skippedDimensionItems++;continue;}
@@ -348,7 +350,7 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
     }
     const key=bx+":"+by;if(!bins.has(key))bins.set(key,[]);bins.get(key).push([x,y]);
   }
-  return {wall,usedItems,usedSegments,skippedHidden,skippedDimensionItems,skippedDimensionSegments,skippedSemanticItems,skippedNonWallFills,endpointCount:endpoints.length,bridgedDoorGaps,snappedTJunctions,rasterizedCells};
+  return {wall,usedItems,usedSegments,usedLayers:[...usedLayers],skippedHidden,skippedDimensionItems,skippedDimensionSegments,skippedSemanticItems,skippedNonWallFills,endpointCount:endpoints.length,bridgedDoorGaps,snappedTJunctions,rasterizedCells};
 }
 function floodRegions(wall,nx,ny){
   const N=nx*ny,seen=new Uint8Array(N),queue=new Int32Array(N),regionAt=new Int32Array(N),regions=[];regionAt.fill(-1);let rid=0;
@@ -505,7 +507,8 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
   }
   const parentRooms=parents.kept.map((r,i)=>({...r,name:"大部屋 "+(i+1),level:1,children:[]}));
   const parentByRegion=new Map(parentRooms.map(p=>[p.id,p]));
-  const scaleLayerNames=new Set([...allNames,...(floorFillUsed?floorMask.layers:[])]);
+  const scaleTrace=childRooms.length?childTrace:parentTrace;
+  const scaleLayerNames=new Set([...(scaleTrace.usedLayers||[]),...(floorFillUsed?floorMask.layers:[])]);
   const scaleLayers=[...scaleLayerNames].map(name=>({name,scale:(layers||[]).find(layer=>String(layer?.name??"")===String(name))?.scale}));
   const knownScales=scaleLayers.map(entry=>entry.scale).filter(value=>Number.isFinite(value)&&value>0);
   const unknownScaleLayers=scaleLayers.filter(entry=>!(Number.isFinite(entry.scale)&&entry.scale>0)).map(entry=>entry.name);
@@ -513,7 +516,7 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
   const scaleAssessment={
     status:!scaleLayers.length||unknownScaleLayers.length?"unknown":uniqueScales.length===1?"uniform":"mixed",
     denominator:!unknownScaleLayers.length&&uniqueScales.length===1?uniqueScales[0]:null,
-    candidateLayers:scaleLayers.length,unknownLayers:unknownScaleLayers,distinctDenominators:uniqueScales
+    candidateLayers:scaleLayers.length,usedBoundaryLayers:[...scaleLayerNames],unknownLayers:unknownScaleLayers,distinctDenominators:uniqueScales
   };
   const childRooms=[];let unassignedChildren=0;
   const childGroups=new Map();
