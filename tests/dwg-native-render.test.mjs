@@ -88,3 +88,25 @@ test("uses explicit dimension annotation text once when native dimension carries
  assert.equal((svg.match(/L=100 mm/g)||[]).length,1);
  assert.doesNotMatch(svg,/>100<\/text>/);
 });
+
+test("renders filled inward-pointing arrowheads for linear and aligned dimensions",()=>{
+ const prepared=prepareNativeDwgSheet({size:{w:300,h:160},items:[
+  {kind:"dimension",layer:"DIM",dimensionType:"linear",actualMeasurement:100,x:50,y:35,
+   points:{point13:[10,10,0],point14:[110,10,0],point10:[10,35,0]}},
+  {kind:"dimension",layer:"DIM",dimensionType:"aligned",actualMeasurement:80,x:170,y:80,
+   points:{point13:[130,20,0],point14:[190,80,0],point10:[130,80,0]}}
+ ]},[{name:"DIM",color:"#222222"}]);
+ const svg=renderNativeDwgSvg(prepared);
+ assert.equal((svg.match(/<polygon points=/g)||[]).length,4);
+ assert.match(svg,/fill="#222222"/);
+ assert.match(svg,/<line x1="10" y1="35" x2="110" y2="35"/);
+});
+
+test("rotates fallback dimension measurement text by its text rotation",()=>{
+ const prepared=prepareNativeDwgSheet({size:{w:100,h:100},items:[
+  {kind:"dimension",layer:"DIM",dimensionType:"linear",actualMeasurement:50,x:20,y:30,textRotation:Math.PI/4,
+   points:{point13:[0,0,0],point14:[50,0,0],point10:[0,30,0]}}
+ ]},[{name:"DIM",color:"#222222"}]);
+ const svg=renderNativeDwgSvg(prepared);
+ assert.match(svg,/rotate\(-45\)/);
+});
