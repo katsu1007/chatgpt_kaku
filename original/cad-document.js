@@ -227,7 +227,12 @@ export function attachCadEntityMetadata(items = [], normalizedEntities = []) {
       sourceGroupIndex: item?.sourceGroupIndex ?? source.groupIndex ?? null,
       sourceLayerIndex: item?.sourceLayerIndex ?? source.layerIndex ?? null,
       sourceEntityIndex: item?.sourceEntityIndex ?? source.sourceIndex ?? null,
-      blockPath: Array.isArray(item?.blockPath) && item.blockPath.length ? item.blockPath : (source.blockPath ?? [])
+      blockPath: Array.isArray(item?.blockPath) && item.blockPath.length ? item.blockPath : (source.blockPath ?? []),
+      blockTransform: item?.blockTransform ?? source.blockTransform ?? null,
+      sourceInsertHandle: item?.sourceInsertHandle ?? source.sourceInsertHandle ?? null,
+      sourceBlockHandle: item?.sourceBlockHandle ?? source.sourceBlockHandle ?? null,
+      sourceEntityHandle: item?.sourceEntityHandle ?? source.sourceEntityHandle ?? null,
+      blockInstanceIndex: item?.blockInstanceIndex ?? source.blockInstanceIndex ?? null
     };
   });
 }
