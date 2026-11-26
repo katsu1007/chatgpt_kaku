@@ -509,3 +509,19 @@ test("inherits deep block instance handles and transforms when parser flattens g
   assert.equal(source.blockInstanceIndex,2);
   assert.deepEqual(source.blockTransform,[1,0,0,1,50,60]);
 });
+
+
+test("reports block child layers that were lost before CAD normalization",()=>{
+ const doc=createCadDocument({items:[
+  {kind:"line",layer:"外壁",pts:[0,0,100,0],blockPath:["TOILET","PAN"]},
+  {kind:"line",layer:"外壁",pts:[100,0,100,100],blockPath:["TOILET","PAN"],base:{kind:"line",layer:"衛生器具",pts:[100,0,100,100]}},
+  {kind:"block",layer:"記号",blockName:"TOILET"}
+ ]},{sourceFormat:"JWW"});
+ assert.equal(doc.sheets[0].entities[0].source.nativeLayer,null);
+ assert.equal(doc.sheets[0].entities[0].source.layerProvenance,"child-layer-unavailable");
+ assert.equal(doc.sheets[0].entities[1].source.nativeLayer,"衛生器具");
+ assert.equal(doc.sheets[0].entities[1].source.layerProvenance,"base-layer-retained");
+ assert.deepEqual(doc.diagnostics.blockChildLayerProvenance,{retained:1,missing:1});
+ assert.ok(doc.diagnostics.sourceWarnings.some(w=>w.includes("子図形本来のレイヤー情報を確認できません")));
+ assert.equal(doc.diagnostics.blockChildLayerProvenance.missing,1);
+});
