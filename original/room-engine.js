@@ -602,7 +602,7 @@ function filterFurnitureIslands(regions,items,wallNames,hidden,cw,ch,wall,region
     if((sharedRegionCounts.get(region.id)||0)>=3)return true;
     const minX=region.minx*cw,maxX=(region.maxx+1)*cw,minY=region.miny*ch,maxY=(region.maxy+1)*ch;
     const nearFurnitureSeed=areaM2<.3&&furnitureSeeds.some(other=>{
-      if(other===region||other.area<=region.area*2)return false;
+      if(other===region)return false;
       const ox0=other.minx*cw,ox1=(other.maxx+1)*cw,oy0=other.miny*ch,oy1=(other.maxy+1)*ch;
       const dx=Math.max(0,ox0-maxX,minX-ox1),dy=Math.max(0,oy0-maxY,minY-oy1);
       return Math.hypot(dx,dy)<=800;
