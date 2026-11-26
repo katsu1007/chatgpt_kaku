@@ -507,10 +507,10 @@ function regionHasDoorOrFixtureEvidence(region,items,wallNames,hidden,cw,ch){
     if(inside&&!wallNames.has(layer)&&/(衛生|便器|洗面|設備|器具|給排水|toilet|fixture|plumb|sink|lavatory)/i.test(layer))return true;
     if(!["arc","circle"].includes(kind))continue;
     const center=it.center??it.centre;
-    const x=Number(it.cx??it.x??center?.x??center?.[0]),y=Number(it.cy??it.y??center?.y??center?.[1]);
+    const arcX=Number(it.cx??it.x??center?.x??center?.[0]),arcY=Number(it.cy??it.y??center?.y??center?.[1]);
     const radius=Number(it.r??it.radius);
-    if(!Number.isFinite(x)||!Number.isFinite(y)||!Number.isFinite(radius)||radius<350||radius>1200)continue;
-    const dx=Math.max(0,minX-x,x-maxX),dy=Math.max(0,minY-y,y-maxY);
+    if(!Number.isFinite(arcX)||!Number.isFinite(arcY)||!Number.isFinite(radius)||radius<350||radius>1200)continue;
+    const dx=Math.max(0,minX-arcX,arcX-maxX),dy=Math.max(0,minY-arcY,arcY-maxY);
     if(Math.hypot(dx,dy)<=Math.min(900,radius+150))return true;
   }
   return false;
