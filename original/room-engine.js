@@ -394,6 +394,10 @@ function floorPolygonOf(item){
  if(!["fill","solid","polyline"].includes(kind))return null;
  if(kind==="polyline"&&!(item.closed===true||item.isClosed===true||item.closedFlag===true||item.flags?.closed===true))return null;
  const raw=item.pts??item.points??item.vertices;if(!Array.isArray(raw))return null;
+ if(kind==="polyline"&&(Array.isArray(item.bulges)||raw.some(vertex=>vertex&&typeof vertex==="object"&&Number(vertex.bulge)!==0))){
+  const curve=tessellateBulgedPolyline(item,{maxSegments:20000});
+  return curve.closed&&curve.points.length>=3?curve.points.map(([x,y])=>({x,y})):null;
+ }
  const points=raw.length&&typeof raw[0]==="object"
   ?raw.filter(p=>Number.isFinite(p?.x)&&Number.isFinite(p?.y)).map(p=>({x:p.x,y:p.y}))
   :Array.from({length:Math.floor(raw.length/2)},(_,i)=>({x:raw[i*2],y:raw[i*2+1]})).filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.y));
