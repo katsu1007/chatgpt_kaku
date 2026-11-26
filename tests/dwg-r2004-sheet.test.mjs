@@ -330,3 +330,16 @@ test("skips HATCH paths with invalid extrusion normals while keeping other geome
  assert.equal(drawing.sheets[0].items.length,1);
  assert.equal(drawing.meta.info.unsupported,1);
 });
+
+test("transforms angular dimension OCS text and arc points into WCS",()=>{
+ const normal=[0,Math.SQRT1_2,Math.SQRT1_2];
+ const drawing=createR2004DwgDrawing({units:{known:true,code:4,name:"millimeters",scaleToMm:1},entities:[
+  entity("A-DIM",350n,{kind:"dimension",dimensionName:"angular-2line",textMidpoint:[10,20],userText:"<>",actualMeasurement:Math.PI/2,textRotation:0,extrusion:normal,
+   point10:[0,50,0],point13:[50,0,0],point14:[0,50,0],point15:[0,0,0],point16:[30,40]})
+ ],layers:[]});
+ const item=drawing.sheets[0].items.find(x=>x.kind==="dimension");
+ assert.equal(item.ocsTransformed,true);
+ assert.ok(Math.abs(item.points.point16[0]-(-30-drawing.sheets[0].origin.x))<1e-6);
+ assert.ok(Math.abs(item.points.point16[1]-(-40*Math.SQRT1_2-drawing.sheets[0].origin.y))<1e-6);
+ assert.ok(Math.abs(item.points.point16[2]-40*Math.SQRT1_2)<1e-6);
+});
