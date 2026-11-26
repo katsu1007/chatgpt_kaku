@@ -590,19 +590,29 @@ function regionHasFurnitureHaloEvidence(region,items,hidden,cw,ch){
 }
 function filterFurnitureIslands(regions,items,wallNames,hidden,cw,ch,wall,regionAt,nx,ny){
   const {measures,sharedRegionCounts,largestMeasure}=wallComponentRegionMeasures(wall,regionAt,nx,ny,cw,ch);
+  const source=regions.kept||[];
+  const furnitureSeeds=source.filter(region=>regionHasFurnitureHaloEvidence(region,items,hidden,cw,ch));
   const filteredKeys=[];
-  const kept=(regions.kept||[]).filter(region=>{
+  const kept=source.filter(region=>{
+    const key=[region.id,region.seed,region.area].join(":");
     const areaM2=region.area*cw*ch/1e6;
     if(areaM2<.05||areaM2>8)return true;
     if(regionHasRoomLabel(region,items,cw,ch)||regionHasDoorOrFixtureEvidence(region,items,wallNames,hidden,cw,ch))return true;
-    // Shared partition networks and dominant architectural wall runs are
-    // strong room evidence; isolated furniture loops are not.
-    const wallNetworkMeasure=measures.get(region.id)||0;
+    // A partition component shared by several adjacent rooms is stronger
+    // evidence than an isolated furniture loop.
     if((sharedRegionCounts.get(region.id)||0)>=3)return true;
-    const furnitureHalo=regionHasFurnitureHaloEvidence(region,items,hidden,cw,ch);
-    if(furnitureHalo){filteredKeys.push([region.id,region.seed,region.area].join(":"));return false;}
+    const minX=region.minx*cw,maxX=(region.maxx+1)*cw,minY=region.miny*ch,maxY=(region.maxy+1)*ch;
+    const nearFurnitureSeed=areaM2<.3&&furnitureSeeds.some(other=>{
+      if(other===region)return false;
+      const ox0=other.minx*cw,ox1=(other.maxx+1)*cw,oy0=other.miny*ch,oy1=(other.maxy+1)*ch;
+      const dx=Math.max(0,ox0-maxX,minX-ox1),dy=Math.max(0,oy0-maxY,minY-oy1);
+      return Math.hypot(dx,dy)<=800;
+    });
+    const furnitureHalo=furnitureSeeds.includes(region);
+    if(furnitureHalo||nearFurnitureSeed){filteredKeys.push(key);return false;}
+    const wallNetworkMeasure=measures.get(region.id)||0;
     if(largestMeasure>0&&wallNetworkMeasure>=largestMeasure*.6)return true;
-    filteredKeys.push([region.id,region.seed,region.area].join(":"));return false;
+    filteredKeys.push(key);return false;
   });
   return {...regions,kept,filteredFurnitureIslands:filteredKeys.length,filteredFurnitureKeys:filteredKeys};
 }
