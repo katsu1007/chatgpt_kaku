@@ -103,8 +103,8 @@ function geometryOf(entity, kind) {
   }
   if (kind === "arc" || kind === "circle") {
     const center = first(entity?.center, entity?.centre);
-    const cx = first(center?.x, entity?.cx, entity?.x);
-    const cy = first(center?.y, entity?.cy, entity?.y);
+    const cx = first(center?.x, center?.[0], entity?.cx, entity?.x);
+    const cy = first(center?.y, center?.[1], entity?.cy, entity?.y);
     return {
       center: finite(cx) && finite(cy) ? { x: cx, y: cy } : null,
       radius: finite(entity?.radius) ? entity.radius : finite(entity?.r) ? entity.r : null,
