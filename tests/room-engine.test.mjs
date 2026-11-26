@@ -1244,6 +1244,12 @@ test("fixed 150 mm near-miss gap does not become scale-dependent T-junction",()=
       layers:[{name:"外壁"},{name:"間仕切壁"}],
       selectedLayers:["外壁"]
     });
+    if(extent===1000){
+      assert.equal(result.diagnostics.snappedTJunctions,0);
+    }else{
+      // The large-sheet case is specifically reproduced by the T-junction snap.
+      assert.ok(result.diagnostics.snappedTJunctions>0);
+    }
     assert.equal(
       result.rooms.length,1,
       `150 mm opening must remain open at ${extent} mm drawing extent`
