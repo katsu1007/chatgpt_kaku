@@ -1052,3 +1052,16 @@ test("short slanted wall fragments are joined along their shared axis",()=>{
  assert.equal(result.diagnostics.bridgedFragmentGaps,1);
  assert.equal(result.rooms.length,2);
 });
+
+
+test("rectangular room drawing area stays within 2 percent of geometric area",()=>{
+ const items=[
+  line("外壁",100,100,900,100),line("外壁",900,100,900,900),
+  line("外壁",900,900,100,900),line("外壁",100,900,100,100)
+ ];
+ const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"外壁"}],selectedLayers:[]});
+ assert.equal(result.rooms.length,1);
+ const expectedCm2=800*800/100;
+ const relativeError=Math.abs(result.rooms[0].drawingAreaCm2-expectedCm2)/expectedCm2;
+ assert.ok(relativeError<0.02,"area error "+(relativeError*100).toFixed(2)+"%");
+});
