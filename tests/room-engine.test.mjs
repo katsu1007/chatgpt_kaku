@@ -300,6 +300,7 @@ test("automatic all-layer fallback preserves six virtual toilet cubicle closures
   assert.equal(result.diagnostics.fallbackUsed,true);
   assert.equal(result.diagnostics.minParentSpanCells,Math.max(8,Math.ceil(30/Math.min(result.grid.cw,result.grid.ch))));
   assert.equal(result.diagnostics.virtualBoothClosures,6);
+  assert.ok(result.diagnostics.bridgedFragmentGaps>=9);
   assert.equal(result.parents.length,1);
   assert.equal(result.rooms.length,7);
   const boothRooms=result.rooms.filter(r=>{
