@@ -1,9 +1,8 @@
 // KAKU-owned semantic prefilter + planar graph candidate analysis.
 // Shadow mode only: never mutates or replaces production room extraction.
 import { buildPlanarGraph } from "./planar-geometry.js";
+import { dimensionTextAnchors, isDimensionSegment } from "./dimension-line-classifier.js";
 
-const NON_WALL_LAYER=/(寸法|寸法線|寸法補助|寸法記入|引出線|補助線|中心線|通り芯|グリッド|文字|注記|家具|什器|設備|器具|照明|電気|コンセント|記号|ハッチ|dimension|\bdim\b|annotation|leader|extension|center.?line|grid|axis|furniture|fixture|text|symbol|hatch)/i;
-const DIMENSION_LABEL=/^\s*[+-]?\d[\d,]*(?:\.\d+)?\s*(?:mm|ｍｍ|m|ｍ|cm|㎜|㎝|φ|ø)?\s*$/i;
 const finite=Number.isFinite;
 function isDimensionGraphicItem(item){
  const kind=String(item?.kind||item?.type||"").toLowerCase();
@@ -17,21 +16,7 @@ const pointsOf=item=>{
  const out=[];for(let i=0;i+1<p.length;i+=2)if(finite(p[i])&&finite(p[i+1]))out.push({x:p[i],y:p[i+1]});
  return out;
 };
-function dimensionAnchors(items){
- return (items||[]).filter(it=>String(it?.kind||it?.type||"").toLowerCase()==="text"&&DIMENSION_LABEL.test(String(it.text||""))&&finite(it.x)&&finite(it.y)&&finite(it.size)&&it.size>0).map(it=>{
-  const w=Math.max(1,String(it.text).length)*it.size*.6,rot=it.rot||it.rotation||0;
-  return {x:it.x+w*.5*Math.cos(rot)+it.size*.5*Math.sin(rot),y:it.y+w*.5*Math.sin(rot)-it.size*.5*Math.cos(rot),rot,radius:w*.55+it.size*.75,size:it.size};
- });
-}
-function isDimensionStroke(a,b,anchors){
- const dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy);if(!len)return false;
- const angle=Math.atan2(dy,dx),ux=dx/len,uy=dy/len;
- return anchors.some(anchor=>{
-  if(len<anchor.size*2||Math.abs(Math.sin(angle-anchor.rot))>=.22)return false;
-  const t=Math.max(0,Math.min(1,((anchor.x-a.x)*ux+(anchor.y-a.y)*uy)/len));
-  return Math.hypot(anchor.x-(a.x+t*dx),anchor.y-(a.y+t*dy))<=anchor.radius;
- });
-}
+const NON_WALL_LAYER=/(寸法|寸法線|寸法補助|寸法記入|引出線|補助線|中心線|通り芯|グリッド|文字|注記|家具|什器|設備|器具|照明|電気|コンセント|記号|ハッチ|dimension|\bdim\b|annotation|leader|extension|center.?line|grid|axis|furniture|fixture|text|symbol|hatch)/i;
 function wallLikeFill(points){
  if(points.length<4)return false;
  const mx=points.reduce((s,p)=>s+p.x,0)/points.length,my=points.reduce((s,p)=>s+p.y,0)/points.length;
@@ -72,7 +57,7 @@ function entitySegments(item,index,stats,anchors){
  const out=[];
  for(let i=0;i+1<points.length;i++){
   const a=points[i],b=points[i+1];if(Math.hypot(b.x-a.x,b.y-a.y)<=1e-8)continue;
-  if(isDimensionStroke(a,b,anchors)){stats.skippedDimensionSegments++;continue;}
+  if(isDimensionSegment(a.x,a.y,b.x,b.y,anchors)){stats.skippedDimensionSegments++;continue;}
   out.push({x1:a.x,y1:a.y,x2:b.x,y2:b.y,sourceId:String(item.handle??item.id??"entity:"+index),sourceLayer:item.layer??item.layerName??null,sourceKind:item.sourceType??item.entityType??item.kind??item.type??null,semanticRole:item.semantic?.role??item.semanticRole??item.role??null,layerScaleDenominator:item.layerScaleDenominator??item.semantic?.layerScaleDenominator??null,sourceSegmentIndex:i});
  }
  if(out.length)stats.acceptedItems++;
@@ -97,7 +82,7 @@ function doorwayBridges(items,allowed,hidden,anchors,stats){
   const ends=[{p:p[0],toward:p[1]},{p:p.at(-1),toward:p.at(-2)}];
   for(const e of ends){
    if((degree.get(coordinateKey(e.p.x,e.p.y))||0)!==1)continue;
-   if(isDimensionStroke(e.p,e.toward,anchors))continue;
+   if(isDimensionSegment(e.p.x,e.p.y,e.toward.x,e.toward.y,anchors))continue;
    const dx=e.toward.x-e.p.x,dy=e.toward.y-e.p.y,len=Math.hypot(dx,dy);if(len>1e-8)endpoints.push({x:e.p.x,y:e.p.y,ux:dx/len,uy:dy/len,source:index});
   }
  });
@@ -128,7 +113,7 @@ function doorwayBridges(items,allowed,hidden,anchors,stats){
 export function analyzePlanarRoomCandidates({items=[],wallLayerNames=[],hiddenLayers=[]}={}){
  const allowed=new Set((wallLayerNames||[]).map(String)),hidden=new Set((hiddenLayers||[]).map(String));
  const stats={inputItems:0,acceptedItems:0,acceptedWallFills:0,approximatedArcs:0,skippedSemanticLayer:0,skippedDimensionItems:0,skippedNonBoundaryKind:0,skippedInvalidArc:0,skippedInvalidGeometry:0,skippedNonWallFill:0,skippedDimensionSegments:0,skippedHatchBoundary:0,bridgedDoorGaps:0};
- const anchors=dimensionAnchors(items),segments=[];
+ const anchors=dimensionTextAnchors(items),segments=[];
  (items||[]).forEach((item,index)=>{
   if(!item||!allowed.has(String(item.layer??""))||hidden.has(String(item.layer??"")))return;
   stats.inputItems++;segments.push(...entitySegments(item,index,stats,anchors));

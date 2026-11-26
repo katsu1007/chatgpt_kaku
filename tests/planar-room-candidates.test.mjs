@@ -109,3 +109,24 @@ test("closed polylines do not contribute false doorway endpoints",()=>{
  assert.equal(r.diagnostics.bridgedDoorGaps,0);
  assert.equal(r.bridges.length,0);
 });
+
+test("dimension extension lines are excluded only as a paired set",()=>{
+ const items=[
+  ...box("WALL",100,100,900,900),
+  line("WALL",200,200,800,200),line("WALL",200,100,200,200),line("WALL",800,100,800,200),
+  {kind:"text",layer:"TEXT",x:480,y:210,size:20,text:"6000",rot:0}
+ ];
+ const r=analyzePlanarRoomCandidates({items,wallLayerNames:["WALL","TEXT"]});
+ assert.ok(r.diagnostics.skippedDimensionSegments>=3);
+ assert.equal(r.diagnostics.boundedFaces,1);
+});
+test("a lone perpendicular wall at a dimension endpoint remains in planar candidates",()=>{
+ const items=[
+  ...box("WALL",100,100,900,900),
+  line("WALL",200,200,800,200),line("WALL",200,100,200,200),
+  line("WALL",800,200,800,800),
+  {kind:"text",layer:"TEXT",x:480,y:210,size:20,text:"6000",rot:0}
+ ];
+ const r=analyzePlanarRoomCandidates({items,wallLayerNames:["WALL","TEXT"]});
+ assert.ok(r.diagnostics.skippedDimensionSegments<=2);
+});
