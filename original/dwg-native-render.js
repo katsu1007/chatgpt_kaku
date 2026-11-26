@@ -1,3 +1,4 @@
+import { tessellateCadCurve, tessellateBulgedPolyline } from "./cad-curve-tessellation.js";
 // KAKU-owned lightweight SVG renderer for native DWG SheetItems.
 // Keeps R2000/R2004 viewing independent from the optional JWW/DXF CDN.
 const finite=(v,fallback=0)=>Number.isFinite(Number(v))?Number(v):fallback;
@@ -27,11 +28,12 @@ export function prepareNativeDwgSheet(sheet,layers=[]){
  return {nativeDwg:true,sheet,width,height,layerIndex,layerColors};
 }
 function arcPoints(item){
- const r=finite(item.r),cx=finite(item.cx),cy=finite(item.cy);
+ const center=item.center??item.centre;
+ const r=finite(item.r??item.radius),cx=finite(item.cx??item.x??center?.[0]??center?.x),cy=finite(item.cy??item.y??center?.[1]??center?.y);
  if(!(r>0))return [];
- if(item.isCircle)return Array.from({length:49},(_,i)=>{const a=Math.PI*2*i/48;return [cx+r*Math.cos(a),cy+r*Math.sin(a)];});
- let a0=finite(item.a0),a1=finite(item.a1),sweep=a1-a0;
- if(Math.abs(sweep)>Math.PI*2+1e-6)sweep=Math.sign(sweep)*Math.PI*2;
+ if(item.isCircle||item.kind==="circle")return Array.from({length:49},(_,i)=>{const a=Math.PI*2*i/48;return [cx+r*Math.cos(a),cy+r*Math.sin(a)];});
+ const a0=finite(item.a0??item.startAngle),a1=finite(item.a1??item.endAngle),sweep=a1-a0;
+ if(Math.abs(sweep)>Math.PI*2+1e-6)return [];
  const count=Math.max(12,Math.min(256,Math.ceil(Math.abs(sweep)*Math.max(r,1)/8)));
  return Array.from({length:count+1},(_,i)=>{const a=a0+sweep*i/count;return [cx+r*Math.cos(a),cy+r*Math.sin(a)];});
 }
@@ -43,17 +45,27 @@ export function renderNativeDwgSvg(prepared,hidden=new Uint8Array(0)){
   const index=layerIndex.get(item.layer);
   if(index!==undefined&&hidden[index])continue;
   const color=xml(layerColors.get(item.layer)||"#303030"),stroke=`stroke="${color}" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"`;
-  if(item.kind==="line"||item.kind==="fill"){
-   const pts=Array.isArray(item.pts)?item.pts:[];
+  if(item.kind==="line"||item.kind==="polyline"||item.kind==="fill"){
+   let pts=Array.isArray(item.pts)?item.pts:[];
+   const closed=item.closed===true||item.isClosed===true||item.closedFlag===true;
+   if(item.kind==="polyline"&&Array.isArray(item.bulges)){
+    const curve=tessellateBulgedPolyline({...item,pts},{maxSegments:20000});pts=curve.points.flat();
+   }
    if(pts.length<4||pts.length%2)continue;
    const points=[];for(let i=0;i+1<pts.length;i+=2)if(Number.isFinite(pts[i])&&Number.isFinite(pts[i+1]))points.push(fmt(pts[i])+","+fmt(pts[i+1]));
    if(points.length<2)continue;
    if(item.kind==="fill")body.push(`<polygon points="${points.join(" ")}" fill="${color}" fill-opacity="0.22" ${stroke}/>`);
-   else if(item.closed===true||item.isClosed===true||item.closedFlag===true)body.push(`<polygon points="${points.join(" ")}" fill="none" ${stroke}/>`);
+   else if(closed)body.push(`<polygon points="${points.join(" ")}" fill="none" ${stroke}/>`);
    else body.push(`<polyline points="${points.join(" ")}" fill="none" ${stroke}/>`);
-  }else if(item.kind==="arc"){
+  }else if(item.kind==="ellipse"||item.kind==="spline"){
+   const curve=tessellateCadCurve(item,{maxSegments:20000});
+   if(curve.points.length<2)continue;
+   const points=curve.points.map(p=>fmt(p[0])+","+fmt(p[1])).join(" ");
+   if(curve.closed)body.push(`<polygon points="${points}" fill="none" ${stroke}/>`);
+   else body.push(`<polyline points="${points}" fill="none" ${stroke}/>`);
+  }else if(item.kind==="arc"||item.kind==="circle"){
    const pts=arcPoints(item);if(pts.length<2)continue;
-   if(item.isCircle)body.push(`<circle cx="${fmt(item.cx)}" cy="${fmt(item.cy)}" r="${fmt(item.r)}" fill="none" ${stroke}/>`);
+   if(item.isCircle||item.kind==="circle")body.push(`<circle cx="${fmt(item.cx??item.center?.[0]??item.center?.x)}" cy="${fmt(item.cy??item.center?.[1]??item.center?.y)}" r="${fmt(item.r??item.radius)}" fill="none" ${stroke}/>`);
    else body.push(`<polyline points="${pts.map(p=>fmt(p[0])+","+fmt(p[1])).join(" ")}" fill="none" ${stroke}/>`);
   }else if(item.kind==="point"){
    body.push(`<circle cx="${fmt(item.x)}" cy="${fmt(item.y)}" r="2.5" fill="${color}"/>`);
