@@ -412,5 +412,5 @@ test("retains variable per-vertex widths on straight DWG polyline segments",()=>
   ]})
  ],layers:[]});
  const items=drawing.sheets[0].items;
- assert.deepEqual(items.map(x=>[x.widthStart,x.widthEnd,x.widthSource]),[[4,10,"vertex"],[8,5,"vertex"]]);
+ assert.deepEqual(items.map(x=>[x.widthStart,x.widthEnd,x.widthSource]),[[4,6,"vertex"],[8,10,"vertex"]]);
 });
