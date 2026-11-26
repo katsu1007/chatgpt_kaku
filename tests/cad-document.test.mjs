@@ -414,3 +414,20 @@ test("explicit wall semantics remain boundary geometry even when nested in a DWG
  assert.equal(entity.semantic.blockInstance,false);
  assert.deepEqual(entity.source.blockPath,["WALL_ASSEMBLY"]);
 });
+
+
+test("propagates normalized DWG block transform and handle ancestry to analysis items",()=>{
+ const items=[{kind:"line",pts:[0,0,100,0]}];
+ const normalized=[{source:{
+  blockPath:["SYMBOLS","URINAL"],blockTransform:[0,-1,1,0,300,400],
+  sourceInsertHandle:"11",sourceBlockHandle:"22",sourceEntityHandle:"33",blockInstanceIndex:7
+ },semantic:{role:"block-instance",blockInstance:true}}];
+ const out=attachCadEntityMetadata(items,normalized)[0];
+ assert.deepEqual(out.blockPath,["SYMBOLS","URINAL"]);
+ assert.deepEqual(out.blockTransform,[0,-1,1,0,300,400]);
+ assert.equal(out.sourceInsertHandle,"11");
+ assert.equal(out.sourceBlockHandle,"22");
+ assert.equal(out.sourceEntityHandle,"33");
+ assert.equal(out.blockInstanceIndex,7);
+ assert.equal(out.blockInstance,true);
+});
