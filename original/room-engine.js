@@ -527,7 +527,7 @@ function furnitureHaloEvidence(region,items,wallNames,hidden,cw,ch){
     }
   }
   const values=Object.values(sideCounts).sort((a,b)=>b-a);
-  const opposite=(sideCounts.left>=8&&sideCounts.right>=8)||(sideCounts.top>=8&&sideCounts.bottom>=8);
+  const opposite=(sideCounts.left>=6&&sideCounts.right>=6)||(sideCounts.top>=6&&sideCounts.bottom>=6);
   const densePair=values[0]>=20&&values[1]>=8&&values.reduce((sum,value)=>sum+value,0)>=32;
   return centers.size>=8&&(opposite||densePair);
 }
