@@ -136,3 +136,26 @@ test("full-sweep arcs create closed bounded planar room candidates",()=>{
  assert.equal(r.diagnostics.boundedFaces,1);
  assert.equal(r.faces.length,1);
 });
+
+test("explicit fixture and floor semantics are excluded from planar room candidates",()=>{
+ const items=[
+  {...line("WALL",100,100,900,100),semanticRole:"furniture"},
+  {...line("WALL",900,100,900,900),semanticRole:"fixture"},
+  {...line("WALL",900,900,100,900),semanticRole:"equipment"},
+  {...line("WALL",100,900,100,100),semanticRole:"symbol"}
+ ];
+ const r=analyzePlanarRoomCandidates({items,wallLayerNames:["WALL"]});
+ assert.equal(r.faces.length,0);
+ assert.equal(r.diagnostics.skippedSemanticItems,4);
+});
+test("explicit partition semantics remain eligible in planar candidate analysis",()=>{
+ const items=[
+  {...line("WALL",100,100,900,100),semanticRole:"partition"},
+  {...line("WALL",900,100,900,900),semanticRole:"partition"},
+  {...line("WALL",900,900,100,900),semanticRole:"partition"},
+  {...line("WALL",100,900,100,100),semanticRole:"partition"}
+ ];
+ const r=analyzePlanarRoomCandidates({items,wallLayerNames:["WALL"]});
+ assert.equal(r.faces.length,1);
+ assert.equal(r.diagnostics.skippedSemanticItems,0);
+});
