@@ -1011,3 +1011,31 @@ test("explicit wall semantics override missing block child layer provenance",()=
  const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"外壁"}],selectedLayers:["外壁"]});
  assert.equal(result.rooms.length,2);
 });
+
+
+test("short same-layer wall fragments heal up to 60 mm but not beyond",()=>{
+ const make=(gap)=>[
+  line("外壁",100,100,1400,100),line("外壁",1400,100,1400,1400),
+  line("外壁",1400,1400,100,1400),line("外壁",100,1400,100,100),
+  line("間仕切壁",750,100,750,700),
+  line("間仕切壁",750,700+gap,750,1400)
+ ];
+ const joined=extractRoomHierarchy({items:make(60),width:1500,height:1500,layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
+ assert.equal(joined.diagnostics.bridgedFragmentGaps,1);
+ assert.equal(joined.rooms.length,2);
+ const open=extractRoomHierarchy({items:make(61),width:1500,height:1500,layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
+ assert.equal(open.diagnostics.bridgedFragmentGaps,0);
+ assert.equal(open.rooms.length,1);
+});
+
+test("short fragments on different CAD layers are not joined",()=>{
+ const items=[
+  line("外壁",100,100,1400,100),line("外壁",1400,100,1400,1400),
+  line("外壁",1400,1400,100,1400),line("外壁",100,1400,100,100),
+  line("間仕切壁",750,100,750,700),
+  line("トイレブース",750,760,750,1400)
+ ];
+ const result=extractRoomHierarchy({items,width:1500,height:1500,layers:[{name:"外壁"},{name:"間仕切壁"},{name:"トイレブース"}],selectedLayers:["外壁"]});
+ assert.equal(result.diagnostics.bridgedFragmentGaps,0);
+ assert.equal(result.rooms.length,1);
+});
