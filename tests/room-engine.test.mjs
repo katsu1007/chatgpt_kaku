@@ -858,3 +858,11 @@ test("hidden and unused wall candidates do not enter the used boundary scale set
  assert.deepEqual(result.diagnostics.scaleAssessment.usedBoundaryLayers.sort(),["外壁","間仕切壁"]);
  assert.equal(result.diagnostics.scaleAssessment.status,"uniform");
 });
+
+
+test("source trace inventory counts attached original CAD handles",()=>{
+ const items=[{kind:"line",layer:"壁",pts:[0,0,100,0],sourceHandle:"A0F1",sourceFormat:"JWW",sourceLayerGroup:"3"}];
+ const result=extractRoomHierarchy({items,width:200,height:200,layers:[{name:"壁"}],selectedLayers:["壁"]});
+ const layer=result.diagnostics.layerInventory.find(entry=>entry.name==="壁");
+ assert.equal(layer.sourceTagged,1);
+});
