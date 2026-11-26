@@ -174,9 +174,9 @@ export function normalizeCadEntity(entity, index, options = {}) {
   const layerGroup = first(source.layerGroup, source.layer_group, inherited.layerGroup, inherited.layer_group, null);
   // Expanded parser geometry may retain its original CAD object only under `base`.
   // Prefer explicit top-level provenance, then recover the nested original type.
-  const sourceType = first(source.sourceType, source.entityType, source.originalType, source.type,
-    source.sourceGeometry?.kind, inherited.sourceType, inherited.entityType,
-    inherited.originalType, inherited.type, inherited.sourceGeometry?.kind, inherited.kind,
+  const sourceType = first(source.sourceType, source.entityType, source.originalType,
+    inherited.sourceType, inherited.entityType, inherited.originalType, inherited.type,
+    inherited.sourceGeometry?.kind, inherited.kind, source.type, source.sourceGeometry?.kind,
     source.kind, "unknown");
   const layerInfo = (options.layers || []).find(entry => String(entry?.name ?? "") === String(layer ?? ""));
   const layerScaleDenominator = finite(layerInfo?.scale) && layerInfo.scale > 0 ? layerInfo.scale : null;
