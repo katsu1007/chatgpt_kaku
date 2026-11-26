@@ -1158,3 +1158,22 @@ test("large isolated table outline with chair strokes is not accepted as a room"
  assert.equal(result.rooms.length,0,JSON.stringify({rooms:result.rooms.map(r=>({area:r.area,minx:r.minx,maxx:r.maxx,miny:r.miny,maxy:r.maxy})),diag:result.diagnostics}));
  assert.ok(result.diagnostics.filteredFurnitureIslands>=1);
 });
+
+
+test("medium unrelated closed outline on the wall layer is not colored as a room",()=>{
+ const items=[
+  line("外壁",100,100,10000,100),line("外壁",10000,100,10000,10000),
+  line("外壁",10000,10000,100,10000),line("外壁",100,10000,100,100),
+  // A disconnected 2 m x 2 m closed drafting/symbol outline inside the hall.
+  line("壁",4000,4000,6000,4000),line("壁",6000,4000,6000,6000),
+  line("壁",6000,6000,4000,6000),line("壁",4000,6000,4000,4000)
+ ];
+ const result=extractRoomHierarchy({items,width:11000,height:11000,
+  layers:[{name:"外壁"},{name:"壁"}],selectedLayers:["外壁"]});
+ assert.equal(result.parents.length,1);
+ assert.equal(result.rooms.length,1,JSON.stringify({
+  rooms:result.rooms.map(r=>({area:r.area,minx:r.minx,maxx:r.maxx,miny:r.miny,maxy:r.maxy})),
+  diagnostics:result.diagnostics
+ }));
+ assert.ok(result.diagnostics.filteredFurnitureIslands>=1);
+});
