@@ -329,3 +329,18 @@ test("compares JWW source counts by default for a complete sheet",()=>{
  assert.equal(doc.diagnostics.sourceCountsComparable,true);
  assert.equal(doc.diagnostics.sourceWarnings.length,2);
 });
+
+
+test("preserves DWG variable line-segment widths and their units in CAD geometry",()=>{
+ const doc=createCadDocument({items:[
+  {kind:"line",pts:[0,0,100,0],widthStart:4,widthEnd:6,widthSource:"vertex",widthUnit:"mm"}
+ ]},{sourceFormat:"DWG"});
+ const geometry=doc.sheets[0].entities[0].geometry;
+ assert.deepEqual(geometry.widths,{start:4,end:6,unit:"mm",source:"vertex"});
+ assert.deepEqual(geometry.points,[[0,0],[100,0]]);
+});
+
+test("does not invent line width geometry when source width is absent",()=>{
+ const doc=createCadDocument({items:[{kind:"line",pts:[0,0,100,0]}]});
+ assert.equal(doc.sheets[0].entities[0].geometry.widths,null);
+});
