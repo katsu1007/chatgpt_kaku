@@ -170,7 +170,9 @@ export function normalizeCadEntity(entity, index, options = {}) {
   const layerScaleDenominator = finite(layerInfo?.scale) && layerInfo.scale > 0 ? layerInfo.scale : null;
   const semantics = sourceSemantics(source, sourceType, layerScaleDenominator);
   const handle = first(source.handle, source.id, source.objectId, null);
-  const blockPath = Array.isArray(source.blockPath) ? [...source.blockPath] :
+  const blockPath = Array.isArray(source.blockPath) && source.blockPath.length ? [...source.blockPath] :
+    Array.isArray(source.base?.blockPath) && source.base.blockPath.length ? [...source.base.blockPath] :
+    Array.isArray(source.blockPath) ? [...source.blockPath] :
     Array.isArray(source.base?.blockPath) ? [...source.base.blockPath] :
     source.blockName != null ? [String(source.blockName)] :
     source.base?.blockName != null ? [String(source.base.blockName)] : [];
