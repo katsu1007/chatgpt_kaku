@@ -13,6 +13,10 @@ function distanceToSegment(point,a,b){
  const t=Math.max(0,Math.min(1,((point.x-a.x)*dx+(point.y-a.y)*dy)/len2));
  return Math.hypot(point.x-(a.x+t*dx),point.y-(a.y+t*dy));
 }
+function segmentKey(a,b){
+ const p=[a.x.toFixed(2),a.y.toFixed(2)],q=[b.x.toFixed(2),b.y.toFixed(2)];
+ return p.join(",")<q.join(",")?p.join(",")+"|"+q.join(","):q.join(",")+"|"+p.join(",");
+}
 function collectLineSegments(items){
  const out=[];
  for(const item of items||[]){
@@ -38,7 +42,23 @@ export function dimensionTextAnchors(items){
    const distance=distanceToSegment(anchor,segment.a,segment.b);
    if(distance<=anchor.radius*1.5&&distance<bestDistance){best=segment;bestDistance=distance;}
   }
-  if(best)anchor.dimensionLine={a:best.a,b:best.b,angle:Math.atan2(best.b.y-best.a.y,best.b.x-best.a.x)};
+  if(best){
+   const angle=Math.atan2(best.b.y-best.a.y,best.b.x-best.a.x),length=Math.hypot(best.b.x-best.a.x,best.b.y-best.a.y);
+   anchor.dimensionLine={a:best.a,b:best.b,angle};
+   const tolerance=Math.max(5,size*.8),maxLength=Math.max(size*16,anchor.radius*8),nearA=[],nearB=[];
+   for(const segment of segments){
+    if(segment===best)continue;
+    const dx=segment.b.x-segment.a.x,dy=segment.b.y-segment.a.y,len=Math.hypot(dx,dy);
+    if(len<size*.5||len>maxLength||Math.abs(Math.cos(Math.atan2(dy,dx)-angle))>=.25)continue;
+    const dA=Math.min(Math.hypot(segment.a.x-best.a.x,segment.a.y-best.a.y),Math.hypot(segment.b.x-best.a.x,segment.b.y-best.a.y));
+    const dB=Math.min(Math.hypot(segment.a.x-best.b.x,segment.a.y-best.b.y),Math.hypot(segment.b.x-best.b.x,segment.b.y-best.b.y));
+    if(dA<=tolerance)nearA.push(segment);
+    if(dB<=tolerance)nearB.push(segment);
+   }
+   // Require a matching extension at both ends; a lone perpendicular wall
+   // meeting one endpoint is not enough evidence to discard real geometry.
+   if(nearA.length&&nearB.length)anchor.extensionSegmentKeys=new Set([...nearA,...nearB].map(segment=>segmentKey(segment.a,segment.b)));
+  }
   return anchor;
  }).filter(Boolean);
 }
@@ -50,11 +70,7 @@ export function isDimensionSegment(x1,y1,x2,y2,anchors){
    const t=Math.max(0,Math.min(1,((anchor.x-x1)*ux+(anchor.y-y1)*uy)/len));
    if(Math.hypot(anchor.x-(x1+t*dx),anchor.y-(y1+t*dy))<=anchor.radius)return true;
   }
-  const base=anchor.dimensionLine;if(!base)continue;
-  if(Math.abs(Math.cos(angle-base.angle))>=.25)continue;
-  if(len<anchor.size*.5||len>Math.max(anchor.size*16,anchor.radius*8))continue;
-  const tolerance=Math.max(5,anchor.size*.8),ends=[[x1,y1],[x2,y2]],targets=[[base.a.x,base.a.y],[base.b.x,base.b.y]];
-  if(ends.some(p=>targets.some(q=>Math.hypot(p[0]-q[0],p[1]-q[1])<=tolerance)))return true;
+  if(anchor.extensionSegmentKeys?.has(segmentKey({x:x1,y:y1},{x:x2,y:y2})))return true;
  }
  return false;
 }
