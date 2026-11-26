@@ -85,7 +85,7 @@ function doorwayBridges(items,allowed,hidden,anchors,stats){
   if(!allowed.has(layer)||hidden.has(layer)||NON_WALL_LAYER.test(layer)||isDimensionGraphicItem(item)||!["line","polyline"].includes(kind))return;
   const p=pointsOf(item);if(p.length<2)return;
   const closed=item.closed===true||item.isClosed===true||item.closedFlag===true||item.flags?.closed===true;
-  if(closed)continue;
+  if(closed)return;
   for(const e of [p[0],p.at(-1)]){const k=coordinateKey(e.x,e.y);degree.set(k,(degree.get(k)||0)+1);}
  });
  (items||[]).forEach((item,index)=>{
