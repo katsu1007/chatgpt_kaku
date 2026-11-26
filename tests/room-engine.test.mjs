@@ -241,12 +241,12 @@ test("small valid room is retained beside a much larger hall by span rather than
   const items=[
     line("外壁",100,100,900,100),line("外壁",900,100,900,900),
     line("外壁",900,900,100,900),line("外壁",100,900,100,100),
-    // A 40 x 40 mm enclosed room: small relative to the hall, but large enough
-    // in both dimensions to be a plausible small service/utility space.
-    line("間仕切壁",700,700,740,700),line("間仕切壁",740,700,740,740),
-    line("間仕切壁",740,740,700,740),line("間仕切壁",700,740,700,700)
+    // A 400 x 400 mm labeled utility room, small relative to the hall.
+    line("間仕切壁",450,450,850,450),line("間仕切壁",850,450,850,850),
+    line("間仕切壁",850,850,450,850),line("間仕切壁",450,850,450,450),
+    {kind:"text",layer:"部屋名",text:"物入",x:650,y:650}
   ];
-  const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
+  const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"外壁"},{name:"間仕切壁"},{name:"部屋名"}],selectedLayers:["外壁"]});
   assert.equal(result.rooms.length,2);
   assert.ok(result.diagnostics.minChildSpanCells>0);
 });
@@ -1125,4 +1125,19 @@ test("furniture strokes on the same wall layer do not create extra rooms",()=>{
  const result=extractRoomHierarchy({items,width:11000,height:11000,layers:[{name:"壁"}],selectedLayers:["壁"]});
  assert.equal(result.rooms.length,1,JSON.stringify({rooms:result.rooms.map(r=>({area:r.area,minx:r.minx,maxx:r.maxx,miny:r.miny,maxy:r.maxy})),diag:result.diagnostics}));
  assert.equal(result.diagnostics.filteredFurnitureIslands,5);
+});
+
+
+test("an isolated small room with a door swing is retained",()=>{
+ const items=[
+  line("外壁",100,100,10000,100),line("外壁",10000,100,10000,10000),
+  line("外壁",10000,10000,100,10000),line("外壁",100,10000,100,100),
+  line("間仕切壁",4000,4000,6000,4000),line("間仕切壁",6000,4000,6000,5200),
+  line("間仕切壁",6000,5200,5200,5200),line("間仕切壁",4400,5200,4000,5200),
+  line("間仕切壁",4000,5200,4000,4000),
+  {kind:"arc",layer:"建具",cx:4400,cy:5200,r:600}
+ ];
+ const result=extractRoomHierarchy({items,width:11000,height:11000,layers:[{name:"外壁"},{name:"間仕切壁"},{name:"建具"}],selectedLayers:["外壁"]});
+ assert.equal(result.rooms.length,2);
+ assert.equal(result.diagnostics.filteredFurnitureIslands,0);
 });
