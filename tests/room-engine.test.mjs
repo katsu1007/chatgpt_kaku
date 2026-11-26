@@ -888,3 +888,33 @@ test("assesses real-area scale independently for rooms enclosed by different CAD
   assert.ok(byName.get("外壁B").realAreaM2>byName.get("外壁A").realAreaM2);
   assert.equal(result.diagnostics.scaleAssessment.status,"mixed");
 });
+
+
+test("slanted doorway fragments with a modest drafting offset are joined safely",()=>{
+  const items=[
+    line("外壁",100,100,1400,100),line("外壁",1400,100,1400,1400),
+    line("外壁",1400,1400,100,1400),line("外壁",100,1400,100,100),
+    // The two wall fragments share an axis within 50 mm but are not perfectly
+    // collinear, as can happen after separate CAD snapping/coordinate rounding.
+    line("間仕切壁",400,100,600,500),
+    line("間仕切壁",921.2,1232.9,1000,1400)
+  ];
+  const result=extractRoomHierarchy({items,width:1500,height:1500,
+    layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
+  assert.equal(result.parents.length,1);
+  assert.equal(result.rooms.length,2);
+  assert.equal(result.diagnostics.bridgedDoorGaps,1);
+});
+
+test("nearby parallel wall ends beyond the alignment tolerance are not bridged",()=>{
+  const items=[
+    line("外壁",100,100,1400,100),line("外壁",1400,100,1400,1400),
+    line("外壁",1400,1400,100,1400),line("外壁",100,1400,100,100),
+    line("間仕切壁",500,100,500,400),
+    // 100 mm sideways displacement is not a doorway continuation.
+    line("間仕切壁",600,1200,600,1400)
+  ];
+  const result=extractRoomHierarchy({items,width:1500,height:1500,
+    layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
+  assert.equal(result.diagnostics.bridgedDoorGaps,0);
+});
