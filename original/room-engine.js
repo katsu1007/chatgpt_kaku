@@ -50,7 +50,7 @@ function findBoothFrontClosures(items,names,hidden){
   // are collinear with their wall and therefore do not satisfy this geometry.
   const raw=[];
   for(const it of items){
-    if(it.hatchBoundary||isDimensionGraphicItem(it)||isNonBoundarySemanticItem(it)||!["line","polyline"].includes(it.kind)||!names.has(it.layer)||hidden.has(it.layer)||!Array.isArray(it.pts))continue;
+    if(it.hatchBoundary||isDimensionGraphicItem(it)||isNonBoundarySemanticItem(it,{allowBlockInstance:names.has(it.layer)})||!["line","polyline"].includes(it.kind)||!names.has(it.layer)||hidden.has(it.layer)||!Array.isArray(it.pts))continue;
     for(let k=0;k+3<it.pts.length;k+=2){
       const x1=it.pts[k],y1=it.pts[k+1],x2=it.pts[k+2],y2=it.pts[k+3],dx=x2-x1,dy=y2-y1,len=Math.hypot(dx,dy);
       if(len>1)raw.push({it,x1,y1,x2,y2,dx:dx/len,dy:dy/len,len});
@@ -208,7 +208,7 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
     if(it.hatchBoundary||!names.has(it.layer))continue;
     if(hidden.has(it.layer)){skippedHidden++;continue;}
     if(isDimensionGraphicItem(it)){skippedDimensionItems++;continue;}
-    if(isNonBoundarySemanticItem(it)){skippedSemanticItems++;continue;}
+    if(isNonBoundarySemanticItem(it,{allowBlockInstance:names.has(it.layer)})){skippedSemanticItems++;continue;}
     if((it.kind==="line"||it.kind==="polyline")&&Array.isArray(it.pts)&&it.pts.length>=4){
       usedItems++;
       const segments=[];
