@@ -39,3 +39,12 @@ test('JWWの解析エンジンは更新済みの外部エンジンを読み込�
  assert.match(legacy,/JWW読み取りエンジンの起動が120秒以内/);
  assert.match(legacy,/JWW\/DXFの読み込み結果/);
 });
+
+
+test('CAD inspection report exposes block child native-layer provenance counts',async()=>{
+ const origin=await read('original/origin.js');
+ assert.match(origin,/ブロック子図形の元レイヤー/);
+ assert.match(origin,/provenance\.retained/);
+ assert.match(origin,/provenance\.missing/);
+ assert.match(origin,/不明な子図形は区画境界から除外/);
+});
