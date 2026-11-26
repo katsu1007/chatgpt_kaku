@@ -570,3 +570,11 @@ test("six toilet cubicles are detected when side partitions are stored as polyli
   assert.equal(result.diagnostics.virtualBoothClosures,6);
   assert.equal(result.rooms.length,7);
 });
+
+
+test("circle entities form a closed wall boundary in production room tracing",()=>{
+ const items=[{kind:"circle",layer:"外壁",cx:500,cy:500,r:400}];
+ const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"外壁"}],selectedLayers:[]});
+ assert.equal(result.parents.length,1);
+ assert.equal(result.rooms.length,1);
+});
