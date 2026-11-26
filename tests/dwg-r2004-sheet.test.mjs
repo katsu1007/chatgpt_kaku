@@ -162,6 +162,19 @@ test("renders MLINESTYLE-derived parallel wall boundary lines",()=>{
  assert.equal(drawing.meta.info.mlineBoundarySegments,2);
 });
 
+test("projects tilted MLINE OCS boundary vertices into WCS before sheet mapping",()=>{
+ const drawing=createR2004DwgDrawing({units:{known:true,code:4,name:"millimeters",scaleToMm:1},entities:[
+  entity("A-WALL",271n,{kind:"mline",closed:false,extrusion:[0,Math.SQRT1_2,Math.SQRT1_2],boundaries:[
+   {elementIndex:0,offset:0,vertices:[{x:0,y:0,z:0},{x:0,y:100,z:0}]}
+  ]})
+ ],layers:[]});
+ const item=drawing.sheets[0].items[0];
+ assert.equal(item.kind,"line");
+ assert.equal(item.ocsTransformed,true);
+ assert.ok(Math.abs(Math.hypot(item.pts[2]-item.pts[0],item.pts[3]-item.pts[1])-100/Math.sqrt(2))<1e-8);
+ assert.deepEqual(item.pts,[0,100/Math.sqrt(2),0,0]);
+});
+
 test("exposes closed external solid HATCH paths including bulged arcs as wall-fill candidates",()=>{
  const drawing=createR2004DwgDrawing({units:{known:true,code:4,name:"millimeters",scaleToMm:1},entities:[
   entity("A-WALL",280n,{kind:"hatch",name:"SOLID",solidFill:true,elevation:0,paths:[
