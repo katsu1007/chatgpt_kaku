@@ -18,13 +18,18 @@ export function transformOcsVector(vector,normal=[0,0,1]){
 export function transformOcsPoint(point,normal=[0,0,1]){
  return transformOcsVector(point,normal);
 }
+export function isValidOcsNormal(normal=[0,0,1]){
+ if(!Array.isArray(normal)||normal.length<3||!normal.slice(0,3).every(v=>finite(Number(v))))return false;
+ return Math.hypot(Number(normal[0]),Number(normal[1]),Number(normal[2]))>1e-12;
+}
 export function isWorldZNormal(normal=[0,0,1],tolerance=1e-7){
- const n=unit([Number(normal?.[0]??0),Number(normal?.[1]??0),Number(normal?.[2]??1)]);
+ if(!isValidOcsNormal(normal))return false;
+ const n=unit([Number(normal[0]),Number(normal[1]),Number(normal[2])]);
  return Math.abs(n[0])<=tolerance&&Math.abs(n[1])<=tolerance&&Math.abs(n[2]-1)<=tolerance;
 }
 export function tessellateOcsArc({center,radius,startAngle=0,endAngle=Math.PI*2,normal=[0,0,1],circle=false},{maxSegments=4096,maxStepRadians=Math.PI/36}={}){
  const c=Array.isArray(center)?center:[center?.x,center?.y,center?.z??0],r=Number(radius),a0=Number(startAngle),a1=Number(endAngle);
- if(c.length<2||!c.slice(0,3).every(v=>finite(Number(v??0)))||!finite(r)||r<=0||!finite(a0)||!finite(a1))return {points:[],closed:false,diagnostics:{reason:"invalid-ocs-arc"}};
+ if(c.length<2||!c.slice(0,3).every(v=>finite(Number(v??0)))||!finite(r)||r<=0||!finite(a0)||!finite(a1)||!isValidOcsNormal(normal))return {points:[],closed:false,diagnostics:{reason:"invalid-ocs-arc"}};
  let sweep=circle?Math.PI*2:a1-a0;if(Math.abs(sweep)<=1e-12||Math.abs(sweep)>Math.PI*2+1e-6)return {points:[],closed:false,diagnostics:{reason:"invalid-ocs-arc-sweep"}};
  const n=Math.max(8,Math.min(maxSegments,Math.ceil(Math.abs(sweep)/maxStepRadians))),points=[];
  for(let i=0;i<=n;i++){const a=a0+sweep*i/n,p=transformOcsPoint([Number(c[0])+r*Math.cos(a),Number(c[1])+r*Math.sin(a),Number(c[2]??0)],normal);points.push(p);}
@@ -32,7 +37,7 @@ export function tessellateOcsArc({center,radius,startAngle=0,endAngle=Math.PI*2,
 }
 export function tessellateOcsPolyline(entity,options={}){
  const source=entity?.vertices??entity?.pts??entity?.points,normal=entity?.extrusion??entity?.normal??[0,0,1];
- if(!Array.isArray(source)||source.length<2)return {points:[],closed:false,diagnostics:{reason:"invalid-ocs-polyline"}};
+ if(!Array.isArray(source)||source.length<2||!isValidOcsNormal(normal))return {points:[],closed:false,diagnostics:{reason:"invalid-ocs-polyline"}};
  const curve=tessellateBulgedPolyline({vertices:source,bulges:entity?.bulges,closed:entity?.closed===true||entity?.isClosed===true},{maxSegments:options.maxSegments??20000,arcStepRadians:options.arcStepRadians??Math.PI/36});
  if(curve.points.length<2)return {...curve,points:[]};
  const elevation=Number(source[0]?.z??entity?.elevation??0);
