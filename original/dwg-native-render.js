@@ -1,3 +1,4 @@
+import { renderDwgDimensionGeometry } from "./dwg-dimension-render.js";
 import { tessellateCadCurve, tessellateBulgedPolyline } from "./cad-curve-tessellation.js";
 // KAKU-owned lightweight SVG renderer for native DWG SheetItems.
 // Keeps R2000/R2004 viewing independent from the optional JWW/DXF CDN.
@@ -76,21 +77,8 @@ export function renderNativeDwgSvg(prepared,hidden=new Uint8Array(0)){
    const tspans=lines.map((line,index)=>`<tspan x="0" dy="${index===0?0:fmt(size*1.25)}">${xml(line)}</tspan>`).join("");
    body.push(`<g transform="translate(${fmt(item.x)} ${fmt(item.y)}) rotate(${fmt(angle)}) scale(1 -1)"><text x="0" y="0" font-family="sans-serif" font-size="${fmt(size)}" fill="${color}">${tspans}</text></g>`);
   }else if(item.kind==="dimension"&&Number.isFinite(item.actualMeasurement)){
-   const p=item.points||{},a=p.point13,b=p.point14,d=p.point10;
-   if((item.dimensionType==="linear"||item.dimensionType==="aligned")&&[a,b,d].every(v=>Array.isArray(v)&&Number.isFinite(v[0])&&Number.isFinite(v[1]))){
-    const dx=b[0]-a[0],dy=b[1]-a[1],length=Math.hypot(dx,dy);
-    if(length>1e-9){
-     const ux=dx/length,uy=dy/length,nx=-uy,ny=ux,offset=(d[0]-a[0])*nx+(d[1]-a[1])*ny;
-     const q1=[a[0]+nx*offset,a[1]+ny*offset],q2=[b[0]+nx*offset,b[1]+ny*offset];
-     const ext=2,arrowLength=Math.min(8,Math.max(2.5,length*0.12)),arrowWidth=arrowLength*0.42;
-     const line=(x1,y1,x2,y2)=>"<line x1=\""+fmt(x1)+"\" y1=\""+fmt(y1)+"\" x2=\""+fmt(x2)+"\" y2=\""+fmt(y2)+"\" "+stroke+"/>";
-     const arrow=(tipX,tipY,dirX,dirY)=>{
-      const baseX=tipX+dirX*arrowLength,baseY=tipY+dirY*arrowLength,px=-dirY,py=dirX;
-      return "<polygon points=\""+fmt(tipX)+","+fmt(tipY)+" "+fmt(baseX+px*arrowWidth)+","+fmt(baseY+py*arrowWidth)+" "+fmt(baseX-px*arrowWidth)+","+fmt(baseY-py*arrowWidth)+"\" fill=\""+color+"\"/>";
-     };
-     body.push("<g fill=\"none\">"+line(a[0],a[1],q1[0]+nx*ext,q1[1]+ny*ext)+line(b[0],b[1],q2[0]+nx*ext,q2[1]+ny*ext)+line(q1[0],q1[1],q2[0],q2[1])+"</g>"+arrow(q1[0],q1[1],ux,uy)+arrow(q2[0],q2[1],-ux,-uy));
-    }
-   }
+   const geometrySvg=renderDwgDimensionGeometry(item,{stroke,color});
+   if(geometrySvg)body.push(geometrySvg);
    if(!item.suppressMeasurementText){
     const value=xml(String(item.actualMeasurement));
     const textAngle=-finite(item.textRotation)*180/Math.PI;
