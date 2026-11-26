@@ -1065,3 +1065,44 @@ test("rectangular room drawing area stays within 2 percent of geometric area",()
  const relativeError=Math.abs(result.rooms[0].drawingAreaCm2-expectedCm2)/expectedCm2;
  assert.ok(relativeError<0.02,"area error "+(relativeError*100).toFixed(2)+"%");
 });
+
+
+test("furniture-shaped closed loop on a wall layer is not a room when surrounded by furniture symbols",()=>{
+ const items=[
+  line("壁",100,100,10000,100),line("壁",10000,100,10000,10000),
+  line("壁",10000,10000,100,10000),line("壁",100,10000,100,100),
+  line("壁",4000,4000,5200,4000),line("壁",5200,4000,5200,6000),
+  line("壁",5200,6000,4000,6000),line("壁",4000,6000,4000,4000)
+ ];
+ const addRect=(layer,x1,y1,x2,y2)=>{
+  items.push(line(layer,x1,y1,x2,y1),line(layer,x2,y1,x2,y2),line(layer,x2,y2,x1,y2),line(layer,x1,y2,x1,y1));
+ };
+ addRect("データ 005",3400,4100,3800,4500);
+ addRect("データ 005",3400,4700,3800,5100);
+ addRect("データ 005",5400,4100,5800,4500);
+ addRect("データ 005",5400,4700,5800,5100);
+ const result=extractRoomHierarchy({items,width:11000,height:11000,layers:[{name:"壁"},{name:"データ 005"}],selectedLayers:["壁"]});
+ assert.equal(result.rooms.length,1);
+ assert.equal(result.diagnostics.filteredFurnitureIslands,1);
+});
+
+
+test("an explicit room label preserves a small room despite nearby furniture geometry",()=>{
+ const items=[
+  line("壁",100,100,10000,100),line("壁",10000,100,10000,10000),
+  line("壁",10000,10000,100,10000),line("壁",100,10000,100,100),
+  line("壁",4000,4000,5200,4000),line("壁",5200,4000,5200,6000),
+  line("壁",5200,6000,4000,6000),line("壁",4000,6000,4000,4000),
+  {kind:"text",layer:"部屋名",text:"倉庫",x:4600,y:5000}
+ ];
+ const addRect=(layer,x1,y1,x2,y2)=>{
+  items.push(line(layer,x1,y1,x2,y1),line(layer,x2,y1,x2,y2),line(layer,x2,y2,x1,y2),line(layer,x1,y2,x1,y1));
+ };
+ addRect("データ 005",3400,4100,3800,4500);
+ addRect("データ 005",3400,4700,3800,5100);
+ addRect("データ 005",5400,4100,5800,4500);
+ addRect("データ 005",5400,4700,5800,5100);
+ const result=extractRoomHierarchy({items,width:11000,height:11000,layers:[{name:"壁"},{name:"データ 005"},{name:"部屋名"}],selectedLayers:["壁"]});
+ assert.equal(result.rooms.length,2);
+ assert.equal(result.diagnostics.filteredFurnitureIslands,0);
+});

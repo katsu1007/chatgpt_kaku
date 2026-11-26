@@ -483,6 +483,60 @@ function createFloorSpaceMask(items,wall,nx,ny,cw,ch,hidden){
  }
  return {wall:mask,floorFillCount,floorMaskCells,layers:[...layers]};
 }
+function furnitureHaloEvidence(region,items,wallNames,hidden,cw,ch){
+  const areaM2=region.area*cw*ch/1e6;
+  if(areaM2<.3||areaM2>4)return false;
+  const minX=region.minx*cw,maxX=(region.maxx+1)*cw,minY=region.miny*ch,maxY=(region.maxy+1)*ch;
+  const labelPattern=/(トイレ|便所|WC|洗面|脱衣|浴室|倉庫|収納|物入|更衣|会議|事務|休憩|厨房|食堂|通路|廊下|洋室|和室|寝室|書庫|機械室|電気室)/i;
+  for(const it of items||[]){
+    const kind=String(it?.kind??it?.type??"").toLowerCase();
+    if(kind!=="text")continue;
+    const value=String(it.text??it.t??it.value??"");
+    const x=Number(it.x??it.position?.x),y=Number(it.y??it.position?.y);
+    if(labelPattern.test(value)&&Number.isFinite(x)&&Number.isFinite(y)&&x>=minX&&x<=maxX&&y>=minY&&y<=maxY)return false;
+  }
+  const sides=new Set(),centers=new Set();
+  for(const it of items||[]){
+    const layer=String(it?.layer??"");
+    if(!layer||wallNames.has(layer)||hidden.has(layer))continue;
+    if(/寸法|注記|文字|annotation|dimension|leader|\bdim\b/i.test(layer))continue;
+    const kind=String(it?.kind??it?.type??"").toLowerCase();
+    if(!["line","polyline","arc","circle","fill","solid"].includes(kind))continue;
+    let xs=[],ys=[];
+    const raw=it.pts??it.points??it.vertices;
+    if(Array.isArray(raw)){
+      if(raw.length&&typeof raw[0]==="object"){
+        for(const p of raw){if(Number.isFinite(p?.x)&&Number.isFinite(p?.y)){xs.push(p.x);ys.push(p.y);}}
+      }else{
+        for(let i=0;i+1<raw.length;i+=2){if(Number.isFinite(raw[i])&&Number.isFinite(raw[i+1])){xs.push(raw[i]);ys.push(raw[i+1]);}}
+      }
+    }
+    if(!xs.length&&["arc","circle"].includes(kind)){
+      const center=it.center??it.centre;
+      const x=Number(it.cx??it.x??center?.[0]??center?.x),y=Number(it.cy??it.y??center?.[1]??center?.y),r=Number(it.r??it.radius);
+      if(Number.isFinite(x)&&Number.isFinite(y)&&Number.isFinite(r)){xs=[x-r,x+r];ys=[y-r,y+r];}
+    }
+    if(!xs.length)continue;
+    const x=(Math.min(...xs)+Math.max(...xs))/2,y=(Math.min(...ys)+Math.max(...ys))/2;
+    const vertical=y>=minY-300&&y<=maxY+300,horizontal=x>=minX-300&&x<=maxX+300;
+    if(x<minX&&minX-x<=500&&vertical)sides.add("left");
+    else if(x>maxX&&x-maxX<=500&&vertical)sides.add("right");
+    if(y<minY&&minY-y<=500&&horizontal)sides.add("bottom");
+    else if(y>maxY&&y-maxY<=500&&horizontal)sides.add("top");
+    if((x<minX&&minX-x<=500&&vertical)||(x>maxX&&x-maxX<=500&&vertical)||(y<minY&&minY-y<=500&&horizontal)||(y>maxY&&y-maxY<=500&&horizontal)){
+      centers.add(Math.round(x/250)+":"+Math.round(y/250));
+    }
+  }
+  return centers.size>=4&&((sides.has("left")&&sides.has("right"))||(sides.has("top")&&sides.has("bottom")));
+}
+function filterFurnitureIslands(regions,items,wallNames,hidden,cw,ch){
+  const filteredKeys=[];
+  const kept=(regions.kept||[]).filter(region=>{
+    if(!furnitureHaloEvidence(region,items,wallNames,hidden,cw,ch))return true;
+    filteredKeys.push([region.id,region.seed,region.area].join(":"));return false;
+  });
+  return {...regions,kept,filteredFurnitureIslands:filteredKeys.length,filteredFurnitureKeys:filteredKeys};
+}
 export function extractRoomHierarchy({items,width,height,layers,selectedLayers,hiddenLayers=[]}){
   if(!(width>0&&height>0))throw new Error("図面サイズを取得できません");
   const hidden=new Set(hiddenLayers);
@@ -557,6 +611,15 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
         if(!sameAsParents){children=floorRegions;childFlood=floorFlood;floorFillUsed=true;}
       }
     }
+  }
+  // Closed furniture outlines sometimes share a wall layer with architectural
+  // geometry. A small isolated loop surrounded by repeated non-wall symbols is
+  // not a room; retain it only when an explicit room label provides evidence.
+  let filteredFurnitureIslands=0;
+  if(!floorFillUsed){
+    parents=filterFurnitureIslands(parents,items,allNames,hidden,cw,ch);
+    children=filterFurnitureIslands(children,items,allNames,hidden,cw,ch);
+    filteredFurnitureIslands=new Set([...(parents.filteredFurnitureKeys||[]),...(children.filteredFurnitureKeys||[])]).size;
   }
   const parentRooms=parents.kept.map((r,i)=>({...r,name:"大部屋 "+(i+1),level:1,children:[]}));
   const parentByRegion=new Map(parentRooms.map(p=>[p.id,p]));
@@ -664,6 +727,6 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
     }),
     parents:parentRooms.map(p=>({...p,children:p.children.map(c=>c.name)})),
     grid:{ids,nx,ny,cw,ch},
-    diagnostics:{scaleAssessment,roomScaleAssessments:displayRooms.map(room=>({roomId:room.id,name:room.name,...(roomScaleAssessments.get(room.id)||scaleAssessment)})),floorFillCount:floorMask.floorFillCount,floorMaskCells:floorMask.floorMaskCells,floorRegions:floorRegions.inner.length,floorFillLayers:floorMask.layers,floorFillUsed,selectedLayers:selected.size,supplementalLayers:supplemental.size,autoMode:classified.mode+(fallbackUsed?" → 全図形レイヤー再判定":""),fallbackUsed,parentLayerNames:[...selected],wallLayerNames:[...allNames],layerInventory,parentRegions:parents.inner.length,childRegions:children.inner.length,parentsKept:parentRooms.length,childrenKept:childRooms.length,unassignedChildren,minParentCells:parents.minCells,minChildCells:children.minCells,minChildSpanCells:children.minSpanCells,minParentSpanCells:parents.minSpanCells,usedItems:childTrace.usedItems,usedSegments:childTrace.usedSegments,skippedHidden:childTrace.skippedHidden,skippedDimensionItems:childTrace.skippedDimensionItems,skippedDimensionSegments:childTrace.skippedDimensionSegments,skippedSemanticItems:childTrace.skippedSemanticItems,skippedNonWallFills:childTrace.skippedNonWallFills,rasterizedCells:childTrace.rasterizedCells,rasterization:"supercover",bridgedDoorGaps:childTrace.bridgedDoorGaps,bridgedFragmentGaps:childTrace.bridgedFragmentGaps,snappedTJunctions:childTrace.snappedTJunctions,virtualBoothClosures:boothClosures.length,endpointCount:childTrace.endpointCount}
+    diagnostics:{scaleAssessment,roomScaleAssessments:displayRooms.map(room=>({roomId:room.id,name:room.name,...(roomScaleAssessments.get(room.id)||scaleAssessment)})),floorFillCount:floorMask.floorFillCount,floorMaskCells:floorMask.floorMaskCells,floorRegions:floorRegions.inner.length,floorFillLayers:floorMask.layers,floorFillUsed,filteredFurnitureIslands,selectedLayers:selected.size,supplementalLayers:supplemental.size,autoMode:classified.mode+(fallbackUsed?" → 全図形レイヤー再判定":""),fallbackUsed,parentLayerNames:[...selected],wallLayerNames:[...allNames],layerInventory,parentRegions:parents.inner.length,childRegions:children.inner.length,parentsKept:parentRooms.length,childrenKept:childRooms.length,unassignedChildren,minParentCells:parents.minCells,minChildCells:children.minCells,minChildSpanCells:children.minSpanCells,minParentSpanCells:parents.minSpanCells,usedItems:childTrace.usedItems,usedSegments:childTrace.usedSegments,skippedHidden:childTrace.skippedHidden,skippedDimensionItems:childTrace.skippedDimensionItems,skippedDimensionSegments:childTrace.skippedDimensionSegments,skippedSemanticItems:childTrace.skippedSemanticItems,skippedNonWallFills:childTrace.skippedNonWallFills,rasterizedCells:childTrace.rasterizedCells,rasterization:"supercover",bridgedDoorGaps:childTrace.bridgedDoorGaps,bridgedFragmentGaps:childTrace.bridgedFragmentGaps,snappedTJunctions:childTrace.snappedTJunctions,virtualBoothClosures:boothClosures.length,endpointCount:childTrace.endpointCount}
   };
 }
