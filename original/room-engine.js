@@ -194,7 +194,7 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
     if(isDimensionSegment(x1,y1,x2,y2,dimAnchors)){skippedDimensionSegments++;return false;}
     if(activeLayer!=null)usedLayers.add(String(activeLayer));
     endpoints.push([Math.round(x1/cw),Math.round(y1/ch)],[Math.round(x2/cw),Math.round(y2/ch)]);
-    geometrySegments.push({x1:x1/cw,y1:y1/ch,x2:x2/cw,y2:y2/ch});
+    geometrySegments.push({x1:x1/cw,y1:y1/ch,x2:x2/cw,y2:y2/ch,layer:activeLayer==null?null:String(activeLayer)});
     markEndpoint(x1,y1);
     rasterizeSegmentSupercover(x1,y1,x2,y2,cw,ch,markCell);
     markEndpoint(x2,y2);
@@ -350,7 +350,7 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
     }
     const key=bx+":"+by;if(!bins.has(key))bins.set(key,[]);bins.get(key).push([x,y]);
   }
-  return {wall,usedItems,usedSegments,usedLayers:[...usedLayers],skippedHidden,skippedDimensionItems,skippedDimensionSegments,skippedSemanticItems,skippedNonWallFills,endpointCount:endpoints.length,bridgedDoorGaps,snappedTJunctions,rasterizedCells};
+  return {wall,usedItems,usedSegments,usedLayers:[...usedLayers],geometrySegments,skippedHidden,skippedDimensionItems,skippedDimensionSegments,skippedSemanticItems,skippedNonWallFills,endpointCount:endpoints.length,bridgedDoorGaps,snappedTJunctions,rasterizedCells};
 }
 function floodRegions(wall,nx,ny){
   const N=nx*ny,seen=new Uint8Array(N),queue=new Int32Array(N),regionAt=new Int32Array(N),regions=[];regionAt.fill(-1);let rid=0;
@@ -545,6 +545,42 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
   // This keeps rendering close to O(grid cells + room count), even on dense plans.
   const displayRegionAt=childRooms.length?childFlood.regionAt:parentFlood.regionAt;
   const maxRegionId=displayRooms.reduce((max,r)=>Math.max(max,r.id),-1);
+  // Attribute actual traced boundary segments to adjacent room regions. This lets
+  // each room use the scale of its own enclosing walls instead of requiring every
+  // wall layer in the entire drawing to share one denominator.
+  const roomBoundaryLayers=new Map(displayRooms.map(room=>[room.id,new Set()]));
+  const scaleSegments=scaleTrace.geometrySegments||[];
+  for(const segment of scaleSegments){
+    if(!segment.layer)continue;
+    const dx=segment.x2-segment.x1,dy=segment.y2-segment.y1,len=Math.hypot(dx,dy);
+    if(len<1e-6)continue;
+    const nxn=-dy/len,nyn=dx/len,steps=Math.max(1,Math.ceil(len/3));
+    for(let k=0;k<=steps;k++){
+      const t=k/steps,x=segment.x1+dx*t,y=segment.y1+dy*t;
+      for(const offset of [1.5,2.5,4]){
+        for(const sign of [-1,1]){
+          const ix=Math.round(x+nxn*offset*sign),iy=Math.round(y+nyn*offset*sign);
+          if(ix<0||iy<0||ix>=nx||iy>=ny)continue;
+          const regionId=displayRegionAt[iy*nx+ix];
+          if(roomBoundaryLayers.has(regionId))roomBoundaryLayers.get(regionId).add(segment.layer);
+        }
+      }
+    }
+  }
+  const layerScaleByName=new Map((layers||[]).map(layer=>[String(layer?.name??""),layer?.scale]));
+  const assessRoomScale=room=>{
+    const names=roomBoundaryLayers.get(room.id)||new Set();
+    if(floorFillUsed)for(const name of floorMask.layers)names.add(name);
+    // If raster adjacency could not confidently associate a boundary, retain the
+    // conservative whole-trace assessment rather than guessing a room scale.
+    if(!names.size)return scaleAssessment;
+    const entries=[...names].map(name=>({name,scale:layerScaleByName.get(name)}));
+    const unknown=entries.filter(entry=>!(Number.isFinite(entry.scale)&&entry.scale>0)).map(entry=>entry.name);
+    const scales=[...new Set(entries.filter(entry=>Number.isFinite(entry.scale)&&entry.scale>0).map(entry=>Number(Number(entry.scale).toPrecision(10))))];
+    const status=!entries.length||unknown.length?"unknown":scales.length===1?"uniform":"mixed";
+    return {status,denominator:status==="uniform"?scales[0]:null,boundaryLayers:[...names],unknownLayers:unknown,distinctDenominators:scales};
+  };
+  const roomScaleAssessments=new Map(displayRooms.map(room=>[room.id,assessRoomScale(room)]));
   const displayIndexByRegion=new Int32Array(maxRegionId+1);displayIndexByRegion.fill(-1);
   for(let ri=0;ri<displayRooms.length;ri++)displayIndexByRegion[displayRooms[ri].id]=ri;
   for(let cell=0;cell<N;cell++){
@@ -569,11 +605,12 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
   return {
     rooms:displayRooms.map((r,i)=>{
       const drawingAreaCm2=r.area*cw*ch/100;
-      return {...r,id:i,drawingAreaCm2,
-        realAreaM2:scaleAssessment.status==="uniform"?drawingAreaCm2*scaleAssessment.denominator*scaleAssessment.denominator/10000:null};
+      const roomScale=roomScaleAssessments.get(r.id)||scaleAssessment;
+      return {...r,id:i,drawingAreaCm2,scaleAssessment:roomScale,
+        realAreaM2:roomScale.status==="uniform"?drawingAreaCm2*roomScale.denominator*roomScale.denominator/10000:null};
     }),
     parents:parentRooms.map(p=>({...p,children:p.children.map(c=>c.name)})),
     grid:{ids,nx,ny,cw,ch},
-    diagnostics:{scaleAssessment,floorFillCount:floorMask.floorFillCount,floorMaskCells:floorMask.floorMaskCells,floorRegions:floorRegions.inner.length,floorFillLayers:floorMask.layers,floorFillUsed,selectedLayers:selected.size,supplementalLayers:supplemental.size,autoMode:classified.mode+(fallbackUsed?" → 全図形レイヤー再判定":""),fallbackUsed,parentLayerNames:[...selected],wallLayerNames:[...allNames],layerInventory,parentRegions:parents.inner.length,childRegions:children.inner.length,parentsKept:parentRooms.length,childrenKept:childRooms.length,unassignedChildren,minParentCells:parents.minCells,minChildCells:children.minCells,minChildSpanCells:children.minSpanCells,minParentSpanCells:parents.minSpanCells,usedItems:childTrace.usedItems,usedSegments:childTrace.usedSegments,skippedHidden:childTrace.skippedHidden,skippedDimensionItems:childTrace.skippedDimensionItems,skippedDimensionSegments:childTrace.skippedDimensionSegments,skippedSemanticItems:childTrace.skippedSemanticItems,skippedNonWallFills:childTrace.skippedNonWallFills,rasterizedCells:childTrace.rasterizedCells,rasterization:"supercover",bridgedDoorGaps:childTrace.bridgedDoorGaps,snappedTJunctions:childTrace.snappedTJunctions,virtualBoothClosures:boothClosures.length,endpointCount:childTrace.endpointCount}
+    diagnostics:{scaleAssessment,roomScaleAssessments:displayRooms.map(room=>({roomId:room.id,name:room.name,...(roomScaleAssessments.get(room.id)||scaleAssessment)})),floorFillCount:floorMask.floorFillCount,floorMaskCells:floorMask.floorMaskCells,floorRegions:floorRegions.inner.length,floorFillLayers:floorMask.layers,floorFillUsed,selectedLayers:selected.size,supplementalLayers:supplemental.size,autoMode:classified.mode+(fallbackUsed?" → 全図形レイヤー再判定":""),fallbackUsed,parentLayerNames:[...selected],wallLayerNames:[...allNames],layerInventory,parentRegions:parents.inner.length,childRegions:children.inner.length,parentsKept:parentRooms.length,childrenKept:childRooms.length,unassignedChildren,minParentCells:parents.minCells,minChildCells:children.minCells,minChildSpanCells:children.minSpanCells,minParentSpanCells:parents.minSpanCells,usedItems:childTrace.usedItems,usedSegments:childTrace.usedSegments,skippedHidden:childTrace.skippedHidden,skippedDimensionItems:childTrace.skippedDimensionItems,skippedDimensionSegments:childTrace.skippedDimensionSegments,skippedSemanticItems:childTrace.skippedSemanticItems,skippedNonWallFills:childTrace.skippedNonWallFills,rasterizedCells:childTrace.rasterizedCells,rasterization:"supercover",bridgedDoorGaps:childTrace.bridgedDoorGaps,snappedTJunctions:childTrace.snappedTJunctions,virtualBoothClosures:boothClosures.length,endpointCount:childTrace.endpointCount}
   };
 }
