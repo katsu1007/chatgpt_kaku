@@ -1039,3 +1039,16 @@ test("short fragments on different CAD layers are not joined",()=>{
  assert.equal(result.diagnostics.bridgedFragmentGaps,0);
  assert.equal(result.rooms.length,1);
 });
+
+
+test("short slanted wall fragments are joined along their shared axis",()=>{
+ const items=[
+  line("外壁",100,100,1400,100),line("外壁",1400,100,1400,1400),
+  line("外壁",1400,1400,100,1400),line("外壁",100,1400,100,100),
+  line("間仕切壁",400,100,600,620),
+  line("間仕切壁",611.5,650,900,1400)
+ ];
+ const result=extractRoomHierarchy({items,width:1500,height:1500,layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
+ assert.equal(result.diagnostics.bridgedFragmentGaps,1);
+ assert.equal(result.rooms.length,2);
+});
