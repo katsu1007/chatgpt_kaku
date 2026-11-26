@@ -67,7 +67,16 @@ function pointPairs(points) {
 function geometryOf(entity, kind) {
   const pts = pointPairs(first(entity?.pts, entity?.points, entity?.vertices));
   if (kind === "line" || kind === "polyline" || kind === "fill" || kind === "hatch") {
-    return { points: pts };
+    return {
+      points: pts,
+      closed: kind === "polyline" && (entity?.closed === true || entity?.isClosed === true || entity?.closedFlag === true || entity?.flags?.closed === true),
+      bulges: kind === "polyline" && Array.isArray(entity?.bulges) ? [...entity.bulges] : null,
+      widths: kind === "polyline" ? {
+        start: finite(entity?.startWidth) ? entity.startWidth : null,
+        end: finite(entity?.endWidth) ? entity.endWidth : null,
+        constant: finite(entity?.constantWidth) ? entity.constantWidth : null
+      } : null
+    };
   }
   if (kind === "arc" || kind === "circle") {
     const center = first(entity?.center, entity?.centre);
