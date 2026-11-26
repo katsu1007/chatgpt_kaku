@@ -79,6 +79,7 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
   layerMap.get(layerName).items++;layerMap.get(layerName).actualItems++;mapped.push(item);
  };
  const addPointChain=(entity,geometry,points,closed,metadata={})=>{
+  if(!Array.isArray(points)||points.length<2)return 0;
   const vertices=points.map(p=>Array.isArray(p)?{x:p[0],y:p[1],z:p[2]||0}:p);
   const segments=polylineToSheetItems({kind:"polyline",vertices,bulges:vertices.map(()=>0),closed},{layer:entity.layerName,handle:entity.handleHex,sourceFormat});
   for(const segment of segments)if(segment.kind==="line")add(entity,geometry,{...segment,pts:segment.pts.map(v=>v*scale),z0:(segment.z0||0)*scale,z1:(segment.z1||0)*scale,...metadata});
