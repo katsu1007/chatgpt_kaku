@@ -244,10 +244,10 @@ export function createCadDocument(input = {}, options = {}) {
   const rawBlockInstances = Number(sourceTypeCounts["count.CDataBlock"] || 0);
   const preservedDimensionObjects = semanticCounts.dimension || 0;
   const preservedBlockInstances = semanticCounts["block-instance"] || 0;
-  if (rawDimensionObjects > preservedDimensionObjects) {
+  if (options.sourceCountsComparable !== false && rawDimensionObjects > preservedDimensionObjects) {
     sourceWarnings.push(`JWW元データの寸法オブジェクト ${rawDimensionObjects}件に対し、寸法として識別できた要素は ${preservedDimensionObjects}件です。一部または全部の寸法情報が通常図形へ展開されている可能性があります。寸法線を区画境界から確実に除外するには、元オブジェクトとの対応情報が必要です。`);
   }
-  if (rawBlockInstances > preservedBlockInstances) {
+  if (options.sourceCountsComparable !== false && rawBlockInstances > preservedBlockInstances) {
     sourceWarnings.push(`JWW元データのブロック参照 ${rawBlockInstances}件に対し、ブロック由来として識別できた要素は ${preservedBlockInstances}件です。一部または全部のブロック情報が通常図形へ展開されている可能性があります。記号・什器の誤判定を避けるには、展開後の図形にブロック経路を引き継ぐ必要があります。`);
   }
   const size = input.size || input.sheet?.size || {}; 
@@ -276,6 +276,7 @@ export function createCadDocument(input = {}, options = {}) {
       unscaledEntities: scaleCounts.unknown || 0,
       sourceWarnings,
       rawSourceTypeCounts: clone(sourceTypeCounts),
+      sourceCountsComparable: options.sourceCountsComparable !== false,
       dimensionGraphics: semanticCounts.dimension || 0,
       blockInstances: semanticCounts["block-instance"] || 0,
       missingGeometry,
