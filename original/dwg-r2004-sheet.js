@@ -1,4 +1,5 @@
 import { polylineToSheetItems } from "./dwg-polyline.js";
+import { tessellateCadCurve } from "./cad-curve-tessellation.js";
 // Convert decoded R2004 DWG primitives into KAKU's SheetItem shape.
 // Coordinates remain in native DWG units until INSUNITS is decoded.
 function rgbHex(value){
@@ -6,41 +7,20 @@ function rgbHex(value){
 }
 function point3(value){return Array.isArray(value)?{x:value[0],y:value[1],z:value[2]||0}:value;}
 function sampleEllipse(g){
- const c=point3(g.center),a=point3(g.majorAxis),ratio=Number(g.axisRatio);
- if(!c||!a||!Number.isFinite(ratio)||ratio<=0||Math.abs(a.z||0)>1e-7||Math.abs((g.extrusion||[0,0,1])[0])>1e-7||Math.abs((g.extrusion||[0,0,1])[1])>1e-7)return [];
- let start=g.startParameter||0,end=g.endParameter??Math.PI*2;
- while(end<=start)end+=Math.PI*2;
- const sweep=end-start,closed=Math.abs(sweep-Math.PI*2)<1e-6,steps=Math.max(2,Math.ceil(sweep/(Math.PI/24))),minor={x:-a.y*ratio,y:a.x*ratio};
- const vertices=[];
- for(let i=0;i<(closed?steps:steps+1);i++){const t=start+sweep*i/steps,co=Math.cos(t),si=Math.sin(t);vertices.push({x:c.x+a.x*co+minor.x*si,y:c.y+a.y*co+minor.y*si,z:c.z||0});}
- return {vertices,closed};
+ const center=point3(g.center),major=point3(g.majorAxis),normal=g.extrusion||[0,0,1];
+ if(!center||!major||Math.abs(major.z||0)>1e-7||Math.abs(normal[0]||0)>1e-7||Math.abs(normal[1]||0)>1e-7)return [];
+ const curve=tessellateCadCurve({...g,kind:"ellipse"});
+ if(curve.points.length<2)return [];
+ return {vertices:curve.points.map(([x,y])=>({x,y,z:center.z||0})),closed:curve.closed};
 }
 function sampleSpline(g){
- if(g.scenario===2){
-  const p=(g.fitPoints||[]).map(point3);if(p.length<2)return [];
-  if(p.length===2)return {vertices:p,closed:false};
-  const out=[],steps=8;
-  for(let i=0;i<p.length-1;i++){
-   const p0=p[Math.max(0,i-1)],p1=p[i],p2=p[i+1],p3=p[Math.min(p.length-1,i+2)];
-   for(let j=0;j<steps;j++){const t=j/steps,t2=t*t,t3=t2*t;const calc=k=>0.5*((2*p1[k])+(-p0[k]+p2[k])*t+(2*p0[k]-5*p1[k]+4*p2[k]-p3[k])*t2+(-p0[k]+3*p1[k]-3*p2[k]+p3[k])*t3);out.push({x:calc("x"),y:calc("y"),z:calc("z")});}
-  }
-  out.push(p[p.length-1]);return {vertices:out,closed:false};
- }
- const cp=(g.controlPoints||[]).map(point3),u=g.knots||[],p=Number(g.degree),n=cp.length-1;
- if(cp.length<p+1||u.length<n+p+2||p<1)return [];
- const weights=g.weightsPresent?(g.weights||[]):[],start=u[p],end=u[n+1];
- if(!(end>start))return [];
- const evaluate=t=>{
-  let k=n;if(t<end){k=p;while(k<n&&!(t>=u[k]&&t<u[k+1]))k++;}
-  const d=[];
-  for(let j=0;j<=p;j++){const q=cp[k-p+j],w=weights[k-p+j]??1;d[j]=[q.x*w,q.y*w,(q.z||0)*w,w];}
-  for(let r=1;r<=p;r++)for(let j=p;j>=r;j--){const i=k-p+j,den=u[i+p-r+1]-u[i],alpha=den===0?0:(t-u[i])/den;for(let z=0;z<4;z++)d[j][z]=(1-alpha)*d[j-1][z]+alpha*d[j][z];}
-  const w=d[p][3];return w?{x:d[p][0]/w,y:d[p][1]/w,z:d[p][2]/w}:{x:0,y:0,z:0};
- };
- const steps=Math.max(24,Math.min(256,cp.length*12)),vertices=[];
- for(let i=0;i<=steps;i++)vertices.push(evaluate(start+(end-start)*i/steps));
- if(g.closed&&vertices.length>2)vertices.pop();
- return {vertices,closed:!!g.closed};
+ const source=g.scenario===2?(g.fitPoints||[]):(g.controlPoints||[]);
+ const points=source.map(point3);if(points.length<2)return [];
+ const z=points[0].z||0;
+ if(points.some(p=>Math.abs((p.z||0)-z)>1e-7))return [];
+ const curve=tessellateCadCurve({...g,kind:"spline"});
+ if(curve.points.length<2)return [];
+ return {vertices:curve.points.map(([x,y])=>({x,y,z})),closed:curve.closed};
 }
 function sampleHatchEllipse(edge){
  const center=edge.center,axis=edge.majorAxis,ratio=Number(edge.minorMajorRatio);
