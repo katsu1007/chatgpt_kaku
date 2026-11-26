@@ -22,12 +22,16 @@ function isDimensionGraphicItem(it){
   return kind==="dimension"||sourceKind==="dimension"||String(it?.semanticRole??it?.semantic?.role??it?.role??"").toLowerCase()==="dimension"||it?.dimensionGraphic===true||it?.dimensionLine===true||it?.dimensionExtension===true||it?.dimensionArrow===true||it?.dimensionBoundary===true||it?.isDimension===true||it?.dimensionEntity===true;
 }
 // Numeric dimension labels help identify dimension strokes even when they share a wall layer.
-const DIMENSION_LABEL=/^\s*[+-]?\d[\d,]*(?:\.\d+)?\s*(?:mm|ｍｍ|m|ｍ|cm|㎜|㎝|φ|ø)?\s*$/i;
+const DIMENSION_LABEL=/^\s*(?:(?:W|H|D|L|S|FL|CH|R|Ø|φ)\s*[:=]\s*)?[+-]?\d[\d,]*(?:\.\d+)?\s*(?:mm|ｍｍ|m|ｍ|cm|㎜|㎝|φ|ø)?\s*$/i;
 function dimensionTextAnchors(items){
-  return items.filter(it=>it.kind==="text"&&DIMENSION_LABEL.test(String(it.text||""))&&Number.isFinite(it.x)&&Number.isFinite(it.y)&&Number.isFinite(it.size)&&it.size>0).map(it=>{
-    const w=Math.max(1,String(it.text).length)*it.size*.6,rot=it.rot||0;
-    return {x:it.x+w*.5*Math.cos(rot)+it.size*.5*Math.sin(rot),y:it.y+w*.5*Math.sin(rot)-it.size*.5*Math.cos(rot),rot,radius:w*.55+it.size*.75,size:it.size};
-  });
+  return items.filter(it=>it.kind==="text"&&DIMENSION_LABEL.test(String(it.text||""))).map(it=>{
+    const x=Number(it.x??it.insertion?.x),y=Number(it.y??it.insertion?.y);
+    const size=Number(it.size??it.height??it.textHeight),rot=Number(it.rot??it.rotation??0);
+    if(![x,y,size,rot].every(Number.isFinite)||size<=0)return null;
+    const widthFactor=Number.isFinite(Number(it.widthFactor))?Math.max(.25,Math.min(4,Number(it.widthFactor))):1;
+    const w=Math.max(1,String(it.text).length)*size*.6*widthFactor;
+    return {x:x+w*.5*Math.cos(rot)+size*.5*Math.sin(rot),y:y+w*.5*Math.sin(rot)-size*.5*Math.cos(rot),rot,radius:w*.55+size*.75,size,label:String(it.text)};
+  }).filter(Boolean);
 }
 function isDimensionSegment(x1,y1,x2,y2,anchors){
   const dx=x2-x1,dy=y2-y1,len=Math.hypot(dx,dy);if(!len)return false;
