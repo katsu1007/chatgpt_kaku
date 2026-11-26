@@ -227,8 +227,9 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
       const center=it.center??it.centre,cx=Number(it.cx??it.x??center?.[0]??center?.x),cy=Number(it.cy??it.y??center?.[1]??center?.y),radius=Number(it.r??it.radius);
       if(!Number.isFinite(cx)||!Number.isFinite(cy))continue;
       usedItems++;
-      const circle=it.kind==="circle"||it.isCircle===true,a0=circle?0:Number(it.a0??it.startAngle??0);
-      let sweep=circle?Math.PI*2:Number(it.a1??it.endAngle??(a0+Math.PI*2))-a0;
+      const rawA0=Number(it.a0??it.startAngle??0),rawA1=Number(it.a1??it.endAngle??(rawA0+Math.PI*2));
+      const rawSweep=rawA1-rawA0,circle=it.kind==="circle"||it.isCircle===true||Math.abs(Math.abs(rawSweep)-Math.PI*2)<=1e-6,a0=circle?0:rawA0;
+      let sweep=circle?Math.PI*2:rawSweep;
       if(Math.abs(sweep)>Math.PI*2)sweep=Math.sign(sweep)*Math.PI*2;
       const n=Math.max(16,Math.ceil(Math.abs(sweep)*radius/Math.min(cw,ch)*2));
       let px=cx+radius*Math.cos(a0),py=cy+radius*Math.sin(a0);
