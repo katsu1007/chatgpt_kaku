@@ -1224,3 +1224,15 @@ test("slanted partition branch four millimetres short is not snapped across the 
  // Other endpoints elsewhere in the outer boundary may legitimately snap;
  // the room count proves this four-millimetre branch was not joined.
 });
+
+test("same-layer short furniture outline on wall layer is not promoted to a room",()=>{
+ const items=[
+  line("壁",100,100,1900,100),line("壁",1900,100,1900,1900),
+  line("壁",1900,1900,100,1900),line("壁",100,1900,100,100),
+  {kind:"polyline",layer:"壁",pts:[700,700,900,700,1100,700,1300,700,1300,900,1300,1100,1300,1300,1100,1300,900,1300,700,1300,700,1100,700,900,700,700]}
+ ];
+ const result=extractRoomHierarchy({items,width:2000,height:2000,layers:[{name:"壁"}],selectedLayers:["壁"]});
+ assert.equal(result.parents.length,1);
+ assert.equal(result.rooms.length,1);
+ assert.ok(result.diagnostics.filteredFurnitureIslands>=1);
+});
