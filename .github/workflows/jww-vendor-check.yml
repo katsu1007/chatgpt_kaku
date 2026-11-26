@@ -1,0 +1,26 @@
+name: KAKU vendored JWW parser typecheck
+
+on:
+  push:
+    branches: [feat/vendor-jww-parser-local]
+  pull_request:
+    branches: [main]
+    paths:
+      - "original/vendor/ezpzfile-cad/**"
+      - "tsconfig.vendor-jww.json"
+      - ".github/workflows/jww-vendor-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - name: Type-check vendored JWW parser
+        run: npx --yes --package typescript@5.9.3 tsc --project tsconfig.vendor-jww.json
