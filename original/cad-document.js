@@ -31,6 +31,8 @@ function sourceSemantics(source, rawType, layerScaleDenominator = null) {
   const explicitRoleValue = first(source?.semanticRole, source?.semantic?.role, source?.role, source?.base?.semanticRole, source?.base?.semantic?.role, source?.base?.role, null);
   const explicitRole = explicitRoleValue != null && !["unclassified","unknown"].includes(String(explicitRoleValue).trim().toLowerCase()) ? explicitRoleValue : null;
   const kind = String(rawType || "").toLowerCase();
+  const dimensionType = kind === "dimension" || kind === "sunpou" || /(?:^|\\.)cdatasunpou$/i.test(kind);
+  const blockType = kind === "block" || kind === "insert" || /(?:^|\\.)cdatablock$/i.test(kind);
   const dimensionFlag = source?.dimensionGraphic === true || source?.dimensionLine === true ||
     source?.dimensionExtension === true || source?.dimensionArrow === true ||
     source?.dimensionBoundary === true || source?.isDimension === true ||
@@ -41,15 +43,15 @@ function sourceSemantics(source, rawType, layerScaleDenominator = null) {
     (Array.isArray(source?.base?.blockPath) && source.base.blockPath.length > 0) ||
     source?.sourceInsertHandle != null || source?.sourceBlockHandle != null;
   const role = explicitRole != null ? String(explicitRole) :
-    (kind === "dimension" || kind === "sunpou" || dimensionFlag ? "dimension" :
-      (kind === "block" || kind === "insert" || blockFlag ? "block-instance" : "unclassified"));
+    (dimensionType || dimensionFlag ? "dimension" :
+      (blockType || blockFlag ? "block-instance" : "unclassified"));
   const layer = first(source?.layer, source?.layerName, source?.base?.layerName, null);
   const match = String(layer ?? "").match(/^\s*([0-9a-f]+)-([0-9a-f]+)(?:\s|$)/i);
   const groupIndex = first(source?.groupIndex, source?.group, match ? parseInt(match[1], 16) : null);
   const layerIndex = first(source?.layerIndex, match ? parseInt(match[2], 16) : null);
   return {
     role,
-    explicit: explicitRole != null || dimensionFlag || blockFlag || kind === "dimension" || kind === "sunpou" || kind === "block" || kind === "insert",
+    explicit: explicitRole != null || dimensionFlag || blockFlag || dimensionType || blockType,
     dimensionGraphic: role === "dimension",
     blockInstance: role === "block-instance",
     groupIndex: Number.isInteger(groupIndex) ? groupIndex : null,
