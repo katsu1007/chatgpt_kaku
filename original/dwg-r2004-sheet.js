@@ -89,16 +89,27 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
   const g=entity.geometry;if(!g||g.kind==="unsupported")continue;
   const before=mapped.length;
   if(g.kind==="mline"){
-   for(const boundary of g.boundaries||[]){
-    const segments=polylineToSheetItems({kind:"polyline",vertices:boundary.vertices,bulges:boundary.vertices.map(()=>0),closed:g.closed},{layer:entity.layerName,handle:entity.handleHex,sourceFormat:sourceFormat});
-    for(const segment of segments){
-     if(segment.kind==="line")add(entity,g,{...segment,pts:segment.pts.map(v=>v*scale),z0:(segment.z0||0)*scale,z1:(segment.z1||0)*scale,
-      mlineBoundary:true,mlineStyleName:g.mlineStyleName,mlineOffset:boundary.offset*scale,mlineElementIndex:boundary.elementIndex});
-     else add(entity,g,{...segment,cx:segment.cx*scale,cy:segment.cy*scale,r:segment.r*scale,mlineBoundary:true,mlineStyleName:g.mlineStyleName,mlineOffset:boundary.offset*scale,mlineElementIndex:boundary.elementIndex});
-     mlineBoundarySegments++;
+   const normal=g.extrusion||[0,0,1];
+   if(isValidOcsNormal(normal)){
+    for(const boundary of g.boundaries||[]){
+     // MLINE vertex/miter geometry is stored in the entity OCS. Resolve each
+     // offset boundary there first, then project the resulting vertices to WCS.
+     const vertices=(boundary.vertices||[]).map(vertex=>{
+      const point=transformOcsPoint([vertex.x,vertex.y,vertex.z||0],normal);
+      return {x:point[0],y:point[1],z:point[2]};
+     });
+     const segments=polylineToSheetItems({kind:"polyline",vertices,bulges:vertices.map(()=>0),closed:g.closed},{layer:entity.layerName,handle:entity.handleHex,sourceFormat:sourceFormat});
+     for(const segment of segments){
+      if(segment.kind==="line")add(entity,g,{...segment,pts:segment.pts.map(v=>v*scale),z0:(segment.z0||0)*scale,z1:(segment.z1||0)*scale,
+       mlineBoundary:true,mlineStyleName:g.mlineStyleName,mlineOffset:boundary.offset*scale,mlineElementIndex:boundary.elementIndex,
+       ocsTransformed:!isWorldZNormal(normal)});
+      else add(entity,g,{...segment,cx:segment.cx*scale,cy:segment.cy*scale,r:segment.r*scale,mlineBoundary:true,mlineStyleName:g.mlineStyleName,mlineOffset:boundary.offset*scale,mlineElementIndex:boundary.elementIndex,
+       ocsTransformed:!isWorldZNormal(normal)});
+      mlineBoundarySegments++;
+     }
     }
-   }
-   if((g.boundaries||[]).length)mlineEntities++;
+    if((g.boundaries||[]).length)mlineEntities++;
+   }else unsupportedCurves++;
   }
   if(g.kind==="ellipse"||g.kind==="spline"){
    const sampled=g.kind==="ellipse"?sampleEllipse(g):sampleSpline(g);
