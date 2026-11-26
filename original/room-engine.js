@@ -269,12 +269,11 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
       line(it.pts[it.pts.length-2],it.pts[it.pts.length-1],it.pts[0],it.pts[1]);
     }
   }
-  // Repair near-miss T-junctions before flood fill. CAD plans often draw a
-  // partition endpoint a few millimetres short of the receiving wall; endpoint-
-  // to-endpoint healing cannot fix that. Index sampled segment points in grid
-  // space, then connect only endpoints lying within 2.25 raster cells of a
-  // segment interior. The small, resolution-relative tolerance cannot bridge
-  // normal door openings.
+  // Repair near-miss T-junctions before flood fill. Candidate lookup stays
+  // grid-indexed, but the acceptance distance is measured in drawing millimetres.
+  // A grid-cell threshold scales with sheet extent and can therefore close a
+  // real opening on a large drawing. Keep the tolerance at 3 mm so ordinary
+  // drafting noise is healed without bridging genuine gaps.
   const tCell=8,tBins=new Map(),tKey=(x,y)=>Math.floor(x/tCell)+":"+Math.floor(y/tCell);
   for(let si=0;si<geometrySegments.length;si++){
     const s=geometrySegments[si],dx=s.x2-s.x1,dy=s.y2-s.y1,len=Math.hypot(dx,dy);
@@ -291,14 +290,17 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
     const bx=Math.floor(ex/tCell),by=Math.floor(ey/tCell),candidates=new Set();
     for(let oy=-1;oy<=1;oy++)for(let ox=-1;ox<=1;ox++)
       for(const si of tBins.get((bx+ox)+":"+(by+oy))||[])candidates.add(si);
-    let best=null,bestD=2.25*2.25;
+    let best=null,bestD=3*3;
     for(const si of candidates){
       const s=geometrySegments[si],dx=s.x2-s.x1,dy=s.y2-s.y1,l2=dx*dx+dy*dy;
       if(l2<1)continue;
       const t=((ex-s.x1)*dx+(ey-s.y1)*dy)/l2;
       if(t<.03||t>.97)continue;
-      const px=s.x1+t*dx,py=s.y1+t*dy,d2=(ex-px)*(ex-px)+(ey-py)*(ey-py);
-      if(d2>0.04&&d2<bestD){bestD=d2;best={x:px,y:py};}
+      const px=s.x1+t*dx,py=s.y1+t*dy;
+      // geometrySegments are in grid coordinates; convert each axis back to
+      // millimetres so non-square raster cells are measured correctly.
+      const mx=(ex-px)*cw,my=(ey-py)*ch,d2Mm=mx*mx+my*my;
+      if(d2Mm>0.04&&d2Mm<bestD){bestD=d2Mm;best={x:px,y:py};}
     }
     if(best){
       const steps=Math.max(1,Math.ceil(Math.sqrt(bestD)*2));
