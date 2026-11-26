@@ -431,3 +431,13 @@ test("propagates normalized DWG block transform and handle ancestry to analysis 
  assert.equal(out.blockInstanceIndex,7);
  assert.equal(out.blockInstance,true);
 });
+
+
+test("falls back to non-empty base block ancestry when top-level block path is empty",()=>{
+ const doc=createCadDocument({items:[
+  {kind:"line",pts:[0,0,100,0],blockPath:[],base:{blockPath:["SYMBOLS","WASHBASIN"],sourceInsertHandle:"A1"}}
+ ]});
+ const entity=doc.sheets[0].entities[0];
+ assert.deepEqual(entity.source.blockPath,["SYMBOLS","WASHBASIN"]);
+ assert.equal(entity.semantic.role,"block-instance");
+});
