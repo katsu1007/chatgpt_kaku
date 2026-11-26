@@ -483,18 +483,21 @@ function createFloorSpaceMask(items,wall,nx,ny,cw,ch,hidden){
  }
  return {wall:mask,floorFillCount,floorMaskCells,layers:[...layers]};
 }
-function furnitureHaloEvidence(region,items,wallNames,hidden,cw,ch){
-  const areaM2=region.area*cw*ch/1e6;
-  if(areaM2<.3||areaM2>4)return false;
+function regionHasRoomLabel(region,items,cw,ch){
   const minX=region.minx*cw,maxX=(region.maxx+1)*cw,minY=region.miny*ch,maxY=(region.maxy+1)*ch;
   const labelPattern=/(トイレ|便所|WC|洗面|脱衣|浴室|倉庫|収納|物入|更衣|会議|事務|休憩|厨房|食堂|通路|廊下|洋室|和室|寝室|書庫|機械室|電気室)/i;
-  for(const it of items||[]){
+  return (items||[]).some(it=>{
     const kind=String(it?.kind??it?.type??"").toLowerCase();
-    if(kind!=="text")continue;
+    if(kind!=="text")return false;
     const value=String(it.text??it.t??it.value??"");
     const x=Number(it.x??it.position?.x),y=Number(it.y??it.position?.y);
-    if(labelPattern.test(value)&&Number.isFinite(x)&&Number.isFinite(y)&&x>=minX&&x<=maxX&&y>=minY&&y<=maxY)return false;
-  }
+    return labelPattern.test(value)&&Number.isFinite(x)&&Number.isFinite(y)&&x>=minX&&x<=maxX&&y>=minY&&y<=maxY;
+  });
+}
+function furnitureHaloEvidence(region,items,wallNames,hidden,cw,ch){
+  const areaM2=region.area*cw*ch/1e6;
+  if(areaM2<.3||areaM2>4||regionHasRoomLabel(region,items,cw,ch))return false;
+  const minX=region.minx*cw,maxX=(region.maxx+1)*cw,minY=region.miny*ch,maxY=(region.maxy+1)*ch;
   // Furniture can be drawn on the very same layer as walls. Look for dense,
   // repeated short strokes just outside a small closed candidate, rather than
   // trusting the layer name. Long architectural wall runs do not count.
@@ -532,12 +535,26 @@ function furnitureHaloEvidence(region,items,wallNames,hidden,cw,ch){
   return centers.size>=8&&(opposite||densePair);
 }
 function filterFurnitureIslands(regions,items,wallNames,hidden,cw,ch){
-  const filteredKeys=[];
-  const kept=(regions.kept||[]).filter(region=>{
-    if(!furnitureHaloEvidence(region,items,wallNames,hidden,cw,ch))return true;
-    filteredKeys.push([region.id,region.seed,region.area].join(":"));return false;
-  });
-  return {...regions,kept,filteredFurnitureIslands:filteredKeys.length,filteredFurnitureKeys:filteredKeys};
+  const source=regions.kept||[],furniture=source.filter(region=>furnitureHaloEvidence(region,items,wallNames,hidden,cw,ch));
+  const filteredKeys=new Set(furniture.map(region=>[region.id,region.seed,region.area].join(":")));
+  // Chairs and other small outlines can themselves look like closed rooms.
+  // Once a larger furniture island is identified, suppress tiny closed loops
+  // in its immediate halo, but preserve any explicitly labeled room.
+  for(const region of source){
+    const key=[region.id,region.seed,region.area].join(":");
+    if(filteredKeys.has(key)||regionHasRoomLabel(region,items,cw,ch))continue;
+    const areaM2=region.area*cw*ch/1e6;
+    if(areaM2>=.3)continue;
+    const minX=region.minx*cw,maxX=(region.maxx+1)*cw,minY=region.miny*ch,maxY=(region.maxy+1)*ch;
+    const nearFurniture=furniture.some(other=>{
+      const ox0=other.minx*cw,ox1=(other.maxx+1)*cw,oy0=other.miny*ch,oy1=(other.maxy+1)*ch;
+      const dx=Math.max(0,ox0-maxX,minX-ox1),dy=Math.max(0,oy0-maxY,minY-oy1);
+      return Math.hypot(dx,dy)<=800;
+    });
+    if(nearFurniture)filteredKeys.add(key);
+  }
+  const kept=source.filter(region=>!filteredKeys.has([region.id,region.seed,region.area].join(":")));
+  return {...regions,kept,filteredFurnitureIslands:filteredKeys.size,filteredFurnitureKeys:[...filteredKeys]};
 }
 export function extractRoomHierarchy({items,width,height,layers,selectedLayers,hiddenLayers=[]}){
   if(!(width>0&&height>0))throw new Error("図面サイズを取得できません");
