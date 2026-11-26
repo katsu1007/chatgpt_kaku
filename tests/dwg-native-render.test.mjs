@@ -122,3 +122,10 @@ test("renders native angular and radial dimension geometry",()=>{
  assert.match(svg,/<polyline points=/);
  assert.equal((svg.match(/<polygon points=/g)||[]).length,3);
 });
+
+test("renders full-sweep ARC entities as circle primitives",()=>{
+ const prepared=prepareNativeDwgSheet({size:{w:100,h:100},items:[{kind:"arc",layer:"0",cx:50,cy:50,r:30,a0:0.5,a1:0.5+Math.PI*2}]},[{name:"0",color:"#222222"}]);
+ const svg=renderNativeDwgSvg(prepared);
+ assert.match(svg,/<circle cx="50" cy="50" r="30"/);
+ assert.doesNotMatch(svg,/<polyline points=/);
+});
