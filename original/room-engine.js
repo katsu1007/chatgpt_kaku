@@ -528,6 +528,7 @@ function wallComponentRegionMeasures(wall,regionAt,nx,ny,cw,ch){
     }
     sizes[component]=tail;
   }
+  const largestCells=Math.max(0,...sizes.slice(1));
   const regionComponents=new Map();
   for(let p=0;p<N;p++){
     const regionId=regionAt[p];if(regionId<0)continue;
@@ -545,10 +546,10 @@ function wallComponentRegionMeasures(wall,regionAt,nx,ny,cw,ch){
     let cells=0;for(const id of ids)cells+=sizes[id]||0;
     measures.set(regionId,cells*Math.min(cw,ch));
   }
-  return measures;
+  return {measures,largestMeasure:largestCells*Math.min(cw,ch)};
 }
 function filterFurnitureIslands(regions,items,wallNames,hidden,cw,ch,wall,regionAt,nx,ny){
-  const measures=wallComponentRegionMeasures(wall,regionAt,nx,ny,cw,ch);
+  const {measures,largestMeasure}=wallComponentRegionMeasures(wall,regionAt,nx,ny,cw,ch);
   const filteredKeys=[];
   const kept=(regions.kept||[]).filter(region=>{
     const areaM2=region.area*cw*ch/1e6;
@@ -557,7 +558,7 @@ function filterFurnitureIslands(regions,items,wallNames,hidden,cw,ch,wall,region
     // Small closed loops that do not join a larger architectural wall network
     // are furniture/equipment candidates, even when every stroke is on 壁.
     const wallNetworkMeasure=measures.get(region.id)||0;
-    if(wallNetworkMeasure>=25000)return true;
+    if(largestMeasure>0&&wallNetworkMeasure>=largestMeasure*.25)return true;
     filteredKeys.push([region.id,region.seed,region.area].join(":"));return false;
   });
   return {...regions,kept,filteredFurnitureIslands:filteredKeys.length,filteredFurnitureKeys:filteredKeys};
