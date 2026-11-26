@@ -28,7 +28,8 @@ function normalizeKind(entity) {
   return KIND_MAP.get(raw) || raw;
 }
 function sourceSemantics(source, rawType, layerScaleDenominator = null) {
-  const explicitRole = first(source?.semanticRole, source?.semantic?.role, source?.role, source?.base?.semanticRole, source?.base?.semantic?.role, source?.base?.role, null);
+  const explicitRoleValue = first(source?.semanticRole, source?.semantic?.role, source?.role, source?.base?.semanticRole, source?.base?.semantic?.role, source?.base?.role, null);
+  const explicitRole = explicitRoleValue != null && !["unclassified","unknown"].includes(String(explicitRoleValue).trim().toLowerCase()) ? explicitRoleValue : null;
   const kind = String(rawType || "").toLowerCase();
   const dimensionFlag = source?.dimensionGraphic === true || source?.dimensionLine === true ||
     source?.dimensionExtension === true || source?.dimensionArrow === true ||
@@ -191,18 +192,22 @@ export function attachCadEntityMetadata(items = [], normalizedEntities = []) {
     if (!normalized) return item;
     const source = normalized.source || {};
     const semantic = normalized.semantic || {};
+    const existingRole = item?.semanticRole ?? item?.semantic?.role ?? null;
+    const hasMeaningfulRole = existingRole != null && !["unclassified","unknown"].includes(String(existingRole).trim().toLowerCase());
+    const role = hasMeaningfulRole ? existingRole : (semantic.role ?? null);
+    const mergedSemantic = { ...semantic, ...(item?.semantic || {}), role };
     return {
       ...item,
       sourceType: item?.sourceType ?? source.type ?? null,
-      semanticRole: item?.semanticRole ?? semantic.role ?? null,
-      semantic: item?.semantic ?? semantic,
-      dimensionGraphic: item?.dimensionGraphic ?? semantic.dimensionGraphic ?? false,
-      blockInstance: item?.blockInstance ?? semantic.blockInstance ?? false,
+      semanticRole: role,
+      semantic: mergedSemantic,
+      dimensionGraphic: item?.dimensionGraphic === true || semantic.dimensionGraphic === true,
+      blockInstance: item?.blockInstance === true || semantic.blockInstance === true,
       layerScaleDenominator: item?.layerScaleDenominator ?? source.layerScaleDenominator ?? null,
       sourceGroupIndex: item?.sourceGroupIndex ?? source.groupIndex ?? null,
       sourceLayerIndex: item?.sourceLayerIndex ?? source.layerIndex ?? null,
       sourceEntityIndex: item?.sourceEntityIndex ?? source.sourceIndex ?? null,
-      blockPath: item?.blockPath ?? source.blockPath ?? []
+      blockPath: Array.isArray(item?.blockPath) && item.blockPath.length ? item.blockPath : (source.blockPath ?? [])
     };
   });
 }
