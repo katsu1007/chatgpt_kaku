@@ -562,7 +562,7 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
     if(!layerStats.has(name))layerStats.set(name,{name,total:0,line:0,arc:0,fill:0,text:0,other:0,sourceTagged:0,blockTagged:0});
     const stat=layerStats.get(name);stat.total++;
     if(["line","arc","fill","text"].includes(it.kind))stat[it.kind]++;else stat.other++;
-    if(["sourceType","entityType","sourceId","objectId","sourceInsertHandle","sourceBlockHandle","sourceEntityHandle","handle"].some(k=>it[k]!=null)||(Array.isArray(it.blockPath)&&it.blockPath.length>0))stat.sourceTagged++;
+    if(["sourceType","sourceFormat","sourceHandle","sourceLayerGroup","entityType","sourceId","objectId","sourceInsertHandle","sourceBlockHandle","sourceEntityHandle","handle"].some(k=>it[k]!=null)||(Array.isArray(it.blockPath)&&it.blockPath.length>0))stat.sourceTagged++;
     if(["blockName","blockId","blockNum","sourceInsertHandle","sourceBlockHandle"].some(k=>it[k]!=null)||(Array.isArray(it.blockPath)&&it.blockPath.length>0)||it.blockInstance===true)stat.blockTagged++;
   }
   const layerInventory=[...layerStats.values()].sort((a,b)=>b.total-a.total);
