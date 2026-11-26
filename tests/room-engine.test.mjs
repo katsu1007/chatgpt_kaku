@@ -762,3 +762,21 @@ test("closed floor-fill polylines use bulge arcs instead of straight chord edges
  assert.equal(b.rooms.length,1);
  assert.notEqual(a.diagnostics.floorMaskCells,b.diagnostics.floorMaskCells);
 });
+
+
+test("block-contained wall geometry remains usable while fixture blocks on the same wall layer are excluded",()=>{
+ const items=[
+  line("外壁",100,100,900,100),line("外壁",900,100,900,900),
+  line("外壁",900,900,100,900),line("外壁",100,900,100,100),
+  {...line("間仕切壁",500,100,500,900),semanticRole:"block-instance",blockInstance:true,blockPath:["WALL_ASSEMBLY"],sourceInsertHandle:"A1"},
+  {...line("間仕切壁",200,200,300,200),semanticRole:"fixture",semantic:{role:"block-instance"},blockInstance:true},
+  {...line("間仕切壁",300,200,300,300),semanticRole:"fixture",semantic:{role:"block-instance"},blockInstance:true},
+  {...line("間仕切壁",300,300,200,300),semanticRole:"fixture",semantic:{role:"block-instance"},blockInstance:true},
+  {...line("間仕切壁",200,300,200,200),semanticRole:"fixture",semantic:{role:"block-instance"},blockInstance:true}
+ ];
+ const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
+ assert.equal(result.parents.length,1);
+ assert.equal(result.rooms.length,2);
+ assert.equal(result.parents[0].children.length,2);
+ assert.ok(result.diagnostics.skippedSemanticItems>0);
+});
