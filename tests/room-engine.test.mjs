@@ -930,3 +930,25 @@ test("raw JWW Sunpou source identity suppresses dimension strokes before normali
   assert.equal(result.rooms.length,1);
   assert.equal(result.diagnostics.skippedDimensionItems,1);
 });
+
+test("block-instance symbols on a wall-named layer are excluded unless explicitly classified as a wall",()=>{
+  const items=[
+    line("外壁",100,100,900,100),line("外壁",900,100,900,900),
+    line("外壁",900,900,100,900),line("外壁",100,900,100,100),
+    // A closed toilet fixture/furniture block was inserted on a wall-named layer.
+    {kind:"polyline",layer:"外壁",pts:[300,300,500,300,500,500,300,500],closed:true,semanticRole:"block-instance",blockInstance:true}
+  ];
+  const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"外壁"}],selectedLayers:[]});
+  assert.equal(result.rooms.length,1);
+  assert.ok(result.diagnostics.skippedSemanticItems>0);
+});
+
+test("explicitly classified wall geometry inside a block remains eligible as a boundary",()=>{
+  const items=[
+    line("外壁",100,100,900,100),line("外壁",900,100,900,900),
+    line("外壁",900,900,100,900),line("外壁",100,900,100,100),
+    {kind:"line",layer:"間仕切壁",pts:[500,100,500,900],semanticRole:"wall",blockInstance:true}
+  ];
+  const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:[]});
+  assert.equal(result.rooms.length,2);
+});
