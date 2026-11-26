@@ -1,0 +1,33 @@
+name: JWW parser local validation artifact
+
+on:
+  push:
+    branches:
+      - feat/vendor-jww-parser-local
+    paths:
+      - '.github/workflows/jww-parser-artifact.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Bundle vendored JWW parser
+        run: |
+          npx --yes esbuild@0.25.12 original/vendor/ezpzfile-cad/src/cad/jww/index.ts \
+            --bundle --format=esm --platform=browser --target=es2022 \
+            --outfile=/tmp/jww.bundle.mjs
+          node --input-type=module -e "import('file:///tmp/jww.bundle.mjs').then(m => { if (typeof m.readJww !== 'function' || typeof m.sniffJww !== 'function') process.exit(1); console.log('JWW parser exports verified'); })"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jww-parser-local-validation
+          path: /tmp/jww.bundle.mjs
+          if-no-files-found: error
+          retention-days: 1
