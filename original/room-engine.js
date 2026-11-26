@@ -386,6 +386,44 @@ function chooseRegions(regions,N,maxRatio=.82,nx= Math.round(Math.sqrt(N)),ny=Ma
   }).slice(0,500);
   return {inner,minCells,minSpanCells,kept};
 }
+function floorPolygonOf(item){
+ const role=String(item?.semanticRole??item?.semantic?.role??item?.role??"").trim().toLowerCase().replace(/[\s_]+/g,"-");
+ const explicit=item?.floorFill===true||role==="floor"||role.startsWith("floor-")||role.startsWith("floor.");
+ if(!explicit)return null;
+ const kind=String(item?.kind??item?.type??"").toLowerCase();
+ if(!["fill","solid","polyline"].includes(kind))return null;
+ if(kind==="polyline"&&!(item.closed===true||item.isClosed===true||item.closedFlag===true||item.flags?.closed===true))return null;
+ const raw=item.pts??item.points??item.vertices;if(!Array.isArray(raw))return null;
+ const points=raw.length&&typeof raw[0]==="object"
+  ?raw.filter(p=>Number.isFinite(p?.x)&&Number.isFinite(p?.y)).map(p=>({x:p.x,y:p.y}))
+  :Array.from({length:Math.floor(raw.length/2)},(_,i)=>({x:raw[i*2],y:raw[i*2+1]})).filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.y));
+ return points.length>=3?points:null;
+}
+function createFloorSpaceMask(items,wall,nx,ny,cw,ch,hidden){
+ const mask=new Uint8Array(nx*ny);mask.fill(1);const layers=new Set();let floorFillCount=0,floorMaskCells=0;
+ for(const item of items||[]){
+  if(hidden.has(item?.layer))continue;
+  const points=floorPolygonOf(item);if(!points)continue;
+  floorFillCount++;if(item.layer!=null)layers.add(String(item.layer));
+  const minX=Math.max(0,Math.ceil(Math.min(...points.map(p=>p.x))/cw-.5));
+  const maxX=Math.min(nx-1,Math.floor(Math.max(...points.map(p=>p.x))/cw-.5));
+  const minY=Math.max(0,Math.ceil(Math.min(...points.map(p=>p.y))/ch-.5));
+  const maxY=Math.min(ny-1,Math.floor(Math.max(...points.map(p=>p.y))/ch-.5));
+  for(let iy=minY;iy<=maxY;iy++){
+   const y=(iy+.5)*ch,intersections=[];
+   for(let i=0,j=points.length-1;i<points.length;j=i++){
+    const a=points[j],b=points[i];
+    if((a.y<=y&&b.y>y)||(b.y<=y&&a.y>y))intersections.push(a.x+(y-a.y)*(b.x-a.x)/(b.y-a.y));
+   }
+   intersections.sort((a,b)=>a-b);
+   for(let k=0;k+1<intersections.length;k+=2){
+    const left=Math.max(minX,Math.ceil(intersections[k]/cw-.5)),right=Math.min(maxX,Math.floor(intersections[k+1]/cw-.5));
+    for(let ix=left;ix<=right;ix++){const index=iy*nx+ix;if(!wall[index]&&mask[index]){mask[index]=0;floorMaskCells++;}}
+   }
+  }
+ }
+ return {wall:mask,floorFillCount,floorMaskCells,layers:[...layers]};
+}
 export function extractRoomHierarchy({items,width,height,layers,selectedLayers,hiddenLayers=[]}){
   if(!(width>0&&height>0))throw new Error("図面サイズを取得できません");
   const hidden=new Set(hiddenLayers);
