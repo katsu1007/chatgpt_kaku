@@ -127,7 +127,7 @@ test("ellipse and rational spline entities produce closed planar faces",()=>{
  const ellipse=segmentsFromEntities([{kind:"ellipse",id:"ell",center:[0,0,0],majorAxis:[100,0,0],axisRatio:0.5,startParameter:0,endParameter:Math.PI*2}]);
  assert.ok(ellipse.length>=70);
  assert.equal(buildPlanarGraph(ellipse).faces.length,1);
- const spline=segmentsFromEntities([{kind:"spline",id:"spline",degree:2,knots:[0,0,0,1,1,1],controlPoints:[[0,0],[50,0],[50,50],[0,50]],closed:true}]);
+ const spline=segmentsFromEntities([{kind:"spline",id:"spline",degree:2,knots:[0,0,0,0.5,1,1,1],controlPoints:[[0,0],[50,0],[50,50],[0,50]],closed:true}]);
  assert.ok(spline.length>=24);
  assert.ok(spline.every(s=>s.sourceId==="spline"));
 });
