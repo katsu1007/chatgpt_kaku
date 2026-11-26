@@ -31,8 +31,8 @@ function sourceSemantics(source, rawType, layerScaleDenominator = null) {
   const explicitRoleValue = first(source?.semanticRole, source?.semantic?.role, source?.role, source?.base?.semanticRole, source?.base?.semantic?.role, source?.base?.role, null);
   const explicitRole = explicitRoleValue != null && !["unclassified","unknown"].includes(String(explicitRoleValue).trim().toLowerCase()) ? explicitRoleValue : null;
   const kind = String(rawType || "").toLowerCase();
-  const dimensionType = kind === "dimension" || kind === "sunpou" || /(?:^|\\.)cdatasunpou$/i.test(kind);
-  const blockType = kind === "block" || kind === "insert" || /(?:^|\\.)cdatablock$/i.test(kind);
+  const dimensionType = kind === "dimension" || kind === "sunpou" || /(?:^|\.)cdatasunpou$/i.test(kind);
+  const blockType = kind === "block" || kind === "insert" || /(?:^|\.)cdatablock$/i.test(kind);
   const dimensionFlag = source?.dimensionGraphic === true || source?.dimensionLine === true ||
     source?.dimensionExtension === true || source?.dimensionArrow === true ||
     source?.dimensionBoundary === true || source?.isDimension === true ||
