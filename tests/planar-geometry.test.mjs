@@ -131,3 +131,11 @@ test("ellipse and rational spline entities produce closed planar faces",()=>{
  assert.ok(spline.length>=24);
  assert.ok(spline.every(s=>s.sourceId==="spline"));
 });
+
+test("decoded DWG circle and arc use center arrays and radius fields",()=>{
+ const circle=segmentsFromEntities([{kind:"circle",id:"c",center:[10,20,0],radius:5}]);
+ const arc=segmentsFromEntities([{kind:"arc",id:"a",center:[0,0,0],radius:10,startAngle:0,endAngle:Math.PI}]);
+ assert.ok(circle.length>=36);
+ assert.ok(arc.length>=18);
+ assert.ok(circle.every(s=>s.sourceId==="c"));
+});

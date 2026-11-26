@@ -52,7 +52,8 @@ export function segmentsFromEntities(entities = [], options = {}) {
       add(entity,i,curve.points,curve.closed);continue;
     }
     if(kind!=='arc'&&kind!=='circle')continue;
-    const cx=Number(entity.cx??entity.x??entity.center?.x),cy=Number(entity.cy??entity.y??entity.center?.y),r=Number(entity.r??entity.radius);
+    const center=entity.center??entity.centre;
+    const cx=Number(entity.cx??entity.x??center?.[0]??center?.x),cy=Number(entity.cy??entity.y??center?.[1]??center?.y),r=Number(entity.r??entity.radius);
     if(![cx,cy,r].every(finite)||r<=0)continue;
     const circle=kind==='circle'||entity.isCircle===true,a0=circle?0:Number(entity.a0??entity.startAngle??0);
     let sweep=circle?Math.PI*2:Number(entity.a1??entity.endAngle??Math.PI*2)-a0;
