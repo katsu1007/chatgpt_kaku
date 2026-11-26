@@ -23,3 +23,8 @@ test("does not discard unknown or unclassified entities by guesswork",()=>{
  assert.equal(isNonBoundarySemanticItem({semanticRole:"unknown"}),false);
  assert.equal(isNonBoundarySemanticItem({kind:"line"}),false);
 });
+
+test("explicit semantic role wins over generic source entity type",()=>{
+ assert.equal(isNonBoundarySemanticItem({sourceType:"line",sourceGeometry:{semantic:{role:"fixture.sink"}}}),true);
+ assert.equal(isNonBoundarySemanticItem({semanticRole:"unclassified",sourceType:"equipment"}),true);
+});
