@@ -472,3 +472,39 @@ test("attaches original CAD handle, source format and layer-group provenance to 
  assert.equal(out.semanticRole,"dimension");
  assert.deepEqual(input[0].sourceHandle,undefined);
 });
+
+
+test("recovers source identity and semantic metadata through multiple parser base wrappers",()=>{
+  const doc=createCadDocument({items:[{
+    kind:"line",layer:"flattened-layer",pts:[0,0,100,0],
+    base:{base:{
+      type:"sunpou",handle:"DIM-42",layer:"0-2 平面図 / 寸法",
+      layerGroup:"0",dimensionGraphic:true,sourceIndex:73,
+      blockPath:["PLAN","ANNOTATIONS"]
+    }}
+  }]},{sourceFormat:"JWW"});
+  const entity=doc.sheets[0].entities[0];
+  assert.equal(entity.kind,"line");
+  assert.equal(entity.source.type,"sunpou");
+  assert.equal(entity.source.handle,"DIM-42");
+  assert.equal(entity.source.layer,"flattened-layer");
+  assert.equal(entity.semantic.role,"dimension");
+  assert.equal(entity.source.sourceIndex,73);
+  assert.deepEqual(entity.source.blockPath,["PLAN","ANNOTATIONS"]);
+});
+
+test("inherits deep block instance handles and transforms when parser flattens geometry",()=>{
+  const doc=createCadDocument({items:[{
+    kind:"line",pts:[0,0,10,0],
+    base:{base:{type:"block",blockName:"URINAL",sourceInsertHandle:"INS-9",
+      sourceBlockHandle:"BLK-3",sourceEntityHandle:"ENT-4",
+      blockInstanceIndex:2,blockTransform:[1,0,0,1,50,60]}}
+  }]},{sourceFormat:"JWW"});
+  const source=doc.sheets[0].entities[0].source;
+  assert.deepEqual(source.blockPath,["URINAL"]);
+  assert.equal(source.sourceInsertHandle,"INS-9");
+  assert.equal(source.sourceBlockHandle,"BLK-3");
+  assert.equal(source.sourceEntityHandle,"ENT-4");
+  assert.equal(source.blockInstanceIndex,2);
+  assert.deepEqual(source.blockTransform,[1,0,0,1,50,60]);
+});
