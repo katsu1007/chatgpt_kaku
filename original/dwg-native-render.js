@@ -66,7 +66,8 @@ export function renderNativeDwgSvg(prepared,hidden=new Uint8Array(0)){
    else body.push(`<polyline points="${points}" fill="none" ${stroke}/>`);
   }else if(item.kind==="arc"||item.kind==="circle"){
    const pts=arcPoints(item);if(pts.length<2)continue;
-   if(item.isCircle||item.kind==="circle")body.push(`<circle cx="${fmt(item.cx??item.center?.[0]??item.center?.x)}" cy="${fmt(item.cy??item.center?.[1]??item.center?.y)}" r="${fmt(item.r??item.radius)}" fill="none" ${stroke}/>`);
+   const sweep=Number(item.a1??item.endAngle??Math.PI*2)-Number(item.a0??item.startAngle??0);
+   if(item.isCircle||item.kind==="circle"||Math.abs(Math.abs(sweep)-Math.PI*2)<=1e-6)body.push(`<circle cx="${fmt(item.cx??item.center?.[0]??item.center?.x)}" cy="${fmt(item.cy??item.center?.[1]??item.center?.y)}" r="${fmt(item.r??item.radius)}" fill="none" ${stroke}/>`);
    else body.push(`<polyline points="${pts.map(p=>fmt(p[0])+","+fmt(p[1])).join(" ")}" fill="none" ${stroke}/>`);
   }else if(item.kind==="point"){
    body.push(`<circle cx="${fmt(item.x)}" cy="${fmt(item.y)}" r="2.5" fill="${color}"/>`);

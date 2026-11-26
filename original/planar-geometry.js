@@ -58,9 +58,10 @@ export function segmentsFromEntities(entities = [], options = {}) {
     const circle=kind==='circle'||entity.isCircle===true,a0=circle?0:Number(entity.a0??entity.startAngle??0);
     let sweep=circle?Math.PI*2:Number(entity.a1??entity.endAngle??Math.PI*2)-a0;
     if(!finite(sweep)||Math.abs(sweep)<=1e-12)continue;if(Math.abs(sweep)>Math.PI*2)sweep=Math.sign(sweep)*Math.PI*2;
+    const closed=circle||Math.abs(Math.abs(sweep)-Math.PI*2)<=1e-6;
     const count=Math.max(8,Math.ceil(Math.abs(sweep)/arcStep));
     const points=Array.from({length:count+1},(_,j)=>{const a=a0+sweep*j/count;return[cx+r*Math.cos(a),cy+r*Math.sin(a)];});
-    add(entity,i,points,circle);
+    add(entity,i,points,closed);
   }
   return out;
 }

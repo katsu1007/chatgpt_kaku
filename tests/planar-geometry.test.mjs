@@ -139,3 +139,9 @@ test("decoded DWG circle and arc use center arrays and radius fields",()=>{
  assert.ok(arc.length>=18);
  assert.ok(circle.every(s=>s.sourceId==="c"));
 });
+
+test("full-sweep ARC entities close as circle boundaries in planar graphs",()=>{
+ const segs=segmentsFromEntities([{kind:"arc",id:"full-circle",cx:500,cy:500,r:400,a0:0,a1:Math.PI*2}]);
+ assert.ok(segs.length>=36);
+ assert.equal(buildPlanarGraph(segs).faces.length,1);
+});

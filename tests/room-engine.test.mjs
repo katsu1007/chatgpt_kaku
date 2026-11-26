@@ -671,3 +671,9 @@ test("a lone perpendicular wall meeting a dimension endpoint is not discarded",(
  const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"壁"},{name:"文字"}],selectedLayers:[]});
  assert.ok(result.diagnostics.skippedDimensionSegments<=2);
 });
+
+test("full-sweep JWW arcs close into room boundaries without open-arc endpoint treatment",()=>{
+ const result=extractRoomHierarchy({items:[{kind:"arc",layer:"外壁",cx:500,cy:500,r:400,a0:0,a1:Math.PI*2}],width:1000,height:1000,layers:[{name:"外壁"}],selectedLayers:[]});
+ assert.equal(result.parents.length,1);
+ assert.equal(result.rooms.length,1);
+});
