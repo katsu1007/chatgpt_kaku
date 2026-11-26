@@ -1,5 +1,6 @@
 import { tessellateCadCurve, tessellateBulgedPolyline } from "./cad-curve-tessellation.js";
 import { dimensionTextAnchors, isDimensionSegment } from "./dimension-line-classifier.js";
+import { isNonBoundarySemanticItem } from "./cad-semantic-classifier.js";
 // KAKU ORIGIN room extraction engine
 // Grid-space topology engine. Coordinates are sheet mm; thresholds are relative to grid,
 // never interpreted as real-world m² without scale conversion.
@@ -48,7 +49,7 @@ function findBoothFrontClosures(items,names,hidden){
   // are collinear with their wall and therefore do not satisfy this geometry.
   const raw=[];
   for(const it of items){
-    if(it.hatchBoundary||isDimensionGraphicItem(it)||!["line","polyline"].includes(it.kind)||!names.has(it.layer)||hidden.has(it.layer)||!Array.isArray(it.pts))continue;
+    if(it.hatchBoundary||isDimensionGraphicItem(it)||isNonBoundarySemanticItem(it)||!["line","polyline"].includes(it.kind)||!names.has(it.layer)||hidden.has(it.layer)||!Array.isArray(it.pts))continue;
     for(let k=0;k+3<it.pts.length;k+=2){
       const x1=it.pts[k],y1=it.pts[k+1],x2=it.pts[k+2],y2=it.pts[k+3],dx=x2-x1,dy=y2-y1,len=Math.hypot(dx,dy);
       if(len>1)raw.push({it,x1,y1,x2,y2,dx:dx/len,dy:dy/len,len});
@@ -174,7 +175,7 @@ function isWallLikeFill(pts,cw,ch){
   return ratio>=3.5&&major*2>=Math.max(cw,ch)*12;
 }
 function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
-  const wall=new Uint8Array(nx*ny); let usedItems=0,usedSegments=0,skippedHidden=0,skippedDimensionItems=0,skippedDimensionSegments=0,skippedNonWallFills=0,snappedTJunctions=0; const endpoints=[]; const doorEndpoints=[]; const geometrySegments=[]; const dimAnchors=dimensionTextAnchors(items);
+  const wall=new Uint8Array(nx*ny); let usedItems=0,usedSegments=0,skippedHidden=0,skippedDimensionItems=0,skippedDimensionSegments=0,skippedSemanticItems=0,skippedNonWallFills=0,snappedTJunctions=0; const endpoints=[]; const doorEndpoints=[]; const geometrySegments=[]; const dimAnchors=dimensionTextAnchors(items);
   const mark=(x,y)=>{
     const ix=Math.round(x/cw),iy=Math.round(y/ch);
     // 8-neighbour raster stroke reduces diagonal leaks.
@@ -201,6 +202,7 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
     if(it.hatchBoundary||!names.has(it.layer))continue;
     if(hidden.has(it.layer)){skippedHidden++;continue;}
     if(isDimensionGraphicItem(it)){skippedDimensionItems++;continue;}
+    if(isNonBoundarySemanticItem(it)){skippedSemanticItems++;continue;}
     if((it.kind==="line"||it.kind==="polyline")&&Array.isArray(it.pts)&&it.pts.length>=4){
       usedItems++;
       const segments=[];
