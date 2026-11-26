@@ -77,3 +77,14 @@ test("renders bulged closed polylines and circles with decoded center arrays",()
  assert.match(svg,/<polygon points=/);
  assert.match(svg,/<circle cx="140" cy="60" r="20"/);
 });
+
+test("uses explicit dimension annotation text once when native dimension carries a text item",()=>{
+ const prepared=prepareNativeDwgSheet({size:{w:200,h:120},items:[
+  {kind:"dimension",layer:"DIM",dimensionType:"linear",actualMeasurement:100,x:50,y:35,suppressMeasurementText:true,
+   points:{point13:[10,10,0],point14:[110,10,0],point10:[10,35,0]}},
+  {kind:"text",layer:"DIM",x:50,y:35,text:"L=100 mm",dimensionText:true,height:10}
+ ]},[{name:"DIM",color:"#222222"}]);
+ const svg=renderNativeDwgSvg(prepared);
+ assert.equal((svg.match(/L=100 mm/g)||[]).length,1);
+ assert.doesNotMatch(svg,/>100<\/text>/);
+});
