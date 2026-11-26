@@ -91,3 +91,21 @@ test("mixed or missing source scales suppress face real-area output",()=>{
  assert.equal(b.sourceSummary.scaleStatus,"unknown");
  assert.equal(b.realAreaM2,null);
 });
+
+
+test("semantic-role dimensions are excluded from planar candidates",()=>{
+ const items=[...box("WALL",0,0,1000,1000),line("WALL",500,0,500,1000,{semanticRole:"dimension"})];
+ const r=analyzePlanarRoomCandidates({items,wallLayerNames:["WALL"]});
+ assert.equal(r.diagnostics.skippedDimensionItems,1);
+ assert.equal(r.diagnostics.boundedFaces,1);
+});
+
+test("closed polylines do not contribute false doorway endpoints",()=>{
+ const items=[
+  {kind:"polyline",layer:"WALL",closed:true,pts:[0,0,500,0,500,1000,0,1000]},
+  {kind:"polyline",layer:"WALL",closed:true,pts:[1400,0,1900,0,1900,1000,1400,1000]}
+ ];
+ const r=analyzePlanarRoomCandidates({items,wallLayerNames:["WALL"]});
+ assert.equal(r.diagnostics.bridgedDoorGaps,0);
+ assert.equal(r.bridges.length,0);
+});

@@ -535,3 +535,38 @@ test("missing layer scale suppresses real area and identifies affected layers",(
   assert.deepEqual(result.diagnostics.scaleAssessment.unknownLayers,["間仕切壁"]);
   assert.ok(result.rooms.every(room=>room.realAreaM2===null));
 });
+
+
+test("closed CAD polylines form production room boundaries",()=>{
+  const items=[
+    {kind:"polyline",layer:"外壁",closed:true,pts:[100,100,900,100,900,900,100,900]},
+    {kind:"polyline",layer:"間仕切壁",closed:true,pts:[500,100,500,900,100,900,100,100]}
+  ];
+  const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
+  assert.equal(result.parents.length,1);
+  assert.equal(result.rooms.length,2);
+});
+
+test("semantic-role dimension graphics are excluded even without legacy boolean flags",()=>{
+  const items=[
+    line("壁",100,100,900,100),line("壁",900,100,900,900),
+    line("壁",900,900,100,900),line("壁",100,900,100,100),
+    {...line("壁",100,300,900,300),semanticRole:"dimension"}
+  ];
+  const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"壁"}],selectedLayers:[]});
+  assert.equal(result.rooms.length,1);
+  assert.equal(result.diagnostics.skippedDimensionItems,1);
+});
+
+
+test("six toilet cubicles are detected when side partitions are stored as polylines",()=>{
+  const items=[
+    line("外壁",100,100,6200,100),line("外壁",6200,100,6200,2400),
+    line("外壁",6200,2400,100,2400),line("外壁",100,2400,100,100),
+    line("間仕切壁",300,2000,5700,2000),
+    ...Array.from({length:7},(_,i)=>({kind:"polyline",layer:"間仕切壁",pts:[300+i*900,500,300+i*900,2000]}))
+  ];
+  const result=extractRoomHierarchy({items,width:6300,height:2500,layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
+  assert.equal(result.diagnostics.virtualBoothClosures,6);
+  assert.equal(result.rooms.length,7);
+});
