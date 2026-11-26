@@ -63,3 +63,31 @@ test("dimension-tagged fragments are not used to invent doorway closures",()=>{
  assert.equal(r.diagnostics.bridgedDoorGaps,0);
  assert.equal(r.bridges.length,0);
 });
+
+
+test("face diagnostics retain source layer and calculate area only from uniform boundary scale",()=>{
+ const items=[
+  line("WALL",0,0,1000,0,{layerScaleDenominator:50,semanticRole:"wall"}),
+  line("WALL",1000,0,1000,1000,{layerScaleDenominator:50,semanticRole:"wall"}),
+  line("WALL",1000,1000,0,1000,{layerScaleDenominator:50,semanticRole:"wall"}),
+  line("WALL",0,1000,0,0,{layerScaleDenominator:50,semanticRole:"wall"})
+ ];
+ const r=analyzePlanarRoomCandidates({items,wallLayerNames:["WALL"]});
+ assert.equal(r.faces.length,1);
+ assert.equal(r.faces[0].sourceSummary.scaleStatus,"uniform");
+ assert.equal(r.faces[0].sourceSummary.scaleDenominator,50);
+ assert.equal(r.faces[0].sourceSummary.layers[0],"WALL");
+ assert.equal(r.faces[0].sourceSummary.semanticRoleCounts.wall,4);
+ assert.equal(r.faces[0].realAreaM2,2500);
+});
+
+test("mixed or missing source scales suppress face real-area output",()=>{
+ const mixed=[...box("WALL",0,0,1000,1000)].map((item,i)=>({...item,layerScaleDenominator:i===0?50:100}));
+ const unknown=[...box("WALL",0,0,1000,1000)];
+ const a=analyzePlanarRoomCandidates({items:mixed,wallLayerNames:["WALL"]}).faces[0];
+ const b=analyzePlanarRoomCandidates({items:unknown,wallLayerNames:["WALL"]}).faces[0];
+ assert.equal(a.sourceSummary.scaleStatus,"mixed");
+ assert.equal(a.realAreaM2,null);
+ assert.equal(b.sourceSummary.scaleStatus,"unknown");
+ assert.equal(b.realAreaM2,null);
+});
