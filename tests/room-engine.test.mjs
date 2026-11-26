@@ -578,3 +578,17 @@ test("circle entities form a closed wall boundary in production room tracing",()
  assert.equal(result.parents.length,1);
  assert.equal(result.rooms.length,1);
 });
+
+test("closed ellipse geometry is traced as a room boundary",()=>{
+ const result=extractRoomHierarchy({items:[{kind:"ellipse",layer:"外壁",center:[500,500,0],majorAxis:[400,0,0],axisRatio:1,startParameter:0,endParameter:Math.PI*2}],width:1000,height:1000,layers:[{name:"外壁"}],selectedLayers:[]});
+ assert.equal(result.parents.length,1);
+ assert.equal(result.rooms.length,1);
+});
+test("bulged polyline boundaries are rasterized as curves",()=>{
+ const items=[
+  {kind:"polyline",layer:"外壁",pts:[100,100,900,100,900,900,100,900],bulges:[0,0,0,0],closed:true}
+ ];
+ const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"外壁"}],selectedLayers:[]});
+ assert.equal(result.parents.length,1);
+ assert.equal(result.rooms.length,1);
+});
