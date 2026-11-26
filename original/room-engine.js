@@ -588,10 +588,9 @@ function regionHasFurnitureHaloEvidence(region,items,hidden,cw,ch){
   const densePair=values[0]>=20&&values[1]>=8&&values.reduce((sum,value)=>sum+value,0)>=32;
   return centers.size>=8&&(opposite||densePair);
 }
-function filterFurnitureIslands(regions,items,wallNames,hidden,cw,ch,wall,regionAt,nx,ny){
+function filterFurnitureIslands(regions,items,wallNames,hidden,cw,ch,wall,regionAt,nx,ny,furnitureSeeds=[]){
   const {measures,sharedRegionCounts,largestMeasure}=wallComponentRegionMeasures(wall,regionAt,nx,ny,cw,ch);
   const source=regions.kept||[];
-  const furnitureSeeds=source.filter(region=>regionHasFurnitureHaloEvidence(region,items,hidden,cw,ch));
   const filteredKeys=[];
   const kept=source.filter(region=>{
     const key=[region.id,region.seed,region.area].join(":");
@@ -603,7 +602,7 @@ function filterFurnitureIslands(regions,items,wallNames,hidden,cw,ch,wall,region
     if((sharedRegionCounts.get(region.id)||0)>=3)return true;
     const minX=region.minx*cw,maxX=(region.maxx+1)*cw,minY=region.miny*ch,maxY=(region.maxy+1)*ch;
     const nearFurnitureSeed=areaM2<.3&&furnitureSeeds.some(other=>{
-      if(other===region)return false;
+      if(other===region||other.area<=region.area*2)return false;
       const ox0=other.minx*cw,ox1=(other.maxx+1)*cw,oy0=other.miny*ch,oy1=(other.maxy+1)*ch;
       const dx=Math.max(0,ox0-maxX,minX-ox1),dy=Math.max(0,oy0-maxY,minY-oy1);
       return Math.hypot(dx,dy)<=800;
@@ -696,8 +695,9 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
   // not a room; retain it only when an explicit room label provides evidence.
   let filteredFurnitureIslands=0;
   if(!floorFillUsed){
-    parents=filterFurnitureIslands(parents,items,allNames,hidden,cw,ch,parentTrace.wall,parentFlood.regionAt,nx,ny);
-    children=filterFurnitureIslands(children,items,allNames,hidden,cw,ch,childTrace.wall,childFlood.regionAt,nx,ny);
+    const furnitureSeeds=[...parents.kept,...children.kept].filter(region=>regionHasFurnitureHaloEvidence(region,items,hidden,cw,ch));
+    parents=filterFurnitureIslands(parents,items,allNames,hidden,cw,ch,parentTrace.wall,parentFlood.regionAt,nx,ny,furnitureSeeds);
+    children=filterFurnitureIslands(children,items,allNames,hidden,cw,ch,childTrace.wall,childFlood.regionAt,nx,ny,furnitureSeeds);
     filteredFurnitureIslands=new Set([...(parents.filteredFurnitureKeys||[]),...(children.filteredFurnitureKeys||[])]).size;
   }
   const parentRooms=parents.kept.map((r,i)=>({...r,name:"大部屋 "+(i+1),level:1,children:[]}));
