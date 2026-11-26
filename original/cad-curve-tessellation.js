@@ -62,7 +62,7 @@ function deBoor(degree,knots,controls,weights,u){
  const d=[];
  for(let j=0;j<=degree;j++){
   const i=span-degree+j,w=weights?.[i]??1,p=controls[i];
-  d[j]=[p.x*w,p.y*w,w];
+  d[j]=[p[0]*w,p[1]*w,w];
  }
  for(let r=1;r<=degree;r++)for(let j=degree;j>=r;j--){
   const i=span-degree+j,den=knots[i+degree-r+1]-knots[i];
@@ -73,18 +73,33 @@ function deBoor(degree,knots,controls,weights,u){
  return [q[0]/q[2],q[1]/q[2]];
 }
 export function tessellateSpline(entity,{maxSegments=20000,samplesPerControlPoint=12}={}){
- const degree=Math.trunc(Number(entity?.degree)),controls=entity?.controlPoints;
+ const closed=!!entity?.closed;
+ if(entity?.scenario===2&&Array.isArray(entity.fitPoints)&&entity.fitPoints.length>=2){
+  const fit=entity.fitPoints.map(point2);if(fit.some(p=>!p))return {points:[],closed,diagnostics:{reason:"invalid-fit-points"}};
+  const points=[],per=clamp(samplesPerControlPoint,2,128);
+  for(let i=0;i<fit.length-1;i++){
+   const p0=fit[Math.max(0,i-1)],p1=fit[i],p2=fit[i+1],p3=fit[Math.min(fit.length-1,i+2)];
+   for(let j=0;j<per;j++){
+    const t=j/per,t2=t*t,t3=t2*t;
+    points.push([0.5*((2*p1[0])+(-p0[0]+p2[0])*t+(2*p0[0]-5*p1[0]+4*p2[0]-p3[0])*t2+(-p0[0]+3*p1[0]-3*p2[0]+p3[0])*t3),
+     0.5*((2*p1[1])+(-p0[1]+p2[1])*t+(2*p0[1]-5*p1[1]+4*p2[1]-p3[1])*t2+(-p0[1]+3*p1[1]-3*p2[1]+p3[1])*t3)]);
+   }
+  }
+  points.push(fit.at(-1));if(closed&&Math.hypot(points[0][0]-points.at(-1)[0],points[0][1]-points.at(-1)[1])>1e-8)points.push(points[0]);
+  return {points,closed,diagnostics:{segmentCount:points.length-1,closed,fitPointApproximation:"catmull-rom"}};
+ }
+ const degree=Math.trunc(Number(entity?.degree)),rawControls=entity?.controlPoints;
  const knots=entity?.knots,weights=entity?.weightsPresent?entity.weights:null;
- if(!Array.isArray(controls)||controls.length<2||!Array.isArray(knots)||degree<1||degree>=controls.length||knots.length!==controls.length+degree+1)
-  return {points:[],closed:!!entity?.closed,diagnostics:{reason:"invalid-spline-definition"}};
- if(controls.some(p=>!finite(p?.x)||!finite(p?.y))||knots.some(v=>!finite(v))||
+ if(!Array.isArray(rawControls)||rawControls.length<2||!Array.isArray(knots)||degree<1||degree>=rawControls.length||knots.length!==rawControls.length+degree+1)
+  return {points:[],closed,diagnostics:{reason:"invalid-spline-definition"}};
+ const controls=rawControls.map(point2);
+ if(controls.some(p=>!p)||knots.some(v=>!finite(v))||
     (weights&& (weights.length!==controls.length||weights.some(v=>!finite(v)||v<=0)))||
     knots.some((v,i)=>i&&v<knots[i-1]))
-  return {points:[],closed:!!entity?.closed,diagnostics:{reason:"invalid-spline-data"}};
- const start=knots[degree],end=knots[controls.length];if(!(end>start))return {points:[],closed:!!entity?.closed,diagnostics:{reason:"empty-spline-domain"}};
+  return {points:[],closed,diagnostics:{reason:"invalid-spline-data"}};
+ const start=knots[degree],end=knots[controls.length];if(!(end>start))return {points:[],closed,diagnostics:{reason:"empty-spline-domain"}};
  const count=clamp(Math.max(24,controls.length*samplesPerControlPoint),24,maxSegments),points=[];
- for(let i=0;i<=count;i++){const u=start+(end-start)*i/count,p=deBoor(degree,knots,controls,weights,u);if(!p)return {points:[],closed:!!entity?.closed,diagnostics:{reason:"invalid-rational-evaluation"}};points.push(p);}
- const closed=!!entity.closed;
+ for(let i=0;i<=count;i++){const u=start+(end-start)*i/count,p=deBoor(degree,knots,controls,weights,u);if(!p)return {points:[],closed,diagnostics:{reason:"invalid-rational-evaluation"}};points.push(p);}
  if(closed&&Math.hypot(points[0][0]-points.at(-1)[0],points[0][1]-points.at(-1)[1])>1e-8)points.push(points[0]);
  return {points,closed,diagnostics:{segmentCount:count,closed,rational:!!weights}};
 }
