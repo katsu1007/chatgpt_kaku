@@ -235,10 +235,15 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
         if(first.used)rememberDoorEndpoint(first.x1,first.y1,first.x2-first.x1,first.y2-first.y1);
         if(last.used)rememberDoorEndpoint(last.x2,last.y2,last.x1-last.x2,last.y1-last.y2);
       }
-    }else if(it.kind==="arc"&&Number.isFinite(it.r)&&it.r>0){
-      usedItems++;const sweep=it.a1-it.a0,n=Math.max(16,Math.ceil(Math.abs(sweep)*it.r/Math.min(cw,ch)*2));
-      let px=it.cx+it.r*Math.cos(it.a0),py=it.cy+it.r*Math.sin(it.a0);rememberEndpoint(px,py);rememberEndpoint(it.cx+it.r*Math.cos(it.a1),it.cy+it.r*Math.sin(it.a1));
-      for(let k=1;k<=n;k++){const a=it.a0+sweep*k/n,x=it.cx+it.r*Math.cos(a),y=it.cy+it.r*Math.sin(a);line(px,py,x,y);px=x;py=y;}
+    }else if((it.kind==="arc"||it.kind==="circle")&&Number.isFinite(it.r)&&it.r>0){
+      usedItems++;
+      const circle=it.kind==="circle"||it.isCircle===true,a0=circle?0:(Number.isFinite(it.a0)?it.a0:0);
+      let sweep=circle?Math.PI*2:(Number.isFinite(it.a1)?it.a1-a0:Math.PI*2);
+      if(Math.abs(sweep)>Math.PI*2)sweep=Math.sign(sweep)*Math.PI*2;
+      const n=Math.max(16,Math.ceil(Math.abs(sweep)*it.r/Math.min(cw,ch)*2));
+      let px=it.cx+it.r*Math.cos(a0),py=it.cy+it.r*Math.sin(a0);
+      if(!circle){rememberEndpoint(px,py);rememberEndpoint(it.cx+it.r*Math.cos(a0+sweep),it.cy+it.r*Math.sin(a0+sweep));}
+      for(let k=1;k<=n;k++){const a=a0+sweep*k/n,x=it.cx+it.r*Math.cos(a),y=it.cy+it.r*Math.sin(a);line(px,py,x,y);px=x;py=y;}
     }else if(it.kind==="fill"&&Array.isArray(it.pts)&&it.pts.length>=6){
       if(!isWallLikeFill(it.pts,cw,ch)){skippedNonWallFills++;continue;}
       usedItems++;for(let k=0;k+3<it.pts.length;k+=2)line(it.pts[k],it.pts[k+1],it.pts[k+2],it.pts[k+3]);
