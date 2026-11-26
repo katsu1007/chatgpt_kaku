@@ -1199,7 +1199,7 @@ test("slanted partition branch snaps to a receiving wall at a near-miss T-juncti
   line("外壁",1400,1400,100,1400),line("外壁",100,1400,100,100),
   line("間仕切壁",750,100,750,1400),
   // A slanted branch ends 2 mm short of the receiving partition.
-  line("間仕切壁",300,650,748,700)
+  line("間仕切壁",100,650,748,700)
  ];
  const result=extractRoomHierarchy({items,width:1500,height:1500,
   layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
