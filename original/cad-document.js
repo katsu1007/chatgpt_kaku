@@ -301,7 +301,7 @@ export function createCadDocument(input = {}, options = {}) {
     const scaleKey = entity.source.layerScaleDenominator == null ? "unknown" : String(entity.source.layerScaleDenominator);
     scaleCounts[scaleKey] = (scaleCounts[scaleKey] || 0) + 1;
     if (!entity.bounds) missingGeometry++;
-    if (entity.source.blockPath?.length) {
+    if (entity.kind !== "block" && entity.source.blockPath?.length) {
       if (entity.source.layerProvenance === "base-layer-retained") blockChildLayerProvenance.retained++;
       else blockChildLayerProvenance.missing++;
     }
