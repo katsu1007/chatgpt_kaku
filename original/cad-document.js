@@ -26,12 +26,13 @@ function normalizeKind(entity) {
   return KIND_MAP.get(raw) || raw;
 }
 function sourceSemantics(source, rawType, layerScaleDenominator = null) {
-  const explicitRole = first(source?.semanticRole, source?.semantic?.role, source?.role, null);
+  const explicitRole = first(source?.semanticRole, source?.semantic?.role, source?.role, source?.base?.semanticRole, source?.base?.semantic?.role, source?.base?.role, null);
   const kind = String(rawType || "").toLowerCase();
   const dimensionFlag = source?.dimensionGraphic === true || source?.dimensionLine === true ||
     source?.dimensionExtension === true || source?.dimensionArrow === true ||
     source?.dimensionBoundary === true || source?.isDimension === true ||
-    source?.dimensionEntity === true;
+    source?.dimensionEntity === true || source?.base?.dimensionGraphic === true ||
+    source?.base?.dimensionLine === true || source?.base?.isDimension === true;
   const role = explicitRole != null ? String(explicitRole) :
     (kind === "dimension" || kind === "sunpou" || dimensionFlag ? "dimension" :
       (kind === "block" || kind === "insert" ? "block-instance" : "unclassified"));
@@ -118,7 +119,9 @@ export function normalizeCadEntity(entity, index, options = {}) {
   const semantics = sourceSemantics(source, sourceType, layerScaleDenominator);
   const handle = first(source.handle, source.id, source.objectId, null);
   const blockPath = Array.isArray(source.blockPath) ? [...source.blockPath] :
-    source.blockName != null ? [String(source.blockName)] : [];
+    Array.isArray(source.base?.blockPath) ? [...source.base.blockPath] :
+    source.blockName != null ? [String(source.blockName)] :
+    source.base?.blockName != null ? [String(source.base.blockName)] : [];
   return {
     id: String(first(source.kakuId, handle, options.idPrefix ? options.idPrefix + ":" + index : "entity:" + index)),
     index,
