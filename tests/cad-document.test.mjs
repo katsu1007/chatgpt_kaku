@@ -311,3 +311,21 @@ test("normalized semantic metadata replaces placeholders but keeps explicit pars
  assert.equal(out[1].semanticRole,"wall");
  assert.equal(out[1].blockInstance,true);
 });
+
+
+test("does not compare document-wide JWW source counts against a sliced frame",()=>{
+ const doc=createCadDocument({items:[
+  {kind:"line",layer:"FRAME",pts:[0,0,100,0]}
+ ]},{sourceFormat:"JWW",sourceTypeCounts:{"count.CDataSunpou":12,"count.CDataBlock":8},sourceCountsComparable:false});
+ assert.equal(doc.diagnostics.sourceCountsComparable,false);
+ assert.deepEqual(doc.diagnostics.sourceWarnings,[]);
+ assert.equal(doc.diagnostics.rawSourceTypeCounts["count.CDataSunpou"],12);
+});
+
+test("compares JWW source counts by default for a complete sheet",()=>{
+ const doc=createCadDocument({items:[
+  {type:"sunpou"},{type:"block"}
+ ]},{sourceFormat:"JWW",sourceTypeCounts:{"count.CDataSunpou":2,"count.CDataBlock":2}});
+ assert.equal(doc.diagnostics.sourceCountsComparable,true);
+ assert.equal(doc.diagnostics.sourceWarnings.length,2);
+});
