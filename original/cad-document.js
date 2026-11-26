@@ -301,7 +301,10 @@ export function createCadDocument(input = {}, options = {}) {
     const scaleKey = entity.source.layerScaleDenominator == null ? "unknown" : String(entity.source.layerScaleDenominator);
     scaleCounts[scaleKey] = (scaleCounts[scaleKey] || 0) + 1;
     if (!entity.bounds) missingGeometry++;
-    if (entity.kind !== "block" && entity.source.blockPath?.length) {
+    const hasBlockAncestry = (Array.isArray(entity.source.blockPath) && entity.source.blockPath.length > 0) ||
+      entity.source.sourceInsertHandle != null || entity.source.sourceBlockHandle != null ||
+      entity.semantic?.blockInstance === true;
+    if (entity.kind !== "block" && hasBlockAncestry) {
       if (entity.source.layerProvenance === "base-layer-retained") blockChildLayerProvenance.retained++;
       else blockChildLayerProvenance.missing++;
     }
