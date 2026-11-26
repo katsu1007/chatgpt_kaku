@@ -177,16 +177,17 @@ function isWallLikeFill(pts,cw,ch){
 }
 function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
   const wall=new Uint8Array(nx*ny); let usedItems=0,usedSegments=0,skippedHidden=0,skippedDimensionItems=0,skippedDimensionSegments=0,skippedSemanticItems=0,skippedNonWallFills=0,snappedTJunctions=0,rasterizedCells=0; const endpoints=[]; const doorEndpoints=[]; const geometrySegments=[]; const dimAnchors=dimensionTextAnchors(items);
-  const mark=(ix,iy)=>{
+  const markCell=(ix,iy)=>{
     if(ix<0||iy<0||ix>=nx||iy>=ny)return false;
     const index=iy*nx+ix;if(wall[index])return false;
     wall[index]=1;rasterizedCells++;return true;
   };
+  const markWorld=(x,y)=>markCell(Math.round(x/cw),Math.round(y/ch));
   const markEndpoint=(x,y)=>{
     const ix=Math.round(x/cw),iy=Math.round(y/ch);
     // Small endpoint-only healing preserves wall thickness while closing tiny
     // drafting gaps and connecting virtual doorway/cubicle closures.
-    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)mark(ix+dx,iy+dy);
+    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)markCell(ix+dx,iy+dy);
   };
   const line=(x1,y1,x2,y2)=>{
     if(![x1,y1,x2,y2].every(Number.isFinite))return false;
@@ -194,7 +195,7 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
     endpoints.push([Math.round(x1/cw),Math.round(y1/ch)],[Math.round(x2/cw),Math.round(y2/ch)]);
     geometrySegments.push({x1:x1/cw,y1:y1/ch,x2:x2/cw,y2:y2/ch});
     markEndpoint(x1,y1);
-    rasterizeSegmentSupercover(x1,y1,x2,y2,cw,ch,mark);
+    rasterizeSegmentSupercover(x1,y1,x2,y2,cw,ch,markCell);
     markEndpoint(x2,y2);
     usedSegments++;return true;
   };
@@ -328,7 +329,7 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
     if(i>=j||best.get(j)!==i)continue;
     const a=doorEndpoints[i],b=doorEndpoints[j],dx=b.x-a.x,dy=b.y-a.y,dist=Math.hypot(dx,dy);
     const steps=Math.max(1,Math.ceil(dist/Math.min(cw,ch)*2));
-    for(let k=0;k<=steps;k++){const t=k/steps;mark(a.x+dx*t,a.y+dy*t);}
+    for(let k=0;k<=steps;k++){const t=k/steps;markWorld(a.x+dx*t,a.y+dy*t);}
     bridgedDoorGaps++;
   }
   // Heal only tiny drafting gaps between distinct line endpoints.
