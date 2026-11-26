@@ -167,7 +167,10 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
       // The room engine later decides whether the contour is a plausible wall band.
       const fillCurve=tessellateOcsPolyline({vertices:path.vertices,bulges,closed:true,extrusion:normal,elevation},{maxSegments:20000});
       if(fillCurve.closed&&fillCurve.points.length>=3){
-       add(entity,g,{kind:"fill",pts:fillCurve.points.flatMap(point=>[point[0]*scale,point[1]*scale]),elevation:elevation*scale,hatchFillCandidate:true,
+       const fillPoints=[...fillCurve.points];
+       const first=fillPoints[0],last=fillPoints[fillPoints.length-1];
+       if(fillPoints.length>3&&Math.hypot(first[0]-last[0],first[1]-last[1])<=1e-8)fillPoints.pop();
+       add(entity,g,{kind:"fill",pts:fillPoints.flatMap(point=>[point[0]*scale,point[1]*scale]),elevation:elevation*scale,hatchFillCandidate:true,
         hatchName:g.name,hatchPathIndex:pathIndex,hatchPathFlags:path.flags,
         hatchCurveApproximation:bulges.some(value=>Math.abs(value)>1e-10)?"bulge":null,
         boundaryHandles:(entity.boundaryHandles||[]).map(handle=>String(handle.value)),ocsTransformed:!isWorldZNormal(normal)});
