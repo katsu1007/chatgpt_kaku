@@ -507,11 +507,6 @@ function furnitureHaloEvidence(region,items,wallNames,hidden,cw,ch){
     if(!["line","polyline"].includes(kind))continue;
     const raw=it.pts??it.points??it.vertices;
     if(!Array.isArray(raw)||raw.length<4)continue;
-    const point=(index)=>{
-      const value=raw[index];
-      if(value&&typeof value==="object")return [Number(value.x),Number(value.y)];
-      return [Number(raw[index]),Number(raw[index+1])];
-    };
     const objectPoints=[];
     if(raw.length&&typeof raw[0]==="object"){
       for(const p of raw){if(Number.isFinite(p?.x)&&Number.isFinite(p?.y))objectPoints.push([p.x,p.y]);}
