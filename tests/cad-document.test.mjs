@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createCadDocument, normalizeCadEntity, transformCadPoint } from "../original/cad-document.js";
+import { createCadDocument, normalizeCadEntity, transformCadPoint, attachCadEntityMetadata } from "../original/cad-document.js";
 
 test("normalizes line geometry while preserving complete source entity and layer metadata", () => {
   const raw = { type:"sen", layer:"A-WALL", layer_group:2, pts:[0,0,100,0], handle:"AB12", color:3, custom:{flag:true} };
@@ -261,7 +261,6 @@ test("attaches complete normalized provenance to parser items without changing g
   {source:{type:"sen",layerScaleDenominator:50,groupIndex:2,layerIndex:1,sourceIndex:17,blockPath:["SYMBOLS","TOILET"]},semantic:{role:"block-instance",dimensionGraphic:false,blockInstance:true}},
   {source:{type:"moji",layerScaleDenominator:null,groupIndex:2,layerIndex:2,sourceIndex:18,blockPath:[]},semantic:{role:"dimension",dimensionGraphic:true,blockInstance:false}}
  ];
- const {attachCadEntityMetadata}=await import("../original/cad-document.js");
  const out=attachCadEntityMetadata(items,normalized);
  assert.deepEqual(out[0].pts,[0,0,100,0]);
  assert.equal(out[0].semanticRole,"block-instance");
