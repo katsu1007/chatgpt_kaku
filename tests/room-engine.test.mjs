@@ -327,9 +327,23 @@ test("fragmented JWW partition strokes are merged before six-booth detection",()
     }).flat()
   ];
   const result=extractRoomHierarchy({items,width:6300,height:2500,layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
-  // This fixture isolates geometric fragment joining. Flood-fill room counts
-  // are covered by the continuous-wall cubicle fixture above.
+  // Fragment joining must survive the full production pipeline, not merely
+  // report six virtual closures. Each cubicle must become its own room and the
+  // corridor must remain one region; no phantom sliver rooms are acceptable.
   assert.equal(result.diagnostics.virtualBoothClosures,6);
+  assert.ok(result.diagnostics.bridgedFragmentGaps>=9);
+  assert.equal(result.parents.length,1);
+  assert.equal(result.rooms.length,7);
+  const booths=result.rooms.filter(room=>{
+    const width=(room.maxx-room.minx+1)*result.grid.cw;
+    const height=(room.maxy-room.miny+1)*result.grid.ch;
+    return width>=800&&width<=1000&&height>=1400&&height<=1600;
+  });
+  assert.equal(booths.length,6);
+  assert.ok(result.rooms.every(room=>room.area>0));
+  const cellCounts=new Int32Array(result.rooms.length);
+  for(const id of result.grid.ids)if(id>=0)cellCounts[id]++;
+  result.rooms.forEach((room,index)=>assert.equal(cellCounts[index],room.area));
 });
 
 
