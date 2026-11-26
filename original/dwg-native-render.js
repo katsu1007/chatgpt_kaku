@@ -87,8 +87,10 @@ export function renderNativeDwgSvg(prepared,hidden=new Uint8Array(0)){
      body.push("<g fill=\"none\">"+line(a[0],a[1],q1[0]+nx*ext,q1[1]+ny*ext)+line(b[0],b[1],q2[0]+nx*ext,q2[1]+ny*ext)+line(q1[0],q1[1],q2[0],q2[1])+line(q1[0]-mark,q1[1]-mark,q1[0]+mark,q1[1]+mark)+line(q2[0]-mark,q2[1]-mark,q2[0]+mark,q2[1]+mark)+"</g>");
     }
    }
-   const value=xml(String(item.actualMeasurement));
-   body.push("<g transform=\"translate("+fmt(item.x)+" "+fmt(item.y)+") scale(1 -1)\"><text x=\"0\" y=\"0\" font-family=\"sans-serif\" font-size=\"10\" fill=\""+color+"\">"+value+"</text></g>");
+   if(!item.suppressMeasurementText){
+    const value=xml(String(item.actualMeasurement));
+    body.push("<g transform=\"translate("+fmt(item.x)+" "+fmt(item.y)+") scale(1 -1)\"><text x=\"0\" y=\"0\" font-family=\"sans-serif\" font-size=\"10\" fill=\""+color+"\">"+value+"</text></g>");
+   }
   }
  }
  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${fmt(width)} ${fmt(height)}" role="img" aria-label="DWG drawing"><rect x="0" y="0" width="${fmt(width)}" height="${fmt(height)}" fill="#fff"/><g transform="translate(0 ${fmt(height)}) scale(1 -1)">${body.join("")}</g></svg>`;

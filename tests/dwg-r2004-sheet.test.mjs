@@ -251,3 +251,22 @@ test("only external solid HATCH polyline paths become wall-fill candidates",()=>
  assert.equal(candidates[0].hatchPathIndex,1);
  assert.equal(drawing.meta.info.hatchFillCandidates,1);
 });
+
+test("uses shared curve tessellator for R2004 rational and fit-point splines",()=>{
+ const drawing=createR2004DwgDrawing({units:{known:true,code:4,name:"millimeters",scaleToMm:1},entities:[
+  entity("A-CURVE",320n,{kind:"spline",scenario:1,degree:2,closed:false,knots:[0,0,0,1,1,1],controlPoints:[[0,0,0],[50,50,0],[100,0,0]],weightsPresent:true,weights:[1,Math.SQRT1_2,1]}),
+  entity("A-CURVE",321n,{kind:"spline",scenario:2,degree:3,fitPoints:[[200,0,0],[250,50,0],[300,0,0]],beginTangent:[1,0,0],endTangent:[1,0,0]})
+ ],layers:[]});
+ const items=drawing.sheets[0].items;
+ assert.ok(items.length>=60);
+ assert.ok(items.some(item=>item.curveApproximation==="spline"));
+ assert.equal(drawing.meta.info.splineEntities,2);
+});
+test("malformed spline points are skipped without aborting other DWG entities",()=>{
+ const drawing=createR2004DwgDrawing({units:{known:true,code:4,name:"millimeters",scaleToMm:1},entities:[
+  entity("A-CURVE",322n,{kind:"spline",scenario:2,degree:3,fitPoints:[null,[10,10,0]]}),
+  entity("A-WALL",323n,{kind:"line",pts:[0,0,100,0]})
+ ],layers:[]});
+ assert.equal(drawing.sheets[0].items.length,1);
+ assert.equal(drawing.meta.info.unsupported,1);
+});
