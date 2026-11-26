@@ -209,3 +209,25 @@ test("CAD document accepts decoded center arrays for arcs and circles",()=>{
  assert.deepEqual(arc.geometry.center,{x:0,y:0});
  assert.deepEqual(arc.geometry.startAngle,0);
 });
+
+
+test("normalizes bulged polyline arcs into CAD document geometry",()=>{
+ const doc=createCadDocument({items:[
+  {kind:"polyline",pts:[0,0,100,0,100,100],bulges:[Math.tan(Math.PI/8),0,0],closed:false}
+ ]});
+ const geometry=doc.sheets[0].entities[0].geometry;
+ assert.ok(geometry.points.length>4);
+ assert.ok(geometry.curveDiagnostics?.tessellatedPointCount>4);
+ assert.equal(geometry.closed,false);
+ assert.deepEqual(geometry.bulges,[Math.tan(Math.PI/8),0,0]);
+ assert.ok(geometry.points.some(point=>point[1]<0));
+});
+
+test("normalizes bulge values carried on vertex records",()=>{
+ const doc=createCadDocument({items:[
+  {kind:"polyline",vertices:[{x:0,y:0,bulge:Math.tan(Math.PI/8)},{x:100,y:0},{x:100,y:100}],closed:false}
+ ]});
+ const geometry=doc.sheets[0].entities[0].geometry;
+ assert.ok(geometry.points.length>4);
+ assert.ok(geometry.points.some(point=>point[1]<0));
+});

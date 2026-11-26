@@ -69,9 +69,13 @@ function pointPairs(points) {
 function geometryOf(entity, kind) {
   const pts = pointPairs(first(entity?.pts, entity?.points, entity?.vertices));
   if (kind === "line" || kind === "polyline" || kind === "fill" || kind === "hatch") {
+    const closed = kind === "polyline" && (entity?.closed === true || entity?.isClosed === true || entity?.closedFlag === true || entity?.flags?.closed === true);
+    const hasBulges = kind === "polyline" && (Array.isArray(entity?.bulges) || Array.isArray(entity?.vertices) && entity.vertices.some(vertex => finite(vertex?.bulge) && vertex.bulge !== 0));
+    const curve = hasBulges ? tessellateCadCurve({ ...entity, kind }) : null;
     return {
-      points: pts,
-      closed: kind === "polyline" && (entity?.closed === true || entity?.isClosed === true || entity?.closedFlag === true || entity?.flags?.closed === true),
+      points: curve?.points?.length ? curve.points : pts,
+      closed: curve ? curve.closed : closed,
+      curveDiagnostics: curve?.diagnostics ?? null,
       bulges: kind === "polyline" && Array.isArray(entity?.bulges) ? [...entity.bulges] : null,
       widths: kind === "polyline" ? {
         start: finite(entity?.startWidth) ? entity.startWidth : null,
