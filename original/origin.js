@@ -30,7 +30,7 @@ function activateChoice(index){
  state.frames=typeof findFrames==="function"?findFrames(state.rawSheet)||[]:[];
  state.frameIndex=choice.frameIndex;
  state.sheet=choice.frame? sliceSheetForFrame(state.rawSheet,choice.frame):state.rawSheet;
- state.cadDocument=createCadDocument(state.sheet,{sourceFormat:state.drawing.meta.format||state.drawing.meta.label||null,coordinateSpace:state.drawing.meta.coordinateSpace||"sheet-mm",units:state.drawing.meta.units||"mm",layers:state.layers,sourceTypeCounts:state.drawing.meta.info||{}});
+ state.cadDocument=createCadDocument(state.sheet,{sourceFormat:state.drawing.meta.format||state.drawing.meta.label||null,coordinateSpace:state.drawing.meta.coordinateSpace||"sheet-mm",units:state.drawing.meta.units||"mm",layers:state.layers,sourceTypeCounts:state.drawing.meta.info||{},sourceCountsComparable:state.drawing.sheets.length===1&&!choice.frame&&state.sheet===state.rawSheet});
  // Attach normalized source metadata back to the matching parser items. Geometry stays untouched;
  // this makes layer scale and any parser-recognized semantics available to both room analyzers.
  const normalizedEntities=state.cadDocument?.sheets?.[0]?.entities||[];
