@@ -194,10 +194,16 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
   };
   const markWorld=(x,y)=>markCell(Math.round(x/cw),Math.round(y/ch));
   const markEndpoint=(x,y)=>{
-    const ix=Math.round(x/cw),iy=Math.round(y/ch);
-    // Small endpoint-only healing preserves wall thickness while closing tiny
-    // drafting gaps and connecting virtual doorway/cubicle closures.
-    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)markCell(ix+dx,iy+dy);
+    const ix=Math.round(x/cw),iy=Math.round(y/ch),tolerance=1.5;
+    // Mark only cells whose footprint lies within 1.5 mm of the endpoint.
+    // A fixed 3x3-cell dilation becomes tens of millimetres on coarse grids
+    // and can silently close real openings on large drawings.
+    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+      const cellX=ix+dx,cellY=iy+dy;
+      const gapX=Math.max(0,Math.abs(x-cellX*cw)-cw/2);
+      const gapY=Math.max(0,Math.abs(y-cellY*ch)-ch/2);
+      if(gapX*gapX+gapY*gapY<=tolerance*tolerance)markCell(cellX,cellY);
+    }
   };
   const line=(x1,y1,x2,y2)=>{
     if(![x1,y1,x2,y2].every(Number.isFinite))return false;
