@@ -701,3 +701,14 @@ test("explicit partition semantics remain eligible for room boundaries",()=>{
  assert.equal(result.rooms.length,1);
  assert.equal(result.diagnostics.skippedSemanticItems,0);
 });
+
+test("supercover rasterization seals slanted room boundaries with a single-cell trace",()=>{
+ const items=[
+  line("外壁",100,100,900,200),line("外壁",900,200,800,900),
+  line("外壁",800,900,150,800),line("外壁",150,800,100,100)
+ ];
+ const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"外壁"}],selectedLayers:[]});
+ assert.equal(result.rooms.length,1);
+ assert.equal(result.diagnostics.rasterization,"supercover");
+ assert.ok(result.diagnostics.rasterizedCells>0);
+});
