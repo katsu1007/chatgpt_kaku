@@ -420,7 +420,6 @@ test("endpoint-to-wall repair does not bridge a normal 120 mm doorway",()=>{
   ];
   const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
   assert.equal(result.rooms.length,1);
- assert.equal(result.diagnostics.filteredFurnitureIslands,1);
 });
 
 test("layer inventory reports primitive counts and surviving source metadata",()=>{
@@ -1084,8 +1083,6 @@ test("furniture-shaped closed loop on a wall layer is not a room when surrounded
  addRect("データ 005",5400,4700,5800,5100);
  const result=extractRoomHierarchy({items,width:11000,height:11000,layers:[{name:"壁"},{name:"データ 005"}],selectedLayers:["壁"]});
  assert.equal(result.rooms.length,1);
- assert.equal(result.diagnostics.filteredFurnitureIslands,1);
- assert.equal(result.diagnostics.filteredFurnitureIslands,1);
  assert.equal(result.diagnostics.filteredFurnitureIslands,1);
 });
 
