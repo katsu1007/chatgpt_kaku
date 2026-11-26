@@ -176,8 +176,16 @@ export function normalizeCadEntity(entity, index, options = {}) {
   // in the source/base lineage; never silently overwrite the display layer.
   const lineage = sourceLineage(source);
   const baseLayer = first(...lineage.slice(1).flatMap(entry => [entry.layer, entry.layerName]));
-  const nativeLayer = baseLayer == null ? layer : baseLayer;
-  const insertionLayer = baseLayer != null && layer != null && String(baseLayer) !== String(layer) ? layer : null;
+  const hasBlockAncestry = lineage.some(entry =>
+    (Array.isArray(entry.blockPath) && entry.blockPath.length > 0) ||
+    entry.sourceInsertHandle != null || entry.sourceBlockHandle != null
+  );
+  // A block child with no surviving base-layer value is unknown, not safely
+  // attributable to the INSERT layer. Keep that uncertainty explicit.
+  const nativeLayer = baseLayer != null ? baseLayer : (hasBlockAncestry ? null : layer);
+  const layerProvenance = baseLayer != null ? "base-layer-retained" :
+    hasBlockAncestry ? "child-layer-unavailable" : "direct-entity-layer";
+  const insertionLayer = hasBlockAncestry && layer != null ? layer : null;
   const layerGroup = first(source.layerGroup, source.layer_group, inherited.layerGroup, inherited.layer_group, null);
   // Expanded parser geometry may retain its original CAD object only under `base`.
   // Prefer explicit top-level provenance, then recover the nested original type.
@@ -206,6 +214,7 @@ export function normalizeCadEntity(entity, index, options = {}) {
       layer: layer == null ? null : String(layer),
       nativeLayer: nativeLayer == null ? null : String(nativeLayer),
       insertionLayer: insertionLayer == null ? null : String(insertionLayer),
+      layerProvenance,
       layerGroup: layerGroup == null ? null : String(layerGroup),
       blockPath,
       blockTransform: clone(first(source.blockTransform, inherited.blockTransform, null)),
@@ -248,6 +257,7 @@ export function attachCadEntityMetadata(items = [], normalizedEntities = []) {
       sourceLayerGroup: item?.sourceLayerGroup ?? source.layerGroup ?? null,
       sourceNativeLayer: item?.sourceNativeLayer ?? source.nativeLayer ?? null,
       sourceInsertionLayer: item?.sourceInsertionLayer ?? source.insertionLayer ?? null,
+      sourceLayerProvenance: item?.sourceLayerProvenance ?? source.layerProvenance ?? "unknown",
       semanticRole: role,
       semantic: mergedSemantic,
       dimensionGraphic: item?.dimensionGraphic === true || semantic.dimensionGraphic === true,
@@ -281,6 +291,7 @@ export function createCadDocument(input = {}, options = {}) {
   const layers = new Map();
   let missingGeometry = 0;
   let widthMetadataEntities = 0;
+  const blockChildLayerProvenance = {retained:0, missing:0};
   const semanticCounts = {};
   const scaleCounts = {};
   for (const entity of normalized) {
@@ -290,6 +301,10 @@ export function createCadDocument(input = {}, options = {}) {
     const scaleKey = entity.source.layerScaleDenominator == null ? "unknown" : String(entity.source.layerScaleDenominator);
     scaleCounts[scaleKey] = (scaleCounts[scaleKey] || 0) + 1;
     if (!entity.bounds) missingGeometry++;
+    if (entity.source.blockPath?.length) {
+      if (entity.source.layerProvenance === "base-layer-retained") blockChildLayerProvenance.retained++;
+      else blockChildLayerProvenance.missing++;
+    }
     if (entity.geometry?.widths && Object.values(entity.geometry.widths).some(value => finite(value) && value > 0)) widthMetadataEntities++;
     const name = entity.source.layer ?? "(レイヤーなし)";
     layers.set(name, (layers.get(name) || 0) + 1);
@@ -300,6 +315,9 @@ export function createCadDocument(input = {}, options = {}) {
   const rawBlockInstances = Number(sourceTypeCounts["count.CDataBlock"] || 0);
   const preservedDimensionObjects = semanticCounts.dimension || 0;
   const preservedBlockInstances = semanticCounts["block-instance"] || 0;
+  if (blockChildLayerProvenance.missing > 0) {
+    sourceWarnings.push(`ブロック内図形 ${blockChildLayerProvenance.missing}件で子図形本来のレイヤー情報を確認できません。挿入側レイヤーを子図形の属性とみなさず、該当図形の区画判定は保留または低信頼として扱ってください。`);
+  }
   if (options.sourceCountsComparable !== false && rawDimensionObjects > preservedDimensionObjects) {
     sourceWarnings.push(`JWW元データの寸法オブジェクト ${rawDimensionObjects}件に対し、寸法として識別できた要素は ${preservedDimensionObjects}件です。一部または全部の寸法情報が通常図形へ展開されている可能性があります。寸法線を区画境界から確実に除外するには、元オブジェクトとの対応情報が必要です。`);
   }
@@ -338,6 +356,7 @@ export function createCadDocument(input = {}, options = {}) {
       sourceCountsComparable: options.sourceCountsComparable !== false,
       dimensionGraphics: semanticCounts.dimension || 0,
       blockInstances: semanticCounts["block-instance"] || 0,
+      blockChildLayerProvenance,
       missingGeometry,
       widthMetadataEntities,
       duplicateIds,
