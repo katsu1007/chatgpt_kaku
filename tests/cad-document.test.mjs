@@ -538,3 +538,14 @@ test("counts block ancestry carried by INSERT handles even without a block path"
   assert.deepEqual(doc.diagnostics.blockChildLayerProvenance,{retained:1,missing:1});
   assert.ok(doc.diagnostics.sourceWarnings.some(w=>w.includes("子図形本来のレイヤー情報を確認できません")));
 });
+
+
+test("missing child layer warning explains that uncertain boundary candidates are excluded",()=>{
+ const doc=createCadDocument({items:[
+  {kind:"line",layer:"外壁",pts:[0,0,100,0],blockPath:["UNKNOWN_BLOCK"]}
+ ]},{sourceFormat:"JWW"});
+ const warning=doc.diagnostics.sourceWarnings.find(w=>w.includes("子図形本来のレイヤー情報を確認できません"));
+ assert.ok(warning);
+ assert.ok(warning.includes("区画境界候補から除外しました"));
+ assert.ok(warning.includes("明示的に壁・間仕切りと分類された図形は例外"));
+});
