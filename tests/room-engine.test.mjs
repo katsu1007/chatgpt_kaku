@@ -755,7 +755,7 @@ test("untagged decorative fills are not treated as floor regions",()=>{
 
 test("closed floor-fill polylines use bulge arcs instead of straight chord edges",()=>{
  const straight={kind:"polyline",layer:"床",semanticRole:"floor",closed:true,pts:[100,100,900,100,900,900,100,900]};
- const curved={...straight,bulges:[0.25,0,0,0]};
+ const curved={...straight,bulges:[-0.1,0,0,0]};
  const a=extractRoomHierarchy({items:[straight],width:1000,height:1000,layers:[{name:"床"}],selectedLayers:[]});
  const b=extractRoomHierarchy({items:[curved],width:1000,height:1000,layers:[{name:"床"}],selectedLayers:[]});
  assert.equal(a.rooms.length,1);
