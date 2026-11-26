@@ -8,7 +8,7 @@ const finite=Number.isFinite;
 function isDimensionGraphicItem(item){
  const kind=String(item?.kind||item?.type||"").toLowerCase();
  const sourceKind=String(item?.sourceGeometry?.kind||item?.sourceGeometry?.type||"").toLowerCase();
- return kind==="dimension"||sourceKind==="dimension"||item?.dimensionGraphic===true||item?.dimensionLine===true||item?.dimensionExtension===true||item?.dimensionArrow===true||item?.dimensionBoundary===true||item?.isDimension===true||item?.dimensionEntity===true;
+ return kind==="dimension"||sourceKind==="dimension"||String(item?.semanticRole??item?.semantic?.role??item?.role??"").toLowerCase()==="dimension"||item?.dimensionGraphic===true||item?.dimensionLine===true||item?.dimensionExtension===true||item?.dimensionArrow===true||item?.dimensionBoundary===true||item?.isDimension===true||item?.dimensionEntity===true;
 }
 const pointsOf=item=>{
  const p=item?.pts||item?.points||item?.vertices;
@@ -84,12 +84,16 @@ function doorwayBridges(items,allowed,hidden,anchors,stats){
   const layer=String(item?.layer??""),kind=String(item?.kind||item?.type||"").toLowerCase();
   if(!allowed.has(layer)||hidden.has(layer)||NON_WALL_LAYER.test(layer)||isDimensionGraphicItem(item)||!["line","polyline"].includes(kind))return;
   const p=pointsOf(item);if(p.length<2)return;
+  const closed=item.closed===true||item.isClosed===true||item.closedFlag===true||item.flags?.closed===true;
+  if(closed)continue;
   for(const e of [p[0],p.at(-1)]){const k=coordinateKey(e.x,e.y);degree.set(k,(degree.get(k)||0)+1);}
  });
  (items||[]).forEach((item,index)=>{
   const layer=String(item?.layer??""),kind=String(item?.kind||item?.type||"").toLowerCase();
   if(!allowed.has(layer)||hidden.has(layer)||NON_WALL_LAYER.test(layer)||isDimensionGraphicItem(item)||!["line","polyline"].includes(kind))return;
   const p=pointsOf(item);if(p.length<2)return;
+  const closed=item.closed===true||item.isClosed===true||item.closedFlag===true||item.flags?.closed===true;
+  if(closed)return;
   const ends=[{p:p[0],toward:p[1]},{p:p.at(-1),toward:p.at(-2)}];
   for(const e of ends){
    if((degree.get(coordinateKey(e.p.x,e.p.y))||0)!==1)continue;
