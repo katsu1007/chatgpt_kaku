@@ -56,3 +56,24 @@ test("closed native DWG polylines render as closed outlines",()=>{
  const svg=renderNativeDwgSvg(prepared);
  assert.match(svg,/<polygon points="0,0 100,0 100,100 0,100" fill="none"/);
 });
+
+test("renders native DWG ellipse and rational spline as curve outlines",()=>{
+ const prepared=prepareNativeDwgSheet({size:{w:200,h:120},items:[
+  {kind:"ellipse",layer:"CURVES",center:[50,50,0],majorAxis:[30,0,0],axisRatio:0.5,startParameter:0,endParameter:Math.PI*2},
+  {kind:"spline",layer:"CURVES",degree:2,knots:[0,0,0,1,1,1],controlPoints:[[100,10,0],[130,100,0],[160,10,0]]}
+ ]},[{name:"CURVES",color:"#555555"}]);
+ const svg=renderNativeDwgSvg(prepared);
+ assert.equal((svg.match(/<polygon points=/g)||[]).length,1);
+ assert.equal((svg.match(/<polyline points=/g)||[]).length,1);
+ assert.match(svg,/stroke="#555555"/);
+});
+
+test("renders bulged closed polylines and circles with decoded center arrays",()=>{
+ const prepared=prepareNativeDwgSheet({size:{w:200,h:120},items:[
+  {kind:"polyline",layer:"CURVES",closed:true,pts:[10,10,90,10,90,90,10,90],bulges:[0.25,0,0,0]},
+  {kind:"circle",layer:"CURVES",center:[140,60,0],radius:20}
+ ]},[{name:"CURVES",color:"#555555"}]);
+ const svg=renderNativeDwgSvg(prepared);
+ assert.match(svg,/<polygon points=/);
+ assert.match(svg,/<circle cx="140" cy="60" r="20"/);
+});
