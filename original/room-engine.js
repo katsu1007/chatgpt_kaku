@@ -574,12 +574,19 @@ function regionHasFurnitureHaloEvidence(region,items,hidden,cw,ch){
       const [x1,y1]=pts[i],[x2,y2]=pts[i+1],length=Math.hypot(x2-x1,y2-y1);
       if(length<20||length>500)continue;
       const x=(x1+x2)/2,y=(y1+y2)/2;
+      // Include short segments ON the candidate's raster boundary, not only
+      // outside it. Furniture outlines often share the same "壁" layer as
+      // architectural walls, so layer-name filtering cannot distinguish them.
+      // Long continuous wall runs are excluded above; repeated short edges on
+      // multiple sides are the useful signature of a closed furniture symbol.
       const vertical=y>=minY-300&&y<=maxY+300,horizontal=x>=minX-300&&x<=maxX+300;
-      let side=null;
-      if(x<minX&&minX-x<=500&&vertical)side="left";
-      else if(x>maxX&&x-maxX<=500&&vertical)side="right";
-      else if(y<minY&&minY-y<=500&&horizontal)side="bottom";
-      else if(y>maxY&&y-maxY<=500&&horizontal)side="top";
+      const distances=[
+        {side:"left",distance:Math.abs(x-minX),valid:vertical},
+        {side:"right",distance:Math.abs(x-maxX),valid:vertical},
+        {side:"bottom",distance:Math.abs(y-minY),valid:horizontal},
+        {side:"top",distance:Math.abs(y-maxY),valid:horizontal}
+      ].filter(entry=>entry.valid&&entry.distance<=500).sort((a,b)=>a.distance-b.distance);
+      const side=distances[0]?.side;
       if(side){sideCounts[side]++;centers.add(Math.round(x/100)+":"+Math.round(y/100));}
     }
   }
