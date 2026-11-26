@@ -22,6 +22,8 @@ const clone = value => {
   return out;
 };
 const first = (...values) => values.find(value => value !== undefined && value !== null);
+function sourceLineage(source) { const chain=[], seen=new Set(); let current=source; while(current && typeof current==="object" && !seen.has(current)){chain.push(current);seen.add(current);current=current.base;} return chain; }
+function inheritedSource(source) { return Object.assign({}, ...sourceLineage(source).reverse()); }
 
 function normalizeKind(entity) {
   const raw = String(first(entity?.kind, entity?.type, entity?.entityType, "unknown")).toLowerCase();
@@ -165,26 +167,28 @@ function boundsOf(geometry) {
 /** Normalize parser output without discarding unknown source fields or guessing semantics. */
 export function normalizeCadEntity(entity, index, options = {}) {
   const source = entity && typeof entity === "object" ? entity : {};
+  const inherited = inheritedSource(source);
   const kind = normalizeKind(source);
   const geometry = geometryOf(source, kind);
-  const layer = first(source.layer, source.layerName, source.base?.layerName, null);
-  const layerGroup = first(source.layerGroup, source.layer_group, source.base?.layerGroup, source.base?.layer_group, null);
+  const layer = first(source.layer, source.layerName, inherited.layer, inherited.layerName, null);
+  const layerGroup = first(source.layerGroup, source.layer_group, inherited.layerGroup, inherited.layer_group, null);
   // Expanded parser geometry may retain its original CAD object only under `base`.
   // Prefer explicit top-level provenance, then recover the nested original type.
-  const sourceType = first(source.sourceType, source.entityType, source.originalType, source.type,
-    source.sourceGeometry?.kind, source.base?.sourceType, source.base?.entityType,
-    source.base?.originalType, source.base?.type, source.base?.sourceGeometry?.kind, source.base?.kind,
+  const sourceType = first(source.sourceType, source.entityType, source.originalType,
+    inherited.sourceType, inherited.entityType, inherited.originalType, inherited.type,
+    inherited.sourceGeometry?.kind, inherited.kind, source.type, source.sourceGeometry?.kind,
     source.kind, "unknown");
   const layerInfo = (options.layers || []).find(entry => String(entry?.name ?? "") === String(layer ?? ""));
   const layerScaleDenominator = finite(layerInfo?.scale) && layerInfo.scale > 0 ? layerInfo.scale : null;
-  const semantics = sourceSemantics(source, sourceType, layerScaleDenominator);
-  const handle = first(source.handle, source.id, source.objectId, source.base?.handle, source.base?.id, source.base?.objectId, null);
+  const semantics = sourceSemantics({ ...inherited, ...source }, sourceType, layerScaleDenominator);
+  const handle = first(source.handle, source.id, source.objectId, inherited.handle, inherited.id, inherited.objectId, null);
+  const lineage = sourceLineage(source);
+  const inheritedBlockPath = lineage.map(entry => entry.blockPath).find(path => Array.isArray(path) && path.length) || [];
+  const inheritedBlockName = first(...lineage.map(entry => entry.blockName));
   const blockPath = Array.isArray(source.blockPath) && source.blockPath.length ? [...source.blockPath] :
-    Array.isArray(source.base?.blockPath) && source.base.blockPath.length ? [...source.base.blockPath] :
-    Array.isArray(source.blockPath) ? [...source.blockPath] :
-    Array.isArray(source.base?.blockPath) ? [...source.base.blockPath] :
+    inheritedBlockPath.length ? [...inheritedBlockPath] :
     source.blockName != null ? [String(source.blockName)] :
-    source.base?.blockName != null ? [String(source.base.blockName)] : [];
+    inheritedBlockName != null ? [String(inheritedBlockName)] : [];
   return {
     id: String(first(source.kakuId, handle, options.idPrefix ? options.idPrefix + ":" + index : "entity:" + index)),
     index,
@@ -196,12 +200,12 @@ export function normalizeCadEntity(entity, index, options = {}) {
       layer: layer == null ? null : String(layer),
       layerGroup: layerGroup == null ? null : String(layerGroup),
       blockPath,
-      blockTransform: clone(first(source.blockTransform, source.base?.blockTransform, null)),
-      sourceInsertHandle: first(source.sourceInsertHandle, source.base?.sourceInsertHandle, null) == null ? null : String(first(source.sourceInsertHandle, source.base?.sourceInsertHandle)),
-      sourceBlockHandle: first(source.sourceBlockHandle, source.base?.sourceBlockHandle, null) == null ? null : String(first(source.sourceBlockHandle, source.base?.sourceBlockHandle)),
-      sourceEntityHandle: first(source.sourceEntityHandle, source.base?.sourceEntityHandle, null) == null ? null : String(first(source.sourceEntityHandle, source.base?.sourceEntityHandle)),
+      blockTransform: clone(first(source.blockTransform, inherited.blockTransform, null)),
+      sourceInsertHandle: first(source.sourceInsertHandle, inherited.sourceInsertHandle, null) == null ? null : String(first(source.sourceInsertHandle, inherited.sourceInsertHandle)),
+      sourceBlockHandle: first(source.sourceBlockHandle, inherited.sourceBlockHandle, null) == null ? null : String(first(source.sourceBlockHandle, inherited.sourceBlockHandle)),
+      sourceEntityHandle: first(source.sourceEntityHandle, inherited.sourceEntityHandle, null) == null ? null : String(first(source.sourceEntityHandle, inherited.sourceEntityHandle)),
       blockInstanceIndex: Number.isInteger(source.blockInstanceIndex) ? source.blockInstanceIndex :
-         Number.isInteger(source.base?.blockInstanceIndex) ? source.base.blockInstanceIndex : null,
+         Number.isInteger(inherited.blockInstanceIndex) ? inherited.blockInstanceIndex : null,
       sourceIndex: semantics.entityIndex,
       groupIndex: semantics.groupIndex,
       layerIndex: semantics.layerIndex,
