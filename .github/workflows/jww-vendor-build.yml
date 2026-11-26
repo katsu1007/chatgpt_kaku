@@ -1,0 +1,45 @@
+name: Build vendored JWW browser bundle
+
+on:
+  push:
+    branches: [feat/vendor-jww-parser-local]
+    paths:
+      - "original/vendor/ezpzfile-cad/src/cad/jww/**"
+      - "original/vendor/ezpzfile-cad/src/rvt/types.ts"
+      - ".github/workflows/jww-vendor-build.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: jww-vendor-bundle
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - name: Bundle browser parser
+        run: |
+          npx --yes esbuild@0.25.12 original/vendor/ezpzfile-cad/src/cad/jww/index.ts \
+            --bundle --format=esm --platform=browser --target=es2022 \
+            --outfile=original/vendor/ezpzfile-cad/jww.bundle.js
+      - name: Smoke-test browser bundle exports
+        run: |
+          node --input-type=module -e "import('./original/vendor/ezpzfile-cad/jww.bundle.js').then(m => { if (typeof m.readJww !== 'function' || typeof m.sniffJww !== 'function') process.exit(1); console.log('JWW browser bundle exports OK'); })"
+      - name: Commit generated bundle
+        run: |
+          if git diff --quiet -- original/vendor/ezpzfile-cad/jww.bundle.js; then
+            echo "Bundle is already up to date."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add original/vendor/ezpzfile-cad/jww.bundle.js
+          git commit -m "Build local browser JWW parser bundle [skip ci]"
+          git push
