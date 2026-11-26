@@ -3,6 +3,19 @@
 import { buildPlanarGraph } from "./planar-geometry.js";
 import { dimensionTextAnchors, isDimensionSegment } from "./dimension-line-classifier.js";
 
+const finite=Number.isFinite;
+function isDimensionGraphicItem(item){
+ const kind=String(item?.kind||item?.type||"").toLowerCase();
+ const sourceKind=String(item?.sourceGeometry?.kind||item?.sourceGeometry?.type||"").toLowerCase();
+ return kind==="dimension"||sourceKind==="dimension"||String(item?.semanticRole??item?.semantic?.role??item?.role??"").toLowerCase()==="dimension"||item?.dimensionGraphic===true||item?.dimensionLine===true||item?.dimensionExtension===true||item?.dimensionArrow===true||item?.dimensionBoundary===true||item?.isDimension===true||item?.dimensionEntity===true;
+}
+const pointsOf=item=>{
+ const p=item?.pts||item?.points||item?.vertices;
+ if(!Array.isArray(p))return [];
+ if(p.length&&typeof p[0]==="object")return p.filter(v=>finite(v?.x)&&finite(v?.y)).map(v=>({x:v.x,y:v.y}));
+ const out=[];for(let i=0;i+1<p.length;i+=2)if(finite(p[i])&&finite(p[i+1]))out.push({x:p[i],y:p[i+1]});
+ return out;
+};
 const NON_WALL_LAYER=/(寸法|寸法線|寸法補助|寸法記入|引出線|補助線|中心線|通り芯|グリッド|文字|注記|家具|什器|設備|器具|照明|電気|コンセント|記号|ハッチ|dimension|\bdim\b|annotation|leader|extension|center.?line|grid|axis|furniture|fixture|text|symbol|hatch)/i;
 function wallLikeFill(points){
  if(points.length<4)return false;
