@@ -1086,6 +1086,7 @@ test("furniture-shaped closed loop on a wall layer is not a room when surrounded
  assert.equal(result.rooms.length,1);
  assert.equal(result.diagnostics.filteredFurnitureIslands,1);
  assert.equal(result.diagnostics.filteredFurnitureIslands,1);
+ assert.equal(result.diagnostics.filteredFurnitureIslands,1);
 });
 
 
