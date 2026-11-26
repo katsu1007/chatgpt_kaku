@@ -18,7 +18,7 @@ function isNonPlanGroupLayer(name){
 function isDimensionGraphicItem(it){
   const kind=String(it?.kind||it?.type||"").toLowerCase();
   const sourceKind=String(it?.sourceGeometry?.kind||it?.sourceGeometry?.type||"").toLowerCase();
-  return kind==="dimension"||sourceKind==="dimension"||it?.dimensionGraphic===true||it?.dimensionLine===true||it?.dimensionExtension===true||it?.dimensionArrow===true||it?.dimensionBoundary===true||it?.isDimension===true||it?.dimensionEntity===true;
+  return kind==="dimension"||sourceKind==="dimension"||String(it?.semanticRole??it?.semantic?.role??it?.role??"").toLowerCase()==="dimension"||it?.dimensionGraphic===true||it?.dimensionLine===true||it?.dimensionExtension===true||it?.dimensionArrow===true||it?.dimensionBoundary===true||it?.isDimension===true||it?.dimensionEntity===true;
 }
 // Numeric dimension labels help identify dimension strokes even when they share a wall layer.
 const DIMENSION_LABEL=/^\s*[+-]?\d[\d,]*(?:\.\d+)?\s*(?:mm|ｍｍ|m|ｍ|cm|㎜|㎝|φ|ø)?\s*$/i;
@@ -216,7 +216,7 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
     if(it.hatchBoundary||!names.has(it.layer))continue;
     if(hidden.has(it.layer)){skippedHidden++;continue;}
     if(isDimensionGraphicItem(it)){skippedDimensionItems++;continue;}
-    if(it.kind==="line"&&Array.isArray(it.pts)&&it.pts.length>=4){
+    if((it.kind==="line"||it.kind==="polyline")&&Array.isArray(it.pts)&&it.pts.length>=4){
       usedItems++;
       const segments=[];
       for(let k=0;k+3<it.pts.length;k+=2){
@@ -226,7 +226,11 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
       }
       // A CAD polyline's intermediate vertices are connected corners, not
       // free wall ends. Only its true first/last vertices may close a doorway.
-      if(!it.virtualBoothClosure&&segments.length){
+      const isClosed=it.closed===true||it.isClosed===true||it.closedFlag===true||it.flags?.closed===true;
+      if(isClosed&&segments.length){
+        const first=segments[0],last=segments[segments.length-1];
+        if(first.used&&last.used)line(last.x2,last.y2,first.x1,first.y1);
+      }else if(!it.virtualBoothClosure&&segments.length){
         const first=segments[0],last=segments[segments.length-1];
         if(first.used)rememberDoorEndpoint(first.x1,first.y1,first.x2-first.x1,first.y2-first.y1);
         if(last.used)rememberDoorEndpoint(last.x2,last.y2,last.x1-last.x2,last.y1-last.y2);
