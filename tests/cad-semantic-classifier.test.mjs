@@ -28,3 +28,15 @@ test("explicit semantic role wins over generic source entity type",()=>{
  assert.equal(isNonBoundarySemanticItem({sourceType:"line",sourceGeometry:{semantic:{role:"fixture.sink"}}}),true);
  assert.equal(isNonBoundarySemanticItem({semanticRole:"unclassified",sourceType:"equipment"}),true);
 });
+
+
+test("excludes generic block instances from room boundaries",()=>{
+ assert.equal(isNonBoundarySemanticItem({semanticRole:"block-instance"}),true);
+ assert.equal(isNonBoundarySemanticItem({blockInstance:true}),true);
+ assert.equal(isNonBoundarySemanticItem({semantic:{role:"block-instance"}}),true);
+});
+
+test("explicit wall semantics override generic block ancestry",()=>{
+ assert.equal(isNonBoundarySemanticItem({semanticRole:"wall",semantic:{role:"block-instance"},blockInstance:true}),false);
+ assert.equal(isNonBoundarySemanticItem({semanticRole:"partition",blockInstance:true}),false);
+});
