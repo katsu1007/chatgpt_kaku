@@ -99,3 +99,20 @@ test("bounded faces expose source provenance for every contributing boundary edg
   assert.equal(graph.faces[0].sourceRecords.length,4);
   assert.ok(graph.faces[0].sourceRecords.every(s=>s.layer==="0-1 平面図 / 躯体"&&s.kind==="sen"&&s.layerScaleDenominator===50));
 });
+
+
+test("closed polyline entities add their missing closing edge",()=>{
+ const segs=segmentsFromEntities([{kind:"polyline",id:"ring",closed:true,pts:[0,0,100,0,100,100,0,100]}]);
+ assert.equal(segs.length,4);
+ assert.deepEqual([segs.at(-1).x1,segs.at(-1).y1,segs.at(-1).x2,segs.at(-1).y2],[0,100,0,0]);
+ const graph=buildPlanarGraph(segs);
+ assert.equal(graph.faces.length,1);
+});
+test("arcs and circles are tessellated into source-linked planar segments",()=>{
+ const arc=segmentsFromEntities([{kind:"arc",id:"arc1",cx:0,cy:0,r:100,a0:0,a1:Math.PI}]);
+ const circle=segmentsFromEntities([{kind:"circle",id:"circle1",cx:0,cy:0,r:100}]);
+ assert.ok(arc.length>=18);
+ assert.ok(circle.length>=36);
+ assert.ok(circle.every(s=>s.sourceId==="circle1"));
+ assert.equal(buildPlanarGraph(circle).faces.length,1);
+});

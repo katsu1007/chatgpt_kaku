@@ -49,6 +49,7 @@ export function renderNativeDwgSvg(prepared,hidden=new Uint8Array(0)){
    const points=[];for(let i=0;i+1<pts.length;i+=2)if(Number.isFinite(pts[i])&&Number.isFinite(pts[i+1]))points.push(fmt(pts[i])+","+fmt(pts[i+1]));
    if(points.length<2)continue;
    if(item.kind==="fill")body.push(`<polygon points="${points.join(" ")}" fill="${color}" fill-opacity="0.22" ${stroke}/>`);
+   else if(item.closed===true||item.isClosed===true||item.closedFlag===true)body.push(`<polygon points="${points.join(" ")}" fill="none" ${stroke}/>`);
    else body.push(`<polyline points="${points.join(" ")}" fill="none" ${stroke}/>`);
   }else if(item.kind==="arc"){
    const pts=arcPoints(item);if(pts.length<2)continue;

@@ -49,3 +49,10 @@ test("renders native linear dimension extension and dimension lines",()=>{
  assert.match(svg,/<line x1="10" y1="35" x2="110" y2="35"/);
  assert.match(svg,/>100<\/text>/);
 });
+
+
+test("closed native DWG polylines render as closed outlines",()=>{
+ const prepared=prepareNativeDwgSheet({size:{w:100,h:100},items:[{kind:"line",closed:true,pts:[0,0,100,0,100,100,0,100]}]},[{name:"0",color:"#222"}]);
+ const svg=renderNativeDwgSvg(prepared);
+ assert.match(svg,/<polygon points="0,0 100,0 100,100 0,100" fill="none"/);
+});
