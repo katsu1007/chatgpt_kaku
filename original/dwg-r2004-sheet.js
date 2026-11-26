@@ -1,6 +1,6 @@
 import { polylineToSheetItems } from "./dwg-polyline.js";
 import { tessellateCadCurve } from "./cad-curve-tessellation.js";
-import { isValidOcsNormal, isWorldZNormal, tessellateOcsArc, tessellateOcsPolyline, transformOcsPoint } from "./dwg-ocs.js";
+import { isValidOcsNormal, isWorldZNormal, tessellateOcsArc, tessellateOcsPolyline, transformOcsPoint, transformOcsVector } from "./dwg-ocs.js";
 // Convert decoded R2004 DWG primitives into KAKU's SheetItem shape.
 // Coordinates remain in native DWG units until INSUNITS is decoded.
 function rgbHex(value){
@@ -114,8 +114,13 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
    }
   }
   if(g.kind==="attrib"){
-   add(entity,g,{kind:"text",x:g.insertion.x*scale,y:g.insertion.y*scale,z:g.insertion.z*scale,text:g.text,rotation:g.rotation,height:g.height*scale,widthFactor:g.widthFactor,
-    attribute:true,attributeTag:g.tag,attributeFlags:g.attributeFlags,attributeInvisible:g.invisible,attributeConstant:g.constant,styleHandle:entity.styleHandle?String(entity.styleHandle.value):null});
+   const normal=g.extrusion||[0,0,1];if(!isValidOcsNormal(normal))continue;
+   const insertion=point3(g.insertion),wcs=transformOcsPoint([insertion.x,insertion.y,insertion.z||0],normal);
+   const baseline=transformOcsVector([Math.cos(g.rotation||0),Math.sin(g.rotation||0),0],normal);
+   const alignment=g.alignment?point3(g.alignment):null,aligned=alignment?transformOcsPoint([alignment.x,alignment.y,alignment.z||0],normal):null;
+   add(entity,g,{kind:"text",x:wcs[0]*scale,y:wcs[1]*scale,z:wcs[2]*scale,text:g.text,rotation:Math.atan2(baseline[1],baseline[0]),height:g.height*scale,widthFactor:g.widthFactor,
+    alignment:aligned?{x:aligned[0]*scale,y:aligned[1]*scale,z:aligned[2]*scale}:null,attribute:true,attributeTag:g.tag,attributeFlags:g.attributeFlags,attributeInvisible:g.invisible,attributeConstant:g.constant,
+    ocsTransformed:!isWorldZNormal(normal),styleHandle:entity.styleHandle?String(entity.styleHandle.value):null});
    attributeEntities++;
   }
   if(g.kind==="dimension"){
@@ -135,12 +140,19 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
    dimensionEntities++;
   }
   if(g.kind==="text"){
-   add(entity,g,{kind:"text",x:g.insertion.x*scale,y:g.insertion.y*scale,z:g.insertion.z*scale,text:g.text,rotation:g.rotation,height:g.height*scale,widthFactor:g.widthFactor,
-    alignment:g.alignment,horizontalAlignment:g.horizontalAlignment,verticalAlignment:g.verticalAlignment,styleHandle:entity.styleHandle?String(entity.styleHandle.value):null});
+   const normal=g.extrusion||[0,0,1];if(!isValidOcsNormal(normal))continue;
+   const insertion=point3(g.insertion),wcs=transformOcsPoint([insertion.x,insertion.y,insertion.z||0],normal);
+   const baseline=transformOcsVector([Math.cos(g.rotation||0),Math.sin(g.rotation||0),0],normal);
+   const alignment=g.alignment?point3(g.alignment):null,aligned=alignment?transformOcsPoint([alignment.x,alignment.y,alignment.z||0],normal):null;
+   add(entity,g,{kind:"text",x:wcs[0]*scale,y:wcs[1]*scale,z:wcs[2]*scale,text:g.text,rotation:Math.atan2(baseline[1],baseline[0]),height:g.height*scale,widthFactor:g.widthFactor,
+    alignment:aligned?{x:aligned[0]*scale,y:aligned[1]*scale,z:aligned[2]*scale}:null,horizontalAlignment:g.horizontalAlignment,verticalAlignment:g.verticalAlignment,
+    ocsTransformed:!isWorldZNormal(normal),styleHandle:entity.styleHandle?String(entity.styleHandle.value):null});
    textEntities++;
   }else if(g.kind==="mtext"){
-   add(entity,g,{kind:"text",x:g.insertion[0]*scale,y:g.insertion[1]*scale,z:g.insertion[2]*scale,text:g.text,rotation:Math.atan2(g.xAxis[1],g.xAxis[0]),height:g.height*scale,width:g.rectWidth*scale,
-    attachment:g.attachment,drawingDirection:g.drawingDirection,mtext:true,styleHandle:entity.styleHandle?String(entity.styleHandle.value):null});
+   const normal=g.extrusion||[0,0,1];if(!isValidOcsNormal(normal))continue;
+   const insertion=point3(g.insertion),wcs=transformOcsPoint([insertion.x,insertion.y,insertion.z||0],normal),axis=point3(g.xAxis);
+   add(entity,g,{kind:"text",x:wcs[0]*scale,y:wcs[1]*scale,z:wcs[2]*scale,text:g.text,rotation:Math.atan2(axis.y,axis.x),height:g.height*scale,width:g.rectWidth*scale,
+    attachment:g.attachment,drawingDirection:g.drawingDirection,mtext:true,ocsTransformed:!isWorldZNormal(normal),styleHandle:entity.styleHandle?String(entity.styleHandle.value):null});
    textEntities++;
   }
   if(g.kind==="hatch"){
