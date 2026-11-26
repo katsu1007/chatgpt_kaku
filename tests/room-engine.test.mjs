@@ -1177,3 +1177,18 @@ test("medium unrelated closed outline on the wall layer is not colored as a room
  }));
  assert.ok(result.diagnostics.filteredFurnitureIslands>=1);
 });
+
+test("short angled fragments with a 40 mm sideways offset are not falsely healed",()=>{
+ const items=[
+  line("外壁",100,100,1400,100),line("外壁",1400,100,1400,1400),
+  line("外壁",1400,1400,100,1400),line("外壁",100,1400,100,100),
+  // The endpoints are only 56.6 mm apart, but the 40 mm lateral offset
+  // exceeds the 35 mm collinearity tolerance for short-fragment healing.
+  line("間仕切壁",500,100,500,700),
+  line("間仕切壁",540,740,540,1400)
+ ];
+ const result=extractRoomHierarchy({items,width:1500,height:1500,
+  layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
+ assert.equal(result.diagnostics.bridgedFragmentGaps,0);
+ assert.equal(result.rooms.length,1);
+});
