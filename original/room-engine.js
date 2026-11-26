@@ -483,59 +483,78 @@ function createFloorSpaceMask(items,wall,nx,ny,cw,ch,hidden){
  }
  return {wall:mask,floorFillCount,floorMaskCells,layers:[...layers]};
 }
-function furnitureHaloEvidence(region,items,wallNames,hidden,cw,ch){
-  const areaM2=region.area*cw*ch/1e6;
-  if(areaM2<.3||areaM2>4)return false;
+function regionHasRoomLabel(region,items,cw,ch){
   const minX=region.minx*cw,maxX=(region.maxx+1)*cw,minY=region.miny*ch,maxY=(region.maxy+1)*ch;
   const labelPattern=/(トイレ|便所|WC|洗面|脱衣|浴室|倉庫|収納|物入|更衣|会議|事務|休憩|厨房|食堂|通路|廊下|洋室|和室|寝室|書庫|機械室|電気室)/i;
-  for(const it of items||[]){
+  return (items||[]).some(it=>{
     const kind=String(it?.kind??it?.type??"").toLowerCase();
-    if(kind!=="text")continue;
+    if(kind!=="text")return false;
     const value=String(it.text??it.t??it.value??"");
     const x=Number(it.x??it.position?.x),y=Number(it.y??it.position?.y);
-    if(labelPattern.test(value)&&Number.isFinite(x)&&Number.isFinite(y)&&x>=minX&&x<=maxX&&y>=minY&&y<=maxY)return false;
-  }
-  const sides=new Set(),centers=new Set();
+    return labelPattern.test(value)&&Number.isFinite(x)&&Number.isFinite(y)&&x>=minX&&x<=maxX&&y>=minY&&y<=maxY;
+  });
+}
+function furnitureHaloEvidence(region,items,wallNames,hidden,cw,ch){
+  const areaM2=region.area*cw*ch/1e6;
+  if(areaM2<.3||areaM2>4||regionHasRoomLabel(region,items,cw,ch))return false;
+  const minX=region.minx*cw,maxX=(region.maxx+1)*cw,minY=region.miny*ch,maxY=(region.maxy+1)*ch;
+  // Furniture can be drawn on the very same layer as walls. Look for dense,
+  // repeated short strokes just outside a small closed candidate, rather than
+  // trusting the layer name. Long architectural wall runs do not count.
+  const sideCounts={left:0,right:0,top:0,bottom:0},centers=new Set();
   for(const it of items||[]){
     const layer=String(it?.layer??"");
-    if(!layer||wallNames.has(layer)||hidden.has(layer))continue;
+    if(!layer||hidden.has(layer))continue;
     if(/寸法|注記|文字|annotation|dimension|leader|\bdim\b/i.test(layer))continue;
     const kind=String(it?.kind??it?.type??"").toLowerCase();
-    if(!["line","polyline","arc","circle","fill","solid"].includes(kind))continue;
-    let xs=[],ys=[];
+    if(!["line","polyline"].includes(kind))continue;
     const raw=it.pts??it.points??it.vertices;
-    if(Array.isArray(raw)){
-      if(raw.length&&typeof raw[0]==="object"){
-        for(const p of raw){if(Number.isFinite(p?.x)&&Number.isFinite(p?.y)){xs.push(p.x);ys.push(p.y);}}
-      }else{
-        for(let i=0;i+1<raw.length;i+=2){if(Number.isFinite(raw[i])&&Number.isFinite(raw[i+1])){xs.push(raw[i]);ys.push(raw[i+1]);}}
-      }
+    if(!Array.isArray(raw)||raw.length<4)continue;
+    const objectPoints=[];
+    if(raw.length&&typeof raw[0]==="object"){
+      for(const p of raw){if(Number.isFinite(p?.x)&&Number.isFinite(p?.y))objectPoints.push([p.x,p.y]);}
+    }else{
+      for(let i=0;i+1<raw.length;i+=2){if(Number.isFinite(raw[i])&&Number.isFinite(raw[i+1]))objectPoints.push([raw[i],raw[i+1]]);}
     }
-    if(!xs.length&&["arc","circle"].includes(kind)){
-      const center=it.center??it.centre;
-      const x=Number(it.cx??it.x??center?.[0]??center?.x),y=Number(it.cy??it.y??center?.[1]??center?.y),r=Number(it.r??it.radius);
-      if(Number.isFinite(x)&&Number.isFinite(y)&&Number.isFinite(r)){xs=[x-r,x+r];ys=[y-r,y+r];}
-    }
-    if(!xs.length)continue;
-    const x=(Math.min(...xs)+Math.max(...xs))/2,y=(Math.min(...ys)+Math.max(...ys))/2;
-    const vertical=y>=minY-300&&y<=maxY+300,horizontal=x>=minX-300&&x<=maxX+300;
-    if(x<minX&&minX-x<=500&&vertical)sides.add("left");
-    else if(x>maxX&&x-maxX<=500&&vertical)sides.add("right");
-    if(y<minY&&minY-y<=500&&horizontal)sides.add("bottom");
-    else if(y>maxY&&y-maxY<=500&&horizontal)sides.add("top");
-    if((x<minX&&minX-x<=500&&vertical)||(x>maxX&&x-maxX<=500&&vertical)||(y<minY&&minY-y<=500&&horizontal)||(y>maxY&&y-maxY<=500&&horizontal)){
-      centers.add(Math.round(x/250)+":"+Math.round(y/250));
+    for(let i=0;i+1<objectPoints.length;i++){
+      const [x1,y1]=objectPoints[i],[x2,y2]=objectPoints[i+1],length=Math.hypot(x2-x1,y2-y1);
+      if(length<20||length>500)continue;
+      const x=(x1+x2)/2,y=(y1+y2)/2;
+      const vertical=y>=minY-300&&y<=maxY+300,horizontal=x>=minX-300&&x<=maxX+300;
+      let side=null;
+      if(x<minX&&minX-x<=500&&vertical)side="left";
+      else if(x>maxX&&x-maxX<=500&&vertical)side="right";
+      else if(y<minY&&minY-y<=500&&horizontal)side="bottom";
+      else if(y>maxY&&y-maxY<=500&&horizontal)side="top";
+      if(side){sideCounts[side]++;centers.add(Math.round(x/100)+":"+Math.round(y/100));}
     }
   }
-  return centers.size>=4&&((sides.has("left")&&sides.has("right"))||(sides.has("top")&&sides.has("bottom")));
+  const values=Object.values(sideCounts).sort((a,b)=>b-a);
+  const opposite=(sideCounts.left>=6&&sideCounts.right>=6)||(sideCounts.top>=6&&sideCounts.bottom>=6);
+  const densePair=values[0]>=20&&values[1]>=8&&values.reduce((sum,value)=>sum+value,0)>=32;
+  return centers.size>=8&&(opposite||densePair);
 }
 function filterFurnitureIslands(regions,items,wallNames,hidden,cw,ch){
-  const filteredKeys=[];
-  const kept=(regions.kept||[]).filter(region=>{
-    if(!furnitureHaloEvidence(region,items,wallNames,hidden,cw,ch))return true;
-    filteredKeys.push([region.id,region.seed,region.area].join(":"));return false;
-  });
-  return {...regions,kept,filteredFurnitureIslands:filteredKeys.length,filteredFurnitureKeys:filteredKeys};
+  const source=regions.kept||[],furniture=source.filter(region=>furnitureHaloEvidence(region,items,wallNames,hidden,cw,ch));
+  const filteredKeys=new Set(furniture.map(region=>[region.id,region.seed,region.area].join(":")));
+  // Chairs and other small outlines can themselves look like closed rooms.
+  // Once a larger furniture island is identified, suppress tiny closed loops
+  // in its immediate halo, but preserve any explicitly labeled room.
+  for(const region of source){
+    const key=[region.id,region.seed,region.area].join(":");
+    if(filteredKeys.has(key)||regionHasRoomLabel(region,items,cw,ch))continue;
+    const areaM2=region.area*cw*ch/1e6;
+    if(areaM2>=.3)continue;
+    const minX=region.minx*cw,maxX=(region.maxx+1)*cw,minY=region.miny*ch,maxY=(region.maxy+1)*ch;
+    const nearFurniture=furniture.some(other=>{
+      const ox0=other.minx*cw,ox1=(other.maxx+1)*cw,oy0=other.miny*ch,oy1=(other.maxy+1)*ch;
+      const dx=Math.max(0,ox0-maxX,minX-ox1),dy=Math.max(0,oy0-maxY,minY-oy1);
+      return Math.hypot(dx,dy)<=800;
+    });
+    if(nearFurniture)filteredKeys.add(key);
+  }
+  const kept=source.filter(region=>!filteredKeys.has([region.id,region.seed,region.area].join(":")));
+  return {...regions,kept,filteredFurnitureIslands:filteredKeys.size,filteredFurnitureKeys:[...filteredKeys]};
 }
 export function extractRoomHierarchy({items,width,height,layers,selectedLayers,hiddenLayers=[]}){
   if(!(width>0&&height>0))throw new Error("図面サイズを取得できません");
