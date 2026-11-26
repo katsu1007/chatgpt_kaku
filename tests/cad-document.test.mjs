@@ -344,3 +344,14 @@ test("does not invent line width geometry when source width is absent",()=>{
  const doc=createCadDocument({items:[{kind:"line",pts:[0,0,100,0]}]});
  assert.equal(doc.sheets[0].entities[0].geometry.widths,null);
 });
+
+
+test("reports preserved width metadata without treating it as wall thickness",()=>{
+ const doc=createCadDocument({items:[
+  {kind:"line",pts:[0,0,100,0],widthStart:4,widthEnd:6,widthUnit:"mm"},
+  {kind:"line",pts:[0,10,100,10]},
+  {kind:"polyline",pts:[0,0,10,0],startWidth:0,endWidth:0,constantWidth:0}
+ ]});
+ assert.equal(doc.diagnostics.widthMetadataEntities,1);
+ assert.deepEqual(doc.sheets[0].entities[0].geometry.widths,{start:4,end:6,unit:"mm",source:null});
+});
