@@ -975,3 +975,23 @@ test("flattened JWW block children retain native layer separately from INSERT la
  assert.equal(result.rooms.length,2);
  assert.ok(result.diagnostics.skippedSemanticItems>=4);
 });
+
+
+test("block children with lost native layers do not inherit wall status from INSERT layer",()=>{
+ const items=[
+  ...rect(0,0,10000,8000,"外壁"),
+  {kind:"line",layer:"外壁",pts:[5000,0,5000,8000],blockPath:["FIXTURE_SET"],sourceLayerProvenance:"child-layer-unavailable"}
+ ];
+ const result=extractRooms(items,{cellSize:100,selectedLayers:["外壁"]});
+ assert.equal(result.rooms.length,1);
+ assert.equal(result.diagnostics.skippedSemanticItems,1);
+});
+
+test("explicit wall semantics override missing block child layer provenance",()=>{
+ const items=[
+  ...rect(0,0,10000,8000,"外壁"),
+  {kind:"line",layer:"外壁",pts:[5000,0,5000,8000],blockPath:["CUSTOM_BLOCK"],sourceLayerProvenance:"child-layer-unavailable",semanticRole:"wall"}
+ ];
+ const result=extractRooms(items,{cellSize:100,selectedLayers:["外壁"]});
+ assert.equal(result.rooms.length,2);
+});
