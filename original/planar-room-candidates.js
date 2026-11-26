@@ -35,6 +35,7 @@ function entitySegments(item,index,stats,anchors){
  if(item?.hatchBoundary&&!item?.hatchFillCandidate){stats.skippedHatchBoundary++;return [];}
  if(["dimension","text","point","block","insert","hatch"].includes(kind)){stats.skippedNonBoundaryKind++;return [];}
  let points=pointsOf(item);
+ let arcClosed=false;
  if(kind==="arc"||kind==="circle"){
   const cx=Number(item.cx??item.x),cy=Number(item.cy??item.y),r=Number(item.r??item.radius);
   if(![cx,cy,r].every(finite)||r<=0){stats.skippedInvalidArc++;return [];}
@@ -42,6 +43,7 @@ function entitySegments(item,index,stats,anchors){
   let end=kind==="circle"?Math.PI*2:Number(item.a1??item.endAngle??Math.PI*2);
   let sweep=end-start;if(kind==="arc"&&Math.abs(sweep)>Math.PI*2)sweep%=Math.PI*2;
   if(!sweep){stats.skippedInvalidArc++;return [];}
+  arcClosed=kind==="circle"||Math.abs(Math.abs(sweep)-Math.PI*2)<=1e-6;
   const n=Math.max(8,Math.ceil(Math.abs(sweep)/(Math.PI/18)));
   points=Array.from({length:n+1},(_,i)=>{const a=start+sweep*i/n;return{x:cx+r*Math.cos(a),y:cy+r*Math.sin(a)};});
   stats.approximatedArcs++;
@@ -52,7 +54,7 @@ function entitySegments(item,index,stats,anchors){
   stats.skippedNonBoundaryKind++;return [];
  }
  if(points.length<2){stats.skippedInvalidGeometry++;return [];}
- const closed=kind==="circle"||item.closed===true||item.isClosed===true||item.closedFlag===true||item.flags?.closed===true;
+ const closed=arcClosed||item.closed===true||item.isClosed===true||item.closedFlag===true||item.flags?.closed===true;
  if(closed&&Math.hypot(points[0].x-points.at(-1).x,points[0].y-points.at(-1).y)>1e-8)points=[...points,points[0]];
  const out=[];
  for(let i=0;i+1<points.length;i++){
