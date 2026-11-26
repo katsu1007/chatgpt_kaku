@@ -541,15 +541,19 @@ function wallComponentRegionMeasures(wall,regionAt,nx,ny,cw,ch){
     };
     if(x>0)add(p-1);if(x<nx-1)add(p+1);if(p>=nx)add(p-nx);if(p<N-nx)add(p+nx);
   }
-  const measures=new Map();
+  const componentRegionCounts=new Map();
+  for(const ids of regionComponents.values())for(const id of ids)componentRegionCounts.set(id,(componentRegionCounts.get(id)||0)+1);
+  const measures=new Map(),sharedRegionCounts=new Map();
   for(const [regionId,ids] of regionComponents){
-    let cells=0;for(const id of ids)cells+=sizes[id]||0;
+    let cells=0,shared=0;
+    for(const id of ids){cells+=sizes[id]||0;shared=Math.max(shared,componentRegionCounts.get(id)||0);}
     measures.set(regionId,cells*Math.min(cw,ch));
+    sharedRegionCounts.set(regionId,shared);
   }
-  return {measures,largestMeasure:largestCells*Math.min(cw,ch)};
+  return {measures,sharedRegionCounts,largestMeasure:largestCells*Math.min(cw,ch)};
 }
 function filterFurnitureIslands(regions,items,wallNames,hidden,cw,ch,wall,regionAt,nx,ny){
-  const {measures,largestMeasure}=wallComponentRegionMeasures(wall,regionAt,nx,ny,cw,ch);
+  const {measures,sharedRegionCounts,largestMeasure}=wallComponentRegionMeasures(wall,regionAt,nx,ny,cw,ch);
   const filteredKeys=[];
   const kept=(regions.kept||[]).filter(region=>{
     const areaM2=region.area*cw*ch/1e6;
@@ -558,6 +562,7 @@ function filterFurnitureIslands(regions,items,wallNames,hidden,cw,ch,wall,region
     // Small closed loops that do not join a larger architectural wall network
     // are furniture/equipment candidates, even when every stroke is on 壁.
     const wallNetworkMeasure=measures.get(region.id)||0;
+    if((sharedRegionCounts.get(region.id)||0)>=3)return true;
     if(largestMeasure>0&&wallNetworkMeasure>=largestMeasure*.25)return true;
     filteredKeys.push([region.id,region.seed,region.area].join(":"));return false;
   });
