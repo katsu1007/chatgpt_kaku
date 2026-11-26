@@ -38,3 +38,16 @@ test("rejects malformed vertex, bulge count, non-finite and oversized inputs",()
 test("bulge conversion is stable around zero",()=>{
  near(bulgeToSweep(0),0);near(bulgeToSweep(1),Math.PI);near(bulgeToSweep(-1),-Math.PI);
 });
+
+test("preserves constant and per-vertex widths on each expanded segment",()=>{
+ const constant=polylineToSheetItems({vertices:[[0,0],[100,0],[100,100]],constantWidth:12});
+ assert.equal(constant.length,2);assert.deepEqual(constant.map(x=>[x.widthStart,x.widthEnd,x.widthSource]),[[12,12,"constant"],[12,12,"constant"]]);
+ const variable=polylineToSheetItems({vertices:[
+  {x:0,y:0,startWidth:4,endWidth:6},{x:100,y:0,startWidth:8,endWidth:10},{x:100,y:100,startWidth:3,endWidth:5}
+ ]});
+ assert.deepEqual(variable.map(x=>[x.widthStart,x.widthEnd,x.widthSource]),[[4,10,"vertex"],[8,5,"vertex"]]);
+});
+test("does not invent width metadata for zero-width or missing-width polylines",()=>{
+ const items=polylineToSheetItems({vertices:[[0,0],[100,0]],constantWidth:0});
+ assert.equal("widthStart" in items[0],false);
+});
