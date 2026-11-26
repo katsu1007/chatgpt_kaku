@@ -1085,6 +1085,7 @@ test("furniture-shaped closed loop on a wall layer is not a room when surrounded
  const result=extractRoomHierarchy({items,width:11000,height:11000,layers:[{name:"壁"},{name:"データ 005"}],selectedLayers:["壁"]});
  assert.equal(result.rooms.length,1);
  assert.equal(result.diagnostics.filteredFurnitureIslands,1);
+ assert.equal(result.diagnostics.filteredFurnitureIslands,1);
 });
 
 
