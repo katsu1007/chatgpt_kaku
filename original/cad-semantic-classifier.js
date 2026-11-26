@@ -20,6 +20,12 @@ export function isNonBoundarySemanticItem(item,{allowBlockInstance=false}={}){
  // The source-native layer belongs to the child entity; unlike the displayed
  // INSERT layer, it can identify furniture/fixtures flattened onto a wall layer.
  if(nativeLayer&&NON_BOUNDARY_SOURCE_LAYER.test(nativeLayer))return true;
+ // When a flattened block child has lost its own layer, the visible layer may
+ // be only the INSERT layer. Do not trust that display-layer label as proof of
+ // a wall boundary. Explicit wall roles and named architectural wall blocks
+ // remain eligible through the checks above / allowBlockInstance.
+ const layerProvenance=String(item?.sourceLayerProvenance??item?.source?.layerProvenance??"");
+ if(layerProvenance==="child-layer-unavailable"&&!allowBlockInstance)return true;
  const checkedRoles=allowBlockInstance?roles.filter(role=>!(role==="block-instance"||role.startsWith("block-instance.")||role.startsWith("block-instance-"))):roles;
  return checkedRoles.some(role=>NON_BOUNDARY_ROLE_PREFIXES.some(prefix=>role===prefix||role.startsWith(prefix+".")||role.startsWith(prefix+"-")));
 }

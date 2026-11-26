@@ -975,3 +975,25 @@ test("flattened JWW block children retain native layer separately from INSERT la
  assert.equal(result.rooms.length,2);
  assert.ok(result.diagnostics.skippedSemanticItems>=4);
 });
+
+
+test("block children with lost native layers do not inherit wall status from INSERT layer",()=>{
+ const items=[
+  line("外壁",100,100,900,100),line("外壁",900,100,900,900),
+  line("外壁",900,900,100,900),line("外壁",100,900,100,100),
+  {...line("外壁",500,100,500,900),blockPath:["FIXTURE_SET"],sourceLayerProvenance:"child-layer-unavailable"}
+ ];
+ const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"外壁"}],selectedLayers:["外壁"]});
+ assert.equal(result.rooms.length,1);
+ assert.equal(result.diagnostics.skippedSemanticItems,1);
+});
+
+test("explicit wall semantics override missing block child layer provenance",()=>{
+ const items=[
+  line("外壁",100,100,900,100),line("外壁",900,100,900,900),
+  line("外壁",900,900,100,900),line("外壁",100,900,100,100),
+  {...line("外壁",500,100,500,900),blockPath:["CUSTOM_BLOCK"],sourceLayerProvenance:"child-layer-unavailable",semanticRole:"wall"}
+ ];
+ const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"外壁"}],selectedLayers:["外壁"]});
+ assert.equal(result.rooms.length,2);
+});
