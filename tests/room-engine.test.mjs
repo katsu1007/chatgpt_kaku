@@ -808,3 +808,16 @@ test("DWG block provenance survives CAD normalization and drives production room
  assert.equal(result.parents[0].children.length,2);
  assert.ok(result.diagnostics.skippedSemanticItems>=4);
 });
+
+
+test("layer inventory counts DWG block paths and insert handles as source provenance",()=>{
+ const items=[
+  line("外壁",100,100,900,100),line("外壁",900,100,900,900),
+  line("外壁",900,900,100,900),line("外壁",100,900,100,100),
+  {...line("間仕切壁",500,100,500,900),blockPath:["WALL_ASSEMBLY","PARTITION"],sourceInsertHandle:"A1",sourceBlockHandle:"B1",sourceEntityHandle:"C1",blockInstance:true}
+ ];
+ const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
+ const wall=result.diagnostics.layerInventory.find(x=>x.name==="間仕切壁");
+ assert.equal(wall.sourceTagged,1);
+ assert.equal(wall.blockTagged,1);
+});
