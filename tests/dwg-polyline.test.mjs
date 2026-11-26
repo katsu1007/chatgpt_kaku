@@ -45,7 +45,7 @@ test("preserves constant and per-vertex widths on each expanded segment",()=>{
  const variable=polylineToSheetItems({vertices:[
   {x:0,y:0,startWidth:4,endWidth:6},{x:100,y:0,startWidth:8,endWidth:10},{x:100,y:100,startWidth:3,endWidth:5}
  ]});
- assert.deepEqual(variable.map(x=>[x.widthStart,x.widthEnd,x.widthSource]),[[4,10,"vertex"],[8,5,"vertex"]]);
+ assert.deepEqual(variable.map(x=>[x.widthStart,x.widthEnd,x.widthSource]),[[4,6,"vertex"],[8,10,"vertex"]]);
 });
 test("does not invent width metadata for zero-width or missing-width polylines",()=>{
  const items=polylineToSheetItems({vertices:[[0,0],[100,0]],constantWidth:0});
