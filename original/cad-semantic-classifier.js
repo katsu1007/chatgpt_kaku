@@ -9,12 +9,17 @@ function rolesOf(item){
   .filter(value=>value!=null).map(value=>String(value).trim().toLowerCase().replace(/[\s_]+/g,"-"))
   .filter(role=>role&&role!=="unclassified"&&role!=="unknown");
 }
+const NON_BOUNDARY_SOURCE_LAYER=/(家具|什器|設備|機器|器具|便器|衛生器具|照明|電気|コンセント|記号|注記|注釈|寸法|文字|建具|サッシ|開口|仕上|ハッチ|furniture|fixture|equipment|lighting|electrical|plumbing|dimension|annotation|symbol|hatch)/i;
 export function isNonBoundarySemanticItem(item,{allowBlockInstance=false}={}){
+ const nativeLayer=String(item?.sourceNativeLayer??item?.source?.nativeLayer??"");
  const roles=rolesOf(item);
  // An explicitly classified wall/partition wins over generic block ancestry.
  // Otherwise symbol blocks must not become room boundaries just because their
  // expanded contents happen to contain closed geometry.
  if(roles.some(role=>["wall","partition","boundary","structural"].includes(role)))return false;
+ // The source-native layer belongs to the child entity; unlike the displayed
+ // INSERT layer, it can identify furniture/fixtures flattened onto a wall layer.
+ if(nativeLayer&&NON_BOUNDARY_SOURCE_LAYER.test(nativeLayer))return true;
  const checkedRoles=allowBlockInstance?roles.filter(role=>!(role==="block-instance"||role.startsWith("block-instance.")||role.startsWith("block-instance-"))):roles;
  return checkedRoles.some(role=>NON_BOUNDARY_ROLE_PREFIXES.some(prefix=>role===prefix||role.startsWith(prefix+".")||role.startsWith(prefix+"-")));
 }

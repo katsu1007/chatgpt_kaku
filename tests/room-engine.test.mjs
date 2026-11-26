@@ -952,3 +952,26 @@ test("explicitly classified wall geometry inside a block remains eligible as a b
   const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:[]});
   assert.equal(result.rooms.length,2);
 });
+
+
+test("flattened JWW block children retain native layer separately from INSERT layer and guide room boundaries",()=>{
+ const rawItems=[
+  line("外壁",100,100,900,100),line("外壁",900,100,900,900),
+  line("外壁",900,900,100,900),line("外壁",100,900,100,100),
+  {...line("外壁",500,100,500,900),blockPath:["BLOCK_01"],base:{kind:"line",layer:"間仕切壁",pts:[500,100,500,900]}},
+  {...line("外壁",200,200,300,200),blockPath:["FIXTURE","SINK"],base:{kind:"line",layer:"家具",pts:[200,200,300,200]}},
+  {...line("外壁",300,200,300,300),blockPath:["FIXTURE","SINK"],base:{kind:"line",layer:"家具",pts:[300,200,300,300]}},
+  {...line("外壁",300,300,200,300),blockPath:["FIXTURE","SINK"],base:{kind:"line",layer:"家具",pts:[300,300,200,300]}},
+  {...line("外壁",200,300,200,200),blockPath:["FIXTURE","SINK"],base:{kind:"line",layer:"家具",pts:[200,300,200,200]}}
+ ];
+ const layers=[{name:"外壁"}];
+ const model=createCadDocument({items:rawItems},{sourceFormat:"JWW",layers});
+ const items=attachCadEntityMetadata(rawItems,model.sheets[0].entities);
+ assert.equal(items[4].layer,"外壁");
+ assert.equal(items[4].sourceNativeLayer,"間仕切壁");
+ assert.equal(items[4].sourceInsertionLayer,"外壁");
+ assert.equal(items[5].sourceNativeLayer,"家具");
+ const result=extractRoomHierarchy({items,width:1000,height:1000,layers,selectedLayers:["外壁"]});
+ assert.equal(result.rooms.length,2);
+ assert.ok(result.diagnostics.skippedSemanticItems>=4);
+});

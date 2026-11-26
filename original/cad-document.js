@@ -171,6 +171,13 @@ export function normalizeCadEntity(entity, index, options = {}) {
   const kind = normalizeKind(source);
   const geometry = geometryOf(source, kind);
   const layer = first(source.layer, source.layerName, inherited.layer, inherited.layerName, null);
+  // Some flattening CAD drawers replace a block child's active layer with the
+  // INSERT layer. Keep the original child layer separately when it survives
+  // in the source/base lineage; never silently overwrite the display layer.
+  const lineage = sourceLineage(source);
+  const baseLayer = first(...lineage.slice(1).flatMap(entry => [entry.layer, entry.layerName]));
+  const nativeLayer = baseLayer == null ? layer : baseLayer;
+  const insertionLayer = baseLayer != null && layer != null && String(baseLayer) !== String(layer) ? layer : null;
   const layerGroup = first(source.layerGroup, source.layer_group, inherited.layerGroup, inherited.layer_group, null);
   // Expanded parser geometry may retain its original CAD object only under `base`.
   // Prefer explicit top-level provenance, then recover the nested original type.
@@ -182,8 +189,7 @@ export function normalizeCadEntity(entity, index, options = {}) {
   const layerScaleDenominator = finite(layerInfo?.scale) && layerInfo.scale > 0 ? layerInfo.scale : null;
   const semantics = sourceSemantics({ ...inherited, ...source }, sourceType, layerScaleDenominator);
   const handle = first(source.handle, source.id, source.objectId, inherited.handle, inherited.id, inherited.objectId, null);
-  const lineage = sourceLineage(source);
-  const inheritedBlockPath = lineage.map(entry => entry.blockPath).find(path => Array.isArray(path) && path.length) || [];
+    const inheritedBlockPath = lineage.map(entry => entry.blockPath).find(path => Array.isArray(path) && path.length) || [];
   const inheritedBlockName = first(...lineage.map(entry => entry.blockName));
   const blockPath = Array.isArray(source.blockPath) && source.blockPath.length ? [...source.blockPath] :
     inheritedBlockPath.length ? [...inheritedBlockPath] :
@@ -198,6 +204,8 @@ export function normalizeCadEntity(entity, index, options = {}) {
       type: String(sourceType),
       handle: handle == null ? null : String(handle),
       layer: layer == null ? null : String(layer),
+      nativeLayer: nativeLayer == null ? null : String(nativeLayer),
+      insertionLayer: insertionLayer == null ? null : String(insertionLayer),
       layerGroup: layerGroup == null ? null : String(layerGroup),
       blockPath,
       blockTransform: clone(first(source.blockTransform, inherited.blockTransform, null)),
@@ -238,6 +246,8 @@ export function attachCadEntityMetadata(items = [], normalizedEntities = []) {
       sourceFormat: item?.sourceFormat ?? source.format ?? null,
       sourceHandle: item?.sourceHandle ?? source.handle ?? null,
       sourceLayerGroup: item?.sourceLayerGroup ?? source.layerGroup ?? null,
+      sourceNativeLayer: item?.sourceNativeLayer ?? source.nativeLayer ?? null,
+      sourceInsertionLayer: item?.sourceInsertionLayer ?? source.insertionLayer ?? null,
       semanticRole: role,
       semantic: mergedSemantic,
       dimensionGraphic: item?.dimensionGraphic === true || semantic.dimensionGraphic === true,
