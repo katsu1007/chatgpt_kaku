@@ -182,12 +182,20 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
     const index=iy*nx+ix;if(wall[index])return false;
     wall[index]=1;rasterizedCells++;return true;
   };
+  const markEndpoint=(x,y)=>{
+    const ix=Math.round(x/cw),iy=Math.round(y/ch);
+    // Small endpoint-only healing preserves wall thickness while closing tiny
+    // drafting gaps and connecting virtual doorway/cubicle closures.
+    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)mark(ix+dx,iy+dy);
+  };
   const line=(x1,y1,x2,y2)=>{
     if(![x1,y1,x2,y2].every(Number.isFinite))return false;
     if(isDimensionSegment(x1,y1,x2,y2,dimAnchors)){skippedDimensionSegments++;return false;}
     endpoints.push([Math.round(x1/cw),Math.round(y1/ch)],[Math.round(x2/cw),Math.round(y2/ch)]);
     geometrySegments.push({x1:x1/cw,y1:y1/ch,x2:x2/cw,y2:y2/ch});
+    markEndpoint(x1,y1);
     rasterizeSegmentSupercover(x1,y1,x2,y2,cw,ch,mark);
+    markEndpoint(x2,y2);
     usedSegments++;return true;
   };
   const rememberDoorEndpoint=(x,y,dx,dy)=>{
