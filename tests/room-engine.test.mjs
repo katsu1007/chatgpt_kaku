@@ -592,3 +592,17 @@ test("bulged polyline boundaries are rasterized as curves",()=>{
  assert.equal(result.parents.length,1);
  assert.equal(result.rooms.length,1);
 });
+
+test("decoded R2004 circle center and radius fields form a production room",()=>{
+ const result=extractRoomHierarchy({items:[{kind:"circle",layer:"外壁",center:[500,500,0],radius:400}],width:1000,height:1000,layers:[{name:"外壁"}],selectedLayers:[]});
+ assert.equal(result.parents.length,1);
+ assert.equal(result.rooms.length,1);
+});
+test("decoded R2004 arc center and angle fields are traced",()=>{
+ const items=[
+  line("外壁",100,100,900,100),line("外壁",900,100,900,900),line("外壁",900,900,100,900),
+  {kind:"arc",layer:"外壁",center:[100,500,0],radius:400,startAngle:-Math.PI/2,endAngle:Math.PI/2}
+ ];
+ const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"外壁"}],selectedLayers:[]});
+ assert.equal(result.parents.length,1);
+});
