@@ -174,3 +174,12 @@ test("inherits semantic role, dimension flags and block ancestry from parser bas
   assert.equal(nested.semantic.role,"unclassified");
   assert.deepEqual(nested.source.blockPath,["TOILET"]);
 });
+
+
+test("closed polyline and width metadata survive CAD document normalization",()=>{
+ const doc=createCadDocument({items:[{kind:"polyline",closed:true,pts:[0,0,100,0,100,100],bulges:[0.25,0,0],startWidth:2,endWidth:3,constantWidth:1}]});
+ const geometry=doc.sheets[0].entities[0].geometry;
+ assert.equal(geometry.closed,true);
+ assert.deepEqual(geometry.bulges,[0.25,0,0]);
+ assert.deepEqual(geometry.widths,{start:2,end:3,constant:1});
+});
