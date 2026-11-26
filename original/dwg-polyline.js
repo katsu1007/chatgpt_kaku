@@ -30,11 +30,28 @@ export function expandBulgedPolyline(input,{closed=null,bulges=null,tolerance=1e
  }
  return {kind:"polyline",closed:!!isClosed,vertices,segments,diagnostics:{vertexCount:vertices.length,segmentCount:segments.length,lineCount:segments.filter(s=>s.kind==="line").length,arcCount:segments.filter(s=>s.kind==="arc").length,skippedZeroLength:count-segments.length}};
 }
+function segmentWidthMetadata(input,index,nextIndex){
+ const vertices=Array.isArray(input)?input:input?.vertices||[];
+ const startVertex=vertices[index],endVertex=vertices[nextIndex];
+ const constant=Number(input?.constantWidth);
+ const start=Number(startVertex?.startWidth??startVertex?.widthStart??input?.startWidth);
+ const end=Number(startVertex?.endWidth??startVertex?.widthEnd??input?.endWidth);
+ const positive=value=>Number.isFinite(value)&&value>0?value:null;
+ const constantWidth=positive(constant);
+ const widthStart=constantWidth??positive(start);
+ const widthEnd=constantWidth??positive(end);
+ if(widthStart==null&&widthEnd==null)return {};
+ return {widthStart:widthStart??widthEnd,widthEnd:widthEnd??widthStart,widthSource:constantWidth!=null?"constant":(startVertex?.startWidth!=null||endVertex?.endWidth!=null)?"vertex":"entity"};
+}
 export function polylineToSheetItems(input,options={}){
  const expanded=expandBulgedPolyline(input,options);
  const layer=options.layer,handle=options.handle;
- return expanded.segments.map(segment=>segment.kind==="line"
-  ?{kind:"line",pts:[segment.a.x,segment.a.y,segment.b.x,segment.b.y],z0:segment.a.z,z1:segment.b.z,layer,handle,sourceGeometry:segment,sourceFormat:options.sourceFormat||"DWG"}
-  :{kind:"arc",cx:segment.cx,cy:segment.cy,r:segment.r,a0:segment.a0,a1:segment.a1,layer,handle,sourceGeometry:segment,sourceFormat:options.sourceFormat||"DWG"});
+ return expanded.segments.map(segment=>{
+  const nextIndex=(segment.index+1)%expanded.vertices.length;
+  const width=segmentWidthMetadata(input,segment.index,nextIndex);
+  return segment.kind==="line"
+   ?{kind:"line",pts:[segment.a.x,segment.a.y,segment.b.x,segment.b.y],z0:segment.a.z,z1:segment.b.z,layer,handle,...width,sourceGeometry:segment,sourceFormat:options.sourceFormat||"DWG"}
+   :{kind:"arc",cx:segment.cx,cy:segment.cy,r:segment.r,a0:segment.a0,a1:segment.a1,layer,handle,...width,sourceGeometry:segment,sourceFormat:options.sourceFormat||"DWG"};
+ });
 }
 export function bulgeToSweep(bulge){return 4*Math.atan(finite(bulge,"value"));}

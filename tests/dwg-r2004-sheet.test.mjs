@@ -396,3 +396,21 @@ test("invalid TEXT extrusion normals are skipped without aborting valid geometry
  assert.equal(drawing.sheets[0].items.length,1);
  assert.equal(drawing.meta.info.unsupported,1);
 });
+
+test("retains DWG polyline constant width and converts it to millimeters",()=>{
+ const drawing=createR2004DwgDrawing({units:{known:true,code:1,name:"inches",scaleToMm:25.4},entities:[
+  entity("A-WALL",390n,{kind:"polyline",closed:false,constantWidth:0.5,vertices:[{x:0,y:0},{x:100,y:0}]})
+ ],layers:[]});
+ const item=drawing.sheets[0].items[0];
+ assert.equal(item.widthStart,12.7);assert.equal(item.widthEnd,12.7);
+ assert.equal(item.widthSource,"constant");assert.equal(item.widthUnit,"mm");
+});
+test("retains variable per-vertex widths on straight DWG polyline segments",()=>{
+ const drawing=createR2004DwgDrawing({units:{known:true,code:4,name:"millimeters",scaleToMm:1},entities:[
+  entity("A-WALL",391n,{kind:"polyline",vertices:[
+   {x:0,y:0,startWidth:4,endWidth:6},{x:100,y:0,startWidth:8,endWidth:10},{x:100,y:100,startWidth:3,endWidth:5}
+  ]})
+ ],layers:[]});
+ const items=drawing.sheets[0].items;
+ assert.deepEqual(items.map(x=>[x.widthStart,x.widthEnd,x.widthSource]),[[4,6,"vertex"],[8,10,"vertex"]]);
+});
