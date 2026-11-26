@@ -867,3 +867,24 @@ test("source trace inventory counts attached original CAD handles",()=>{
  const layer=result.diagnostics.layerInventory.find(entry=>entry.name==="壁");
  assert.equal(layer.sourceTagged,1);
 });
+
+
+test("assesses real-area scale independently for rooms enclosed by different CAD layers",()=>{
+  const items=[
+    line("外壁A",100,100,400,100),line("外壁A",400,100,400,400),
+    line("外壁A",400,400,100,400),line("外壁A",100,400,100,100),
+    line("外壁B",600,600,900,600),line("外壁B",900,600,900,900),
+    line("外壁B",900,900,600,900),line("外壁B",600,900,600,600)
+  ];
+  const result=extractRoomHierarchy({items,width:1000,height:1000,
+    layers:[{name:"外壁A",scale:50},{name:"外壁B",scale:100}],selectedLayers:[]});
+  assert.equal(result.rooms.length,2);
+  const byName=new Map(result.rooms.map(room=>[room.scaleAssessment.boundaryLayers[0],room]));
+  assert.equal(byName.get("外壁A").scaleAssessment.status,"uniform");
+  assert.equal(byName.get("外壁A").scaleAssessment.denominator,50);
+  assert.equal(byName.get("外壁B").scaleAssessment.status,"uniform");
+  assert.equal(byName.get("外壁B").scaleAssessment.denominator,100);
+  assert.ok(byName.get("外壁A").realAreaM2>0);
+  assert.ok(byName.get("外壁B").realAreaM2>byName.get("外壁A").realAreaM2);
+  assert.equal(result.diagnostics.scaleAssessment.status,"mixed");
+});
