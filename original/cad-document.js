@@ -31,6 +31,8 @@ function sourceSemantics(source, rawType, layerScaleDenominator = null) {
   const explicitRoleValue = first(source?.semanticRole, source?.semantic?.role, source?.role, source?.base?.semanticRole, source?.base?.semantic?.role, source?.base?.role, null);
   const explicitRole = explicitRoleValue != null && !["unclassified","unknown"].includes(String(explicitRoleValue).trim().toLowerCase()) ? explicitRoleValue : null;
   const kind = String(rawType || "").toLowerCase();
+  const dimensionType = kind === "dimension" || kind === "sunpou" || /(?:^|\.)cdatasunpou$/i.test(kind);
+  const blockType = kind === "block" || kind === "insert" || /(?:^|\.)cdatablock$/i.test(kind);
   const dimensionFlag = source?.dimensionGraphic === true || source?.dimensionLine === true ||
     source?.dimensionExtension === true || source?.dimensionArrow === true ||
     source?.dimensionBoundary === true || source?.isDimension === true ||
@@ -41,22 +43,24 @@ function sourceSemantics(source, rawType, layerScaleDenominator = null) {
     (Array.isArray(source?.base?.blockPath) && source.base.blockPath.length > 0) ||
     source?.sourceInsertHandle != null || source?.sourceBlockHandle != null;
   const role = explicitRole != null ? String(explicitRole) :
-    (kind === "dimension" || kind === "sunpou" || dimensionFlag ? "dimension" :
-      (kind === "block" || kind === "insert" || blockFlag ? "block-instance" : "unclassified"));
+    (dimensionType || dimensionFlag ? "dimension" :
+      (blockType || blockFlag ? "block-instance" : "unclassified"));
   const layer = first(source?.layer, source?.layerName, source?.base?.layerName, null);
   const match = String(layer ?? "").match(/^\s*([0-9a-f]+)-([0-9a-f]+)(?:\s|$)/i);
   const groupIndex = first(source?.groupIndex, source?.group, match ? parseInt(match[1], 16) : null);
   const layerIndex = first(source?.layerIndex, match ? parseInt(match[2], 16) : null);
   return {
     role,
-    explicit: explicitRole != null || dimensionFlag || blockFlag || kind === "dimension" || kind === "sunpou" || kind === "block" || kind === "insert",
+    explicit: explicitRole != null || dimensionFlag || blockFlag || dimensionType || blockType,
     dimensionGraphic: role === "dimension",
     blockInstance: role === "block-instance",
     groupIndex: Number.isInteger(groupIndex) ? groupIndex : null,
     layerIndex: Number.isInteger(layerIndex) ? layerIndex : null,
     layerScaleDenominator: finite(layerScaleDenominator) && layerScaleDenominator > 0 ? layerScaleDenominator : null,
     entityIndex: Number.isInteger(source?.sourceIndex) ? source.sourceIndex :
-      Number.isInteger(source?.entityIndex) ? source.entityIndex : null
+      Number.isInteger(source?.entityIndex) ? source.entityIndex :
+      Number.isInteger(source?.base?.sourceIndex) ? source.base.sourceIndex :
+      Number.isInteger(source?.base?.entityIndex) ? source.base.entityIndex : null
   };
 }
 
@@ -164,12 +168,17 @@ export function normalizeCadEntity(entity, index, options = {}) {
   const kind = normalizeKind(source);
   const geometry = geometryOf(source, kind);
   const layer = first(source.layer, source.layerName, source.base?.layerName, null);
-  const layerGroup = first(source.layerGroup, source.layer_group, source.base?.layer_group, null);
-  const sourceType = first(source.sourceType, source.entityType, source.originalType, source.type, source.sourceGeometry?.kind, source.kind, "unknown");
+  const layerGroup = first(source.layerGroup, source.layer_group, source.base?.layerGroup, source.base?.layer_group, null);
+  // Expanded parser geometry may retain its original CAD object only under `base`.
+  // Prefer explicit top-level provenance, then recover the nested original type.
+  const sourceType = first(source.sourceType, source.entityType, source.originalType, source.type,
+    source.sourceGeometry?.kind, source.base?.sourceType, source.base?.entityType,
+    source.base?.originalType, source.base?.type, source.base?.sourceGeometry?.kind, source.base?.kind,
+    source.kind, "unknown");
   const layerInfo = (options.layers || []).find(entry => String(entry?.name ?? "") === String(layer ?? ""));
   const layerScaleDenominator = finite(layerInfo?.scale) && layerInfo.scale > 0 ? layerInfo.scale : null;
   const semantics = sourceSemantics(source, sourceType, layerScaleDenominator);
-  const handle = first(source.handle, source.id, source.objectId, null);
+  const handle = first(source.handle, source.id, source.objectId, source.base?.handle, source.base?.id, source.base?.objectId, null);
   const blockPath = Array.isArray(source.blockPath) && source.blockPath.length ? [...source.blockPath] :
     Array.isArray(source.base?.blockPath) && source.base.blockPath.length ? [...source.base.blockPath] :
     Array.isArray(source.blockPath) ? [...source.blockPath] :
@@ -191,7 +200,8 @@ export function normalizeCadEntity(entity, index, options = {}) {
       sourceInsertHandle: first(source.sourceInsertHandle, source.base?.sourceInsertHandle, null) == null ? null : String(first(source.sourceInsertHandle, source.base?.sourceInsertHandle)),
       sourceBlockHandle: first(source.sourceBlockHandle, source.base?.sourceBlockHandle, null) == null ? null : String(first(source.sourceBlockHandle, source.base?.sourceBlockHandle)),
       sourceEntityHandle: first(source.sourceEntityHandle, source.base?.sourceEntityHandle, null) == null ? null : String(first(source.sourceEntityHandle, source.base?.sourceEntityHandle)),
-      blockInstanceIndex: Number.isInteger(source.blockInstanceIndex) ? source.blockInstanceIndex : null,
+      blockInstanceIndex: Number.isInteger(source.blockInstanceIndex) ? source.blockInstanceIndex :
+         Number.isInteger(source.base?.blockInstanceIndex) ? source.base.blockInstanceIndex : null,
       sourceIndex: semantics.entityIndex,
       groupIndex: semantics.groupIndex,
       layerIndex: semantics.layerIndex,
