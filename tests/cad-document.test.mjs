@@ -276,7 +276,6 @@ test("attaches complete normalized provenance to parser items without changing g
 });
 
 test("preserves explicit parser metadata when normalized metadata is absent or weaker",()=>{
- const {attachCadEntityMetadata}=await import("../original/cad-document.js");
  const input=[{kind:"line",semanticRole:"wall",dimensionGraphic:false,blockPath:["EXISTING"],layerScaleDenominator:25}];
  const out=attachCadEntityMetadata(input,[{source:{blockPath:[],layerScaleDenominator:50},semantic:{role:"unclassified",dimensionGraphic:false}}]);
  assert.equal(out[0].semanticRole,"wall");
