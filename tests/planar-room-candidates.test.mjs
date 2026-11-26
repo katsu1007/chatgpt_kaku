@@ -134,5 +134,5 @@ test("a lone perpendicular wall at a dimension endpoint remains in planar candid
 test("full-sweep arcs create closed bounded planar room candidates",()=>{
  const r=analyzePlanarRoomCandidates({items:[{kind:"arc",layer:"WALL",cx:500,cy:500,r:400,a0:0,a1:Math.PI*2}],wallLayerNames:["WALL"]});
  assert.equal(r.diagnostics.boundedFaces,1);
- assert.equal(r.candidates.length,1);
+ assert.equal(r.faces.length,1);
 });
