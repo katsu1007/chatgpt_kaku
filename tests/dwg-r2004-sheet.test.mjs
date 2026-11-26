@@ -62,10 +62,13 @@ test("expands LWPOLYLINE bulges into native line and arc segments",()=>{
  assert.equal(sheet.items[1].kind,"line");assert.equal(sheet.items[2].kind,"line");
  assert.equal(drawing.meta.info.polylines,1);assert.equal(drawing.meta.info.unsupported,0);
 });
-test("does not guess geometry for tilted LWPOLYLINE extrusion planes",()=>{
- assert.throws(()=>createR2004DwgDrawing({entities:[entity("A",1n,{kind:"polyline",closed:true,vertices:[
-  {x:0,y:0,z:0},{x:10,y:0,z:0}
- ],bulges:[0,0],extrusion:[1,0,0]})],layers:[]}),/表示可能/);
+test("transforms tilted LWPOLYLINE extrusion planes into WCS sheet coordinates",()=>{
+ const drawing=createR2004DwgDrawing({entities:[entity("A",1n,{kind:"polyline",closed:false,vertices:[
+  {x:0,y:0,z:5},{x:10,y:0,z:5}
+ ],bulges:[0,0],extrusion:[0,Math.SQRT1_2,Math.SQRT1_2]})],layers:[]});
+ const item=drawing.sheets[0].items[0];
+ assert.equal(item.kind,"line");assert.equal(item.ocsTransformed,true);
+ assert.deepEqual(item.pts,[0,0,10,0]);
 });
 
 test("renders transformed block line, arc and point primitives with source references",()=>{
@@ -266,6 +269,30 @@ test("malformed spline points are skipped without aborting other DWG entities",(
  const drawing=createR2004DwgDrawing({units:{known:true,code:4,name:"millimeters",scaleToMm:1},entities:[
   entity("A-CURVE",322n,{kind:"spline",scenario:2,degree:3,fitPoints:[null,[10,10,0]]}),
   entity("A-WALL",323n,{kind:"line",pts:[0,0,100,0]})
+ ],layers:[]});
+ assert.equal(drawing.sheets[0].items.length,1);
+ assert.equal(drawing.meta.info.unsupported,1);
+});
+
+test("transforms tilted DWG arcs circles and ellipses into sheet linework",()=>{
+ const normal=[0,Math.SQRT1_2,Math.SQRT1_2];
+ const drawing=createR2004DwgDrawing({units:{known:true,code:4,name:"millimeters",scaleToMm:1},entities:[
+  entity("A-CURVE",330n,{kind:"arc",center:[0,0,0],radius:20,startAngle:0,endAngle:Math.PI/2,extrusion:normal}),
+  entity("A-CURVE",331n,{kind:"circle",center:[50,0,0],radius:10,extrusion:normal}),
+  entity("A-CURVE",332n,{kind:"ellipse",center:[100,0,0],majorAxis:[20,0,0],axisRatio:0.5,startParameter:0,endParameter:Math.PI*2,extrusion:normal}),
+  entity("A-CURVE",333n,{kind:"point",point:{x:150,y:0,z:5},extrusion:normal})
+ ],layers:[]});
+ const items=drawing.sheets[0].items;
+ assert.ok(items.length>100);
+ assert.ok(items.some(item=>item.curveApproximation==="ocs-arc"&&item.ocsTransformed));
+ assert.ok(items.some(item=>item.curveApproximation==="ocs-circle"&&item.ocsTransformed));
+ assert.ok(items.some(item=>item.curveApproximation==="ellipse"&&item.ocsTransformed));
+ assert.ok(items.some(item=>item.kind==="point"&&item.ocsTransformed));
+});
+test("skips invalid zero-normal OCS entities without aborting valid DWG items",()=>{
+ const drawing=createR2004DwgDrawing({units:{known:true,code:4,name:"millimeters",scaleToMm:1},entities:[
+  entity("A-CURVE",334n,{kind:"circle",center:[0,0,0],radius:10,extrusion:[0,0,0]}),
+  entity("A-WALL",335n,{kind:"line",pts:[0,0,100,0]})
  ],layers:[]});
  assert.equal(drawing.sheets[0].items.length,1);
  assert.equal(drawing.meta.info.unsupported,1);
