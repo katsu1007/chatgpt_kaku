@@ -73,7 +73,7 @@ function entitySegments(item,index,stats,anchors){
  for(let i=0;i+1<points.length;i++){
   const a=points[i],b=points[i+1];if(Math.hypot(b.x-a.x,b.y-a.y)<=1e-8)continue;
   if(isDimensionStroke(a,b,anchors)){stats.skippedDimensionSegments++;continue;}
-  out.push({x1:a.x,y1:a.y,x2:b.x,y2:b.y,sourceId:String(item.handle??item.id??"entity:"+index)});
+  out.push({x1:a.x,y1:a.y,x2:b.x,y2:b.y,sourceId:String(item.handle??item.id??"entity:"+index),sourceLayer:item.layer??item.layerName??null,sourceKind:item.sourceType??item.entityType??item.kind??item.type??null,semanticRole:item.semantic?.role??item.semanticRole??item.role??null,layerScaleDenominator:item.layerScaleDenominator??item.semantic?.layerScaleDenominator??null,sourceSegmentIndex:i});
  }
  if(out.length)stats.acceptedItems++;
  return out;
@@ -132,5 +132,19 @@ export function analyzePlanarRoomCandidates({items=[],wallLayerNames=[],hiddenLa
  const bridges=doorwayBridges(items,allowed,hidden,anchors,stats);segments.push(...bridges);
  const graph=buildPlanarGraph(segments);
  const areas=graph.faces.map(face=>face.area).filter(Number.isFinite).sort((a,b)=>a-b);
- return {faces:graph.faces,bridges,diagnostics:{...stats,inputSegments:segments.length-bridges.length,virtualBridgeSegments:bridges.length,intersectionCount:graph.diagnostics.intersectionCount,graphNodes:graph.diagnostics.graphNodes,graphEdges:graph.diagnostics.graphEdges,boundedFaces:graph.diagnostics.boundedFaces,minFaceArea:areas.length?areas[0]:0,maxFaceArea:areas.length?areas.at(-1):0,totalFaceArea:areas.reduce((sum,value)=>sum+value,0)}};
+ const faces=graph.faces.map(face=>{
+  const records=face.sourceRecords||[];
+  // Virtual doorway closures have no drawing scale and must not be mistaken for source evidence.
+  const sourceRecords=records.filter(record=>!String(record.sourceId||"").startsWith("virtual-door-bridge:"));
+  const scales=sourceRecords.map(record=>record.layerScaleDenominator).filter(value=>finite(value)&&value>0).map(value=>Number(Number(value).toPrecision(10)));
+  const unknownRecords=sourceRecords.filter(record=>!(finite(record.layerScaleDenominator)&&record.layerScaleDenominator>0));
+  const distinctScales=[...new Set(scales)];
+  const scaleStatus=!sourceRecords.length||unknownRecords.length?"unknown":distinctScales.length===1?"uniform":"mixed";
+  const layers=[...new Set(sourceRecords.map(record=>record.layer).filter(Boolean).map(String))].sort();
+  const roles={};
+  for(const record of sourceRecords){const role=String(record.semanticRole||"unknown");roles[role]=(roles[role]||0)+1;}
+  const drawingAreaCm2=face.area/100;
+  return {...face,sourceSummary:{layers,semanticRoleCounts:roles,sourceRecordCount:sourceRecords.length,unknownScaleRecordCount:unknownRecords.length,scaleStatus,scaleDenominator:scaleStatus==="uniform"?distinctScales[0]:null},drawingAreaCm2,realAreaM2:scaleStatus==="uniform"?drawingAreaCm2*distinctScales[0]*distinctScales[0]/10000:null};
+ });
+ return {faces,bridges,diagnostics:{...stats,inputSegments:segments.length-bridges.length,virtualBridgeSegments:bridges.length,intersectionCount:graph.diagnostics.intersectionCount,graphNodes:graph.diagnostics.graphNodes,graphEdges:graph.diagnostics.graphEdges,boundedFaces:graph.diagnostics.boundedFaces,minFaceArea:areas.length?areas[0]:0,maxFaceArea:areas.length?areas.at(-1):0,totalFaceArea:areas.reduce((sum,value)=>sum+value,0)}};
 }
