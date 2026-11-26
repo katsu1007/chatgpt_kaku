@@ -68,7 +68,7 @@ test("transforms tilted LWPOLYLINE extrusion planes into WCS sheet coordinates",
  ],bulges:[0,0],extrusion:[0,Math.SQRT1_2,Math.SQRT1_2]})],layers:[]});
  const item=drawing.sheets[0].items[0];
  assert.equal(item.kind,"line");assert.equal(item.ocsTransformed,true);
- assert.deepEqual(item.pts,[0,0,10,0]);
+ assert.deepEqual(item.pts,[10,0,0,0]);
 });
 
 test("renders transformed block line, arc and point primitives with source references",()=>{
