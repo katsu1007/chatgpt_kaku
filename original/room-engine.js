@@ -528,7 +528,7 @@ function wallComponentRegionMeasures(wall,regionAt,nx,ny,cw,ch){
     }
     sizes[component]=tail;
   }
-  const largestCells=Math.max(0,...sizes.slice(1));
+  let largestCells=0;for(let i=1;i<sizes.length;i++)if(sizes[i]>largestCells)largestCells=sizes[i];
   const regionComponents=new Map();
   for(let p=0;p<N;p++){
     const regionId=regionAt[p];if(regionId<0)continue;
