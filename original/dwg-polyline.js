@@ -35,7 +35,7 @@ function segmentWidthMetadata(input,index,nextIndex){
  const startVertex=vertices[index],endVertex=vertices[nextIndex];
  const constant=Number(input?.constantWidth);
  const start=Number(startVertex?.startWidth??startVertex?.widthStart??input?.startWidth);
- const end=Number(endVertex?.endWidth??endVertex?.widthEnd??input?.endWidth);
+ const end=Number(startVertex?.endWidth??startVertex?.widthEnd??input?.endWidth);
  const positive=value=>Number.isFinite(value)&&value>0?value:null;
  const constantWidth=positive(constant);
  const widthStart=constantWidth??positive(start);
