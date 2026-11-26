@@ -231,6 +231,7 @@ export function createCadDocument(input = {}, options = {}) {
   const counts = {};
   const layers = new Map();
   let missingGeometry = 0;
+  let widthMetadataEntities = 0;
   const semanticCounts = {};
   const scaleCounts = {};
   for (const entity of normalized) {
@@ -240,6 +241,7 @@ export function createCadDocument(input = {}, options = {}) {
     const scaleKey = entity.source.layerScaleDenominator == null ? "unknown" : String(entity.source.layerScaleDenominator);
     scaleCounts[scaleKey] = (scaleCounts[scaleKey] || 0) + 1;
     if (!entity.bounds) missingGeometry++;
+    if (entity.geometry?.widths && Object.values(entity.geometry.widths).some(value => finite(value) && value > 0)) widthMetadataEntities++;
     const name = entity.source.layer ?? "(レイヤーなし)";
     layers.set(name, (layers.get(name) || 0) + 1);
   }
@@ -285,6 +287,7 @@ export function createCadDocument(input = {}, options = {}) {
       dimensionGraphics: semanticCounts.dimension || 0,
       blockInstances: semanticCounts["block-instance"] || 0,
       missingGeometry,
+      widthMetadataEntities,
       duplicateIds,
       unknownKinds: [...new Set(normalized.filter(e => !KIND_MAP.has(String(e.source.type).toLowerCase())).map(e => e.kind))]
     }
