@@ -105,7 +105,7 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
    else{
     const segments=polylineToSheetItems({kind:"polyline",vertices:sampled.vertices,bulges:sampled.vertices.map(()=>0),closed:sampled.closed},{layer:entity.layerName,handle:entity.handleHex,sourceFormat:sourceFormat});
     for(const segment of segments){
-     if(segment.kind==="line")add(entity,g,{...segment,pts:segment.pts.map(v=>v*scale),z0:(segment.z0||0)*scale,z1:(segment.z1||0)*scale,curveApproximation:g.kind,curveClosed:sampled.closed});
+     if(segment.kind==="line")add(entity,g,{...segment,pts:segment.pts.map(v=>v*scale),z0:(segment.z0||0)*scale,z1:(segment.z1||0)*scale,curveApproximation:g.kind,curveClosed:sampled.closed,ocsTransformed:g.kind==="ellipse"&&!isWorldZNormal(g.extrusion||[0,0,1])});
      else add(entity,g,{...segment,cx:segment.cx*scale,cy:segment.cy*scale,r:segment.r*scale,curveApproximation:g.kind});
      curveSegments++;
     }
