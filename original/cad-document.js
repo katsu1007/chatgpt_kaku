@@ -1,3 +1,4 @@
+import { tessellateCadCurve } from "./cad-curve-tessellation.js";
 // KAKU independent CAD document model (v0.1).
 // This module deliberately preserves source data and does not infer wall/room roles.
 // Coordinates are sheet coordinates in millimetres unless a caller declares otherwise.
@@ -5,6 +6,7 @@
 const KIND_MAP = new Map([
   ["line", "line"], ["sen", "line"], ["polyline", "polyline"],
   ["arc", "arc"], ["enko", "arc"], ["circle", "circle"],
+  ["ellipse", "ellipse"], ["spline", "spline"],
   ["fill", "fill"], ["solid", "fill"], ["hatch", "hatch"],
   ["text", "text"], ["moji", "text"], ["dimension", "dimension"],
   ["sunpou", "dimension"], ["block", "block"], ["insert", "block"],
@@ -76,6 +78,27 @@ function geometryOf(entity, kind) {
         end: finite(entity?.endWidth) ? entity.endWidth : null,
         constant: finite(entity?.constantWidth) ? entity.constantWidth : null
       } : null
+    };
+  }
+  if (kind === "ellipse" || kind === "spline") {
+    const curve = tessellateCadCurve({ ...entity, kind });
+    return {
+      points: curve.points,
+      closed: curve.closed,
+      curveDiagnostics: curve.diagnostics,
+      ...(kind === "ellipse" ? {
+        center: first(entity?.center, entity?.centre, null),
+        majorAxis: first(entity?.majorAxis, entity?.major_axis, null),
+        axisRatio: first(entity?.axisRatio, entity?.minorMajorRatio, entity?.ratio, null),
+        startParameter: first(entity?.startParameter, entity?.startAngle, 0),
+        endParameter: first(entity?.endParameter, entity?.endAngle, Math.PI * 2)
+      } : {
+        degree: entity?.degree ?? null,
+        knots: Array.isArray(entity?.knots) ? [...entity.knots] : [],
+        controlPoints: clone(entity?.controlPoints || []),
+        fitPoints: clone(entity?.fitPoints || []),
+        weights: Array.isArray(entity?.weights) ? [...entity.weights] : []
+      })
     };
   }
   if (kind === "arc" || kind === "circle") {

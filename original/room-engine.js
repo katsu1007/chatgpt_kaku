@@ -1,3 +1,4 @@
+import { tessellateCadCurve, tessellateBulgedPolyline } from "./cad-curve-tessellation.js";
 // KAKU ORIGIN room extraction engine
 // Grid-space topology engine. Coordinates are sheet mm; thresholds are relative to grid,
 // never interpreted as real-world m² without scale conversion.
@@ -219,14 +220,17 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
     if((it.kind==="line"||it.kind==="polyline")&&Array.isArray(it.pts)&&it.pts.length>=4){
       usedItems++;
       const segments=[];
-      for(let k=0;k+3<it.pts.length;k+=2){
-        const segment={x1:it.pts[k],y1:it.pts[k+1],x2:it.pts[k+2],y2:it.pts[k+3]};
+      const isClosed=it.closed===true||it.isClosed===true||it.closedFlag===true||it.flags?.closed===true;
+      const polylinePts=it.kind==="polyline"&&Array.isArray(it.bulges)
+        ?tessellateBulgedPolyline({pts:it.pts,bulges:it.bulges,closed:isClosed},{maxSegments:20000}).points.flat()
+        :it.pts;
+      for(let k=0;k+3<polylinePts.length;k+=2){
+        const segment={x1:polylinePts[k],y1:polylinePts[k+1],x2:polylinePts[k+2],y2:polylinePts[k+3]};
         segment.used=line(segment.x1,segment.y1,segment.x2,segment.y2);
         segments.push(segment);
       }
       // A CAD polyline's intermediate vertices are connected corners, not
       // free wall ends. Only its true first/last vertices may close a doorway.
-      const isClosed=it.closed===true||it.isClosed===true||it.closedFlag===true||it.flags?.closed===true;
       if(isClosed&&segments.length){
         const first=segments[0],last=segments[segments.length-1];
         if(first.used&&last.used)line(last.x2,last.y2,first.x1,first.y1);
@@ -244,6 +248,13 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
       let px=it.cx+it.r*Math.cos(a0),py=it.cy+it.r*Math.sin(a0);
       if(!circle){rememberEndpoint(px,py);rememberEndpoint(it.cx+it.r*Math.cos(a0+sweep),it.cy+it.r*Math.sin(a0+sweep));}
       for(let k=1;k<=n;k++){const a=a0+sweep*k/n,x=it.cx+it.r*Math.cos(a),y=it.cy+it.r*Math.sin(a);line(px,py,x,y);px=x;py=y;}
+    }else if(it.kind==="ellipse"||it.kind==="spline"){
+      const curve=tessellateCadCurve(it,{maxSegments:20000});
+      if(curve.points.length>=2){
+        usedItems++;
+        for(let k=0;k+1<curve.points.length;k++)line(curve.points[k][0],curve.points[k][1],curve.points[k+1][0],curve.points[k+1][1]);
+        if(curve.closed&&curve.points.length>2)line(curve.points.at(-1)[0],curve.points.at(-1)[1],curve.points[0][0],curve.points[0][1]);
+      }
     }else if(it.kind==="fill"&&Array.isArray(it.pts)&&it.pts.length>=6){
       if(!isWallLikeFill(it.pts,cw,ch)){skippedNonWallFills++;continue;}
       usedItems++;for(let k=0;k+3<it.pts.length;k+=2)line(it.pts[k],it.pts[k+1],it.pts[k+2],it.pts[k+3]);

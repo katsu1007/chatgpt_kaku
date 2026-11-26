@@ -116,3 +116,18 @@ test("arcs and circles are tessellated into source-linked planar segments",()=>{
  assert.ok(circle.every(s=>s.sourceId==="circle1"));
  assert.equal(buildPlanarGraph(circle).faces.length,1);
 });
+
+test("bulged polylines create curved planar edges rather than straight chords",()=>{
+ const segs=segmentsFromEntities([{kind:"polyline",id:"arc-wall",pts:[100,0,0,100],bulges:[Math.tan(Math.PI/8),0]}]);
+ assert.ok(segs.length>3);
+ assert.ok(segs.every(s=>s.sourceId==="arc-wall"));
+ assert.ok(segs.some(s=>s.sourceSegmentIndex>0));
+});
+test("ellipse and rational spline entities produce closed planar faces",()=>{
+ const ellipse=segmentsFromEntities([{kind:"ellipse",id:"ell",center:[0,0,0],majorAxis:[100,0,0],axisRatio:0.5,startParameter:0,endParameter:Math.PI*2}]);
+ assert.ok(ellipse.length>=70);
+ assert.equal(buildPlanarGraph(ellipse).faces.length,1);
+ const spline=segmentsFromEntities([{kind:"spline",id:"spline",degree:2,knots:[0,0,0,0.5,1,1,1],controlPoints:[[0,0],[50,0],[50,50],[0,50]],closed:true}]);
+ assert.ok(spline.length>=24);
+ assert.ok(spline.every(s=>s.sourceId==="spline"));
+});

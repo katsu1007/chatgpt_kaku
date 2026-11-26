@@ -1,3 +1,4 @@
+import { tessellateCadCurve, tessellateBulgedPolyline } from "./cad-curve-tessellation.js";
 // KAKU independent planar geometry engine (v0.1).
 // Pure geometry only: this module never decides whether a line is a wall or a room boundary.
 
@@ -38,8 +39,17 @@ export function segmentsFromEntities(entities = [], options = {}) {
     const kind=String(entity.kind||entity.type||'').toLowerCase();
     if(kind==='line'||kind==='polyline'){
       const pts=entity.pts||entity.points||entity.vertices;if(!Array.isArray(pts))continue;
+      const closed=entity.closed===true||entity.isClosed===true||entity.closedFlag===true||entity.flags?.closed===true;
+      if(kind==='polyline'&&(Array.isArray(entity.bulges)||pts.some(p=>p&&typeof p==='object'&&Number(p.bulge)!==0))){
+        const curve=tessellateBulgedPolyline({...entity,vertices:pts},{arcStepRadians:options.arcStepRadians,maxSegments:options.maxCurveSegments??20000});
+        add(entity,i,curve.points,curve.closed);continue;
+      }
       const pairs=pts.length&&typeof pts[0]==='object'?pts.filter(p=>finite(p?.x)&&finite(p?.y)).map(p=>[p.x,p.y]):Array.from({length:Math.floor(pts.length/2)},(_,j)=>[pts[j*2],pts[j*2+1]]).filter(p=>p.every(finite));
-      add(entity,i,pairs,entity.closed===true||entity.isClosed===true||entity.closedFlag===true||entity.flags?.closed===true);continue;
+      add(entity,i,pairs,closed);continue;
+    }
+    if(kind==='ellipse'||kind==='spline'){
+      const curve=tessellateCadCurve(entity,{arcStepRadians:options.arcStepRadians,maxSegments:options.maxCurveSegments??20000});
+      add(entity,i,curve.points,curve.closed);continue;
     }
     if(kind!=='arc'&&kind!=='circle')continue;
     const cx=Number(entity.cx??entity.x??entity.center?.x),cy=Number(entity.cy??entity.y??entity.center?.y),r=Number(entity.r??entity.radius);

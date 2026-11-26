@@ -183,3 +183,17 @@ test("closed polyline and width metadata survive CAD document normalization",()=
  assert.deepEqual(geometry.bulges,[0.25,0,0]);
  assert.deepEqual(geometry.widths,{start:2,end:3,constant:1});
 });
+
+test("normalizes ellipse and spline curves into bounded geometry",()=>{
+ const doc=createCadDocument({items:[
+  {kind:"ellipse",center:[10,20,0],majorAxis:[100,0,0],axisRatio:0.5,startParameter:0,endParameter:Math.PI*2},
+  {kind:"spline",degree:2,knots:[0,0,0,1,1,1],controlPoints:[[0,0],[50,0],[50,50]]}
+ ]});
+ const [ellipse,spline]=doc.sheets[0].entities;
+ assert.equal(ellipse.kind,"ellipse");
+ assert.ok(ellipse.geometry.points.length>=70);
+ assert.ok(ellipse.bounds.maxX>=110);
+ assert.equal(spline.kind,"spline");
+ assert.ok(spline.geometry.points.length>=24);
+ assert.ok(spline.bounds.maxY>0);
+});
