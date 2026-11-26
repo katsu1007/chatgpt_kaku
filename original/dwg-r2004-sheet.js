@@ -162,13 +162,20 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
     if(!ocsValid){unsupportedHatchEdges++;continue;}
     if(path.kind==="polyline"){
      const bulges=path.bulges||path.vertices?.map(()=>0)||[];
-     const straight=bulges.length===path.vertices?.length&&bulges.every(value=>Math.abs(value)<1e-10);
-     if(g.solidFill&&path.closed&&(path.flags&1)&&path.vertices?.length>=3&&straight){
-      const fillPoints=path.vertices.map(point=>transformOcsPoint([point.x,point.y,elevation],normal));
-      add(entity,g,{kind:"fill",pts:fillPoints.flatMap(point=>[point[0]*scale,point[1]*scale]),elevation:elevation*scale,hatchFillCandidate:true,
-       hatchName:g.name,hatchPathIndex:pathIndex,hatchPathFlags:path.flags,
-       boundaryHandles:(entity.boundaryHandles||[]).map(handle=>String(handle.value)),ocsTransformed:!isWorldZNormal(normal)});
-      hatchFillCandidates++;
+     if(g.solidFill&&path.closed&&(path.flags&1)&&path.vertices?.length>=3&&bulges.length===path.vertices.length){
+      // Keep external solid-fill contours even when one or more edges are bulged.
+      // The room engine later decides whether the contour is a plausible wall band.
+      const fillCurve=tessellateOcsPolyline({vertices:path.vertices,bulges,closed:true,extrusion:normal,elevation},{maxSegments:20000});
+      if(fillCurve.closed&&fillCurve.points.length>=3){
+       const fillPoints=[...fillCurve.points];
+       const first=fillPoints[0],last=fillPoints[fillPoints.length-1];
+       if(fillPoints.length>3&&Math.hypot(first[0]-last[0],first[1]-last[1])<=1e-8)fillPoints.pop();
+       add(entity,g,{kind:"fill",pts:fillPoints.flatMap(point=>[point[0]*scale,point[1]*scale]),elevation:elevation*scale,hatchFillCandidate:true,
+        hatchName:g.name,hatchPathIndex:pathIndex,hatchPathFlags:path.flags,
+        hatchCurveApproximation:bulges.some(value=>Math.abs(value)>1e-10)?"bulge":null,
+        boundaryHandles:(entity.boundaryHandles||[]).map(handle=>String(handle.value)),ocsTransformed:!isWorldZNormal(normal)});
+       hatchFillCandidates++;
+      }
      }
      if(!isWorldZNormal(normal)){
       const curve=tessellateOcsPolyline({vertices:path.vertices,bulges,closed:path.closed,extrusion:normal,elevation});

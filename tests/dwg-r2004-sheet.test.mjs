@@ -162,7 +162,7 @@ test("renders MLINESTYLE-derived parallel wall boundary lines",()=>{
  assert.equal(drawing.meta.info.mlineBoundarySegments,2);
 });
 
-test("exposes only closed straight external solid HATCH paths as wall-fill candidates",()=>{
+test("exposes closed external solid HATCH paths including bulged arcs as wall-fill candidates",()=>{
  const drawing=createR2004DwgDrawing({units:{known:true,code:4,name:"millimeters",scaleToMm:1},entities:[
   entity("A-WALL",280n,{kind:"hatch",name:"SOLID",solidFill:true,elevation:0,paths:[
    {kind:"polyline",flags:3,closed:true,vertices:[{x:0,y:0},{x:1000,y:0},{x:1000,y:100},{x:0,y:100}],bulges:[0,0,0,0]},
@@ -171,12 +171,15 @@ test("exposes only closed straight external solid HATCH paths as wall-fill candi
   ]},"H1")
  ],layers:[]});
  const items=drawing.sheets[0].items,fill=items.filter(item=>item.kind==="fill");
- assert.equal(fill.length,1);assert.equal(fill[0].hatchFillCandidate,true);
+ assert.equal(fill.length,2);
+ assert.equal(fill[0].hatchFillCandidate,true);
  assert.equal(fill[0].hatchPathFlags,3);assert.deepEqual(fill[0].pts,[0,0,1000,0,1000,100,0,100]);
- assert.equal(drawing.meta.info.hatchFillCandidates,1);
+ assert.equal(fill[1].hatchPathFlags,3);
+ assert.equal(fill[1].hatchCurveApproximation,"bulge");
+ assert.ok(fill[1].pts.length>8);
+ assert.equal(drawing.meta.info.hatchFillCandidates,2);
  assert.ok(drawing.meta.warnings.some(w=>w.includes("細長さを判定")));
 });
-
 test("DWG capability warning reflects decoded entity families without claiming full rendering",()=>{
  const drawing=createR2004DwgDrawing({units:{known:true,code:4,name:"millimeters",scaleToMm:1},entities:[
   entity("A-WALL",290n,{kind:"line",pts:[{x:0,y:0,z:0},{x:100,y:0,z:0}]})
