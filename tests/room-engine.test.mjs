@@ -649,3 +649,25 @@ test("ordinary room text containing a number does not suppress real partitions",
  const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"壁"},{name:"文字"}],selectedLayers:[]});
  assert.equal(result.rooms.length,2);
 });
+
+test("JWW dimension extension lines are filtered only when paired at both ends",()=>{
+ const items=[
+  line("壁",100,100,900,100),line("壁",900,100,900,900),line("壁",900,900,100,900),line("壁",100,900,100,100),
+  line("壁",200,200,800,200),line("壁",200,100,200,200),line("壁",800,100,800,200),
+  {kind:"text",layer:"文字",x:480,y:210,size:20,text:"6000",rot:0}
+ ];
+ const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"壁"},{name:"文字"}],selectedLayers:[]});
+ assert.equal(result.rooms.length,1);
+ assert.equal(result.diagnostics.skippedDimensionSegments,3);
+});
+
+test("a lone perpendicular wall meeting a dimension endpoint is not discarded",()=>{
+ const items=[
+  line("壁",100,100,900,100),line("壁",900,100,900,900),line("壁",900,900,100,900),line("壁",100,900,100,100),
+  line("壁",200,200,800,200),line("壁",200,100,200,200),
+  line("壁",800,200,800,800),
+  {kind:"text",layer:"文字",x:480,y:210,size:20,text:"6000",rot:0}
+ ];
+ const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"壁"},{name:"文字"}],selectedLayers:[]});
+ assert.ok(result.diagnostics.skippedDimensionSegments<=2);
+});
