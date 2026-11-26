@@ -9,11 +9,12 @@ function rolesOf(item){
   .filter(value=>value!=null).map(value=>String(value).trim().toLowerCase().replace(/[\s_]+/g,"-"))
   .filter(role=>role&&role!=="unclassified"&&role!=="unknown");
 }
-export function isNonBoundarySemanticItem(item){
+export function isNonBoundarySemanticItem(item,{allowBlockInstance=false}={}){
  const roles=rolesOf(item);
  // An explicitly classified wall/partition wins over generic block ancestry.
  // Otherwise symbol blocks must not become room boundaries just because their
  // expanded contents happen to contain closed geometry.
  if(roles.some(role=>["wall","partition","boundary","structural"].includes(role)))return false;
- return roles.some(role=>NON_BOUNDARY_ROLE_PREFIXES.some(prefix=>role===prefix||role.startsWith(prefix+".")||role.startsWith(prefix+"-")));
+ const checkedRoles=allowBlockInstance?roles.filter(role=>!(role==="block-instance"||role.startsWith("block-instance.")||role.startsWith("block-instance-"))):roles;
+ return checkedRoles.some(role=>NON_BOUNDARY_ROLE_PREFIXES.some(prefix=>role===prefix||role.startsWith(prefix+".")||role.startsWith(prefix+"-")));
 }
