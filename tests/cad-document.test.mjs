@@ -377,3 +377,14 @@ test("explicit source entity type takes precedence over its flattened geometry k
  assert.equal(doc.sheets[0].entities[0].source.type,"sunpou");
  assert.equal(doc.sheets[0].entities[0].semantic.role,"dimension");
 });
+
+
+test("preserves variable width metadata on expanded DWG arc segments",()=>{
+ const doc=createCadDocument({items:[
+  {kind:"arc",cx:50,cy:50,r:25,a0:0,a1:Math.PI,widthStart:8,widthEnd:12,widthSource:"vertex",widthUnit:"mm"}
+ ]},{sourceFormat:"DWG"});
+ const geometry=doc.sheets[0].entities[0].geometry;
+ assert.deepEqual(geometry.widths,{start:8,end:12,unit:"mm",source:"vertex"});
+ assert.deepEqual(geometry.center,{x:50,y:50});
+ assert.equal(geometry.radius,25);
+});
