@@ -319,7 +319,10 @@ function traceItems(items, names, hidden, W, H, nx, ny, cw, ch) {
         // Both endpoints must point into the same gap, face each other,
         // and lie on the same projected wall axis.
         if(a.ux*ux+a.uy*uy>-.96||b.ux*ux+b.uy*uy<.96)continue;
-        if(Math.abs(a.ux*uy-a.uy*ux)*dist>35||Math.abs(b.ux*uy-b.uy*ux)*dist>35)continue;
+        // Permit modest perpendicular drafting offsets on angled partition fragments.
+         // Mutual-nearest matching and opposing directions keep this local; the
+         // 50 mm ceiling avoids turning ordinary nearby parallel walls into joins.
+         if(Math.abs(a.ux*uy-a.uy*ux)*dist>50||Math.abs(b.ux*uy-b.uy*ux)*dist>50)continue;
         const score=dist;
         if(score<bestScore){bestScore=score;bestIndex=j;}
       }
