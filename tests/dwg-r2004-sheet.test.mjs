@@ -297,3 +297,36 @@ test("skips invalid zero-normal OCS entities without aborting valid DWG items",(
  assert.equal(drawing.sheets[0].items.length,1);
  assert.equal(drawing.meta.info.unsupported,1);
 });
+
+test("transforms HATCH polyline arc ellipse and spline boundaries from OCS",()=>{
+ const normal=[0,Math.SQRT1_2,Math.SQRT1_2];
+ const drawing=createR2004DwgDrawing({units:{known:true,code:4,name:"millimeters",scaleToMm:1},entities:[
+  entity("A-HATCH",340n,{kind:"hatch",name:"TILTED",solidFill:true,elevation:5,extrusion:normal,paths:[
+   {kind:"polyline",flags:3,closed:true,vertices:[{x:0,y:0},{x:100,y:0},{x:100,y:100},{x:0,y:100}],bulges:[0,0,0,0]},
+   {kind:"edges",flags:1,edges:[
+    {kind:"line",start:{x:120,y:0},end:{x:140,y:0}},
+    {kind:"arc",center:{x:160,y:0},radius:20,startAngle:0,endAngle:Math.PI/2,counterClockwise:true},
+    {kind:"ellipse",center:{x:220,y:0},majorAxis:{x:30,y:0},minorMajorRatio:0.5,startAngle:0,endAngle:Math.PI*2,counterClockwise:true},
+    {kind:"spline",degree:2,rational:false,knots:[0,0,0,1,1,1],controlPoints:[{x:280,y:0},{x:300,y:50},{x:320,y:0}]}
+   ]}
+  ]},"TILTED-HATCH")
+ ],layers:[]});
+ const items=drawing.sheets[0].items,fill=items.find(item=>item.hatchFillCandidate);
+ assert.ok(fill);assert.equal(fill.ocsTransformed,true);
+ assert.ok(items.some(item=>item.hatchCurveApproximation==="arc"&&item.ocsTransformed));
+ assert.ok(items.some(item=>item.hatchCurveApproximation==="ellipse"&&item.ocsTransformed));
+ assert.ok(items.some(item=>item.hatchCurveApproximation==="spline"&&item.ocsTransformed));
+ assert.ok(items.filter(item=>item.hatchBoundary).length>100);
+ assert.equal(drawing.meta.info.hatchBoundarySegments,items.filter(item=>item.hatchBoundary).length);
+ assert.equal(drawing.meta.info.unsupportedHatchEdges,0);
+});
+test("skips HATCH paths with invalid extrusion normals while keeping other geometry",()=>{
+ const drawing=createR2004DwgDrawing({units:{known:true,code:4,name:"millimeters",scaleToMm:1},entities:[
+  entity("A-HATCH",341n,{kind:"hatch",name:"BAD",solidFill:false,elevation:0,extrusion:[0,0,0],paths:[
+   {kind:"polyline",flags:2,closed:true,vertices:[{x:0,y:0},{x:10,y:0},{x:10,y:10}],bulges:[0,0,0]}
+  ]},"BAD-HATCH"),
+  entity("A-WALL",342n,{kind:"line",pts:[0,0,100,0]})
+ ],layers:[]});
+ assert.equal(drawing.sheets[0].items.length,1);
+ assert.equal(drawing.meta.info.unsupported,1);
+});

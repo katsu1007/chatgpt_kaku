@@ -136,43 +136,55 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
    textEntities++;
   }
   if(g.kind==="hatch"){
+   const normal=g.extrusion||[0,0,1],elevation=g.elevation||0,ocsValid=isValidOcsNormal(normal);
    for(let pathIndex=0;pathIndex<(g.paths||[]).length;pathIndex++){
     const path=g.paths[pathIndex],meta={hatchBoundary:true,hatchName:g.name,hatchSolidFill:g.solidFill,hatchPatternType:g.patternType,hatchPathIndex:pathIndex,hatchPathFlags:path.flags,boundaryHandles:(entity.boundaryHandles||[]).map(h=>String(h.value))};
+    if(!ocsValid){unsupportedHatchEdges++;continue;}
     if(path.kind==="polyline"){
      const bulges=path.bulges||path.vertices?.map(()=>0)||[];
-     // A solid HATCH's closed, straight-edged external boundary can be a
-     // useful wall-band candidate. Room extraction still applies its existing
-     // elongated/thin-fill test; hatch outlines themselves remain excluded.
-     if(g.solidFill&&path.closed&&(path.flags&1)&&path.vertices?.length>=3&&
-       bulges.length===path.vertices.length&&bulges.every(value=>Math.abs(value)<1e-10)){
-      const points=path.vertices.flatMap(point=>[point.x*scale,point.y*scale]);
-      add(entity,g,{kind:"fill",pts:points,elevation:(g.elevation||0)*scale,hatchFillCandidate:true,
+     const straight=bulges.length===path.vertices?.length&&bulges.every(value=>Math.abs(value)<1e-10);
+     if(g.solidFill&&path.closed&&(path.flags&1)&&path.vertices?.length>=3&&straight){
+      const fillPoints=path.vertices.map(point=>transformOcsPoint([point.x,point.y,elevation],normal));
+      add(entity,g,{kind:"fill",pts:fillPoints.flatMap(point=>[point[0]*scale,point[1]*scale]),elevation:elevation*scale,hatchFillCandidate:true,
        hatchName:g.name,hatchPathIndex:pathIndex,hatchPathFlags:path.flags,
-       boundaryHandles:(entity.boundaryHandles||[]).map(handle=>String(handle.value))});
+       boundaryHandles:(entity.boundaryHandles||[]).map(handle=>String(handle.value)),ocsTransformed:!isWorldZNormal(normal)});
       hatchFillCandidates++;
      }
-     const segments=polylineToSheetItems({kind:"polyline",vertices:path.vertices,bulges,closed:path.closed},{layer:entity.layerName,handle:entity.handleHex,sourceFormat:sourceFormat});
-     for(const segment of segments){
-      if(segment.kind==="line")add(entity,g,{...segment,...meta,pts:segment.pts.map(v=>v*scale),z0:(g.elevation||0)*scale,z1:(g.elevation||0)*scale});
-      else add(entity,g,{...segment,...meta,cx:segment.cx*scale,cy:segment.cy*scale,r:segment.r*scale});
-      hatchSegments++;
+     if(!isWorldZNormal(normal)){
+      const curve=tessellateOcsPolyline({vertices:path.vertices,bulges,closed:path.closed,extrusion:normal,elevation});
+      const count=addPointChain(entity,g,curve.points,curve.closed,{...meta,ocsTransformed:true,hatchBoundary:true});
+      hatchSegments+=count;
+     }else{
+      const segments=polylineToSheetItems({kind:"polyline",vertices:path.vertices,bulges,closed:path.closed},{layer:entity.layerName,handle:entity.handleHex,sourceFormat:sourceFormat});
+      for(const segment of segments){
+       if(segment.kind==="line")add(entity,g,{...segment,...meta,pts:segment.pts.map(v=>v*scale),z0:elevation*scale,z1:elevation*scale});
+       else add(entity,g,{...segment,...meta,cx:segment.cx*scale,cy:segment.cy*scale,r:segment.r*scale});
+       hatchSegments++;
+      }
      }
     }else{
      for(const edge of path.edges||[]){
       if(edge.kind==="line"){
-       add(entity,g,{kind:"line",...meta,pts:[edge.start.x*scale,edge.start.y*scale,edge.end.x*scale,edge.end.y*scale],z0:(g.elevation||0)*scale,z1:(g.elevation||0)*scale});hatchSegments++;
+       const a=transformOcsPoint([edge.start.x,edge.start.y,elevation],normal),b=transformOcsPoint([edge.end.x,edge.end.y,elevation],normal);
+       add(entity,g,{kind:"line",...meta,pts:[a[0]*scale,a[1]*scale,b[0]*scale,b[1]*scale],z0:a[2]*scale,z1:b[2]*scale,ocsTransformed:!isWorldZNormal(normal)});hatchSegments++;
       }else if(edge.kind==="arc"){
        let a0=edge.startAngle,a1=edge.endAngle;
        if(edge.counterClockwise&&a1<a0)a1+=Math.PI*2;
        if(!edge.counterClockwise&&a1>a0)a1-=Math.PI*2;
-       add(entity,g,{kind:"arc",...meta,cx:edge.center.x*scale,cy:edge.center.y*scale,r:edge.radius*scale,a0,a1});hatchSegments++;
+       if(!isWorldZNormal(normal)){
+        const curve=tessellateOcsArc({center:edge.center,radius:edge.radius,startAngle:a0,endAngle:a1,normal});
+        hatchSegments+=addPointChain(entity,g,curve.points,curve.closed,{...meta,ocsTransformed:true,hatchCurveApproximation:"arc"});
+       }else{
+        add(entity,g,{kind:"arc",...meta,cx:edge.center.x*scale,cy:edge.center.y*scale,r:edge.radius*scale,a0,a1});hatchSegments++;
+       }
       }else if(edge.kind==="ellipse"||edge.kind==="spline"){
        const points=edge.kind==="ellipse"?sampleHatchEllipse(edge):sampleHatchSpline(edge);
        if(!points||points.length<2){unsupportedHatchEdges++;continue;}
-       for(let pointIndex=0;pointIndex+1<points.length;pointIndex++){
-        const a=points[pointIndex],b=points[pointIndex+1];
-        add(entity,g,{kind:"line",...meta,pts:[a.x*scale,a.y*scale,b.x*scale,b.y*scale],
-         z0:(g.elevation||0)*scale,z1:(g.elevation||0)*scale,
+       const wcsPoints=points.map(point=>transformOcsPoint([point.x,point.y,elevation],normal));
+       for(let pointIndex=0;pointIndex+1<wcsPoints.length;pointIndex++){
+        const a=wcsPoints[pointIndex],b=wcsPoints[pointIndex+1];
+        add(entity,g,{kind:"line",...meta,pts:[a[0]*scale,a[1]*scale,b[0]*scale,b[1]*scale],
+         z0:a[2]*scale,z1:b[2]*scale,ocsTransformed:!isWorldZNormal(normal),
          hatchCurveApproximation:edge.kind,hatchEdgeIndex:pointIndex});
         hatchSegments++;
        }
@@ -254,5 +266,5 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
  if(mlineEntities)warnings.push("MLINEはMLINESTYLEのオフセットから境界線を生成しました。");
  if(unsupportedHatchEdges)warnings.push("近似描画できないHATCH曲線境界："+unsupportedHatchEdges+"件");
  const sheet={name:fileName,items:mapped,size:{w:Math.max(1,maxX-minX),h:Math.max(1,maxY-minY)},origin,nativeOrigin:{x:minX/scale,y:minY/scale},warnings,coordinateSpace:units.known?"sheet-mm":"dwg-native"};
- return {kind:"2d",sheets:[sheet],layers,meta:{format:"DWG",label:"DWG "+version+"（独自読込）",units:units.known?"mm":"unknown",coordinateSpace:units.known?"sheet-mm":"dwg-native",unitInfo:units,info:{items:mapped.length,figures:convertedEntities,polylines:polylineEntities,hatches:hatchEntities,hatchBoundarySegments:hatchSegments,hatchFillCandidates,textEntities,dimensionEntities,attributeEntities,ellipseEntities,splineEntities,curveSegments,unsupportedCurves,mlineEntities,mlineBoundarySegments,codePage:result?.codePage??null,textEncoding:result?.textEncoding??"windows-1252",version,layers:layers.length,units:units.name,scaleToMm:scale,headerWarning:result?.headerWarning||null,unsupported,skippedObjects:result?.diagnostics?.skippedObjectCount??0},warnings}};
+ return {kind:"2d",sheets:[sheet],layers,meta:{format:"DWG",label:"DWG "+version+"（独自読込）",units:units.known?"mm":"unknown",coordinateSpace:units.known?"sheet-mm":"dwg-native",unitInfo:units,info:{items:mapped.length,figures:convertedEntities,polylines:polylineEntities,hatches:hatchEntities,hatchBoundarySegments:hatchSegments,hatchFillCandidates,textEntities,dimensionEntities,attributeEntities,ellipseEntities,splineEntities,curveSegments,unsupportedCurves,unsupportedHatchEdges,mlineEntities,mlineBoundarySegments,codePage:result?.codePage??null,textEncoding:result?.textEncoding??"windows-1252",version,layers:layers.length,units:units.name,scaleToMm:scale,headerWarning:result?.headerWarning||null,unsupported,skippedObjects:result?.diagnostics?.skippedObjectCount??0},warnings}};
 }
