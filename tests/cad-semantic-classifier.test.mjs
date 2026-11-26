@@ -40,3 +40,11 @@ test("explicit wall semantics override generic block ancestry",()=>{
  assert.equal(isNonBoundarySemanticItem({semanticRole:"wall",semantic:{role:"block-instance"},blockInstance:true}),false);
  assert.equal(isNonBoundarySemanticItem({semanticRole:"partition",blockInstance:true}),false);
 });
+
+
+test("allows generic block ancestry on explicitly selected wall layers",()=>{
+ assert.equal(isNonBoundarySemanticItem({semanticRole:"block-instance"},{allowBlockInstance:true}),false);
+ assert.equal(isNonBoundarySemanticItem({semanticRole:"block-instance",semanticRole2:"fixture"},{allowBlockInstance:true}),false);
+ assert.equal(isNonBoundarySemanticItem({semanticRole:"fixture",semantic:{role:"block-instance"}},{allowBlockInstance:true}),true);
+ assert.equal(isNonBoundarySemanticItem({semanticRole:"block-instance"}),true);
+});
