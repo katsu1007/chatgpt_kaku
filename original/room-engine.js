@@ -495,39 +495,41 @@ function furnitureHaloEvidence(region,items,wallNames,hidden,cw,ch){
     const x=Number(it.x??it.position?.x),y=Number(it.y??it.position?.y);
     if(labelPattern.test(value)&&Number.isFinite(x)&&Number.isFinite(y)&&x>=minX&&x<=maxX&&y>=minY&&y<=maxY)return false;
   }
-  const sides=new Set(),centers=new Set();
+  // Furniture can be drawn on the very same layer as walls. Look for dense,
+  // repeated short strokes just outside a small closed candidate, rather than
+  // trusting the layer name. Long architectural wall runs do not count.
+  const sideCounts={left:0,right:0,top:0,bottom:0},centers=new Set();
   for(const it of items||[]){
     const layer=String(it?.layer??"");
-    if(!layer||wallNames.has(layer)||hidden.has(layer))continue;
+    if(!layer||hidden.has(layer))continue;
     if(/寸法|注記|文字|annotation|dimension|leader|\bdim\b/i.test(layer))continue;
     const kind=String(it?.kind??it?.type??"").toLowerCase();
-    if(!["line","polyline","arc","circle","fill","solid"].includes(kind))continue;
-    let xs=[],ys=[];
+    if(!["line","polyline"].includes(kind))continue;
     const raw=it.pts??it.points??it.vertices;
-    if(Array.isArray(raw)){
-      if(raw.length&&typeof raw[0]==="object"){
-        for(const p of raw){if(Number.isFinite(p?.x)&&Number.isFinite(p?.y)){xs.push(p.x);ys.push(p.y);}}
-      }else{
-        for(let i=0;i+1<raw.length;i+=2){if(Number.isFinite(raw[i])&&Number.isFinite(raw[i+1])){xs.push(raw[i]);ys.push(raw[i+1]);}}
-      }
+    if(!Array.isArray(raw)||raw.length<4)continue;
+    const objectPoints=[];
+    if(raw.length&&typeof raw[0]==="object"){
+      for(const p of raw){if(Number.isFinite(p?.x)&&Number.isFinite(p?.y))objectPoints.push([p.x,p.y]);}
+    }else{
+      for(let i=0;i+1<raw.length;i+=2){if(Number.isFinite(raw[i])&&Number.isFinite(raw[i+1]))objectPoints.push([raw[i],raw[i+1]]);}
     }
-    if(!xs.length&&["arc","circle"].includes(kind)){
-      const center=it.center??it.centre;
-      const x=Number(it.cx??it.x??center?.[0]??center?.x),y=Number(it.cy??it.y??center?.[1]??center?.y),r=Number(it.r??it.radius);
-      if(Number.isFinite(x)&&Number.isFinite(y)&&Number.isFinite(r)){xs=[x-r,x+r];ys=[y-r,y+r];}
-    }
-    if(!xs.length)continue;
-    const x=(Math.min(...xs)+Math.max(...xs))/2,y=(Math.min(...ys)+Math.max(...ys))/2;
-    const vertical=y>=minY-300&&y<=maxY+300,horizontal=x>=minX-300&&x<=maxX+300;
-    if(x<minX&&minX-x<=500&&vertical)sides.add("left");
-    else if(x>maxX&&x-maxX<=500&&vertical)sides.add("right");
-    if(y<minY&&minY-y<=500&&horizontal)sides.add("bottom");
-    else if(y>maxY&&y-maxY<=500&&horizontal)sides.add("top");
-    if((x<minX&&minX-x<=500&&vertical)||(x>maxX&&x-maxX<=500&&vertical)||(y<minY&&minY-y<=500&&horizontal)||(y>maxY&&y-maxY<=500&&horizontal)){
-      centers.add(Math.round(x/250)+":"+Math.round(y/250));
+    for(let i=0;i+1<objectPoints.length;i++){
+      const [x1,y1]=objectPoints[i],[x2,y2]=objectPoints[i+1],length=Math.hypot(x2-x1,y2-y1);
+      if(length<20||length>500)continue;
+      const x=(x1+x2)/2,y=(y1+y2)/2;
+      const vertical=y>=minY-300&&y<=maxY+300,horizontal=x>=minX-300&&x<=maxX+300;
+      let side=null;
+      if(x<minX&&minX-x<=500&&vertical)side="left";
+      else if(x>maxX&&x-maxX<=500&&vertical)side="right";
+      else if(y<minY&&minY-y<=500&&horizontal)side="bottom";
+      else if(y>maxY&&y-maxY<=500&&horizontal)side="top";
+      if(side){sideCounts[side]++;centers.add(Math.round(x/100)+":"+Math.round(y/100));}
     }
   }
-  return centers.size>=4&&((sides.has("left")&&sides.has("right"))||(sides.has("top")&&sides.has("bottom")));
+  const values=Object.values(sideCounts).sort((a,b)=>b-a);
+  const opposite=(sideCounts.left>=8&&sideCounts.right>=8)||(sideCounts.top>=8&&sideCounts.bottom>=8);
+  const densePair=values[0]>=20&&values[1]>=8&&values.reduce((sum,value)=>sum+value,0)>=32;
+  return centers.size>=8&&(opposite||densePair);
 }
 function filterFurnitureIslands(regions,items,wallNames,hidden,cw,ch){
   const filteredKeys=[];
