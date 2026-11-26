@@ -119,10 +119,16 @@ export function createR2004DwgDrawing(result,{fileName="drawing.dwg"}={}){
    attributeEntities++;
   }
   if(g.kind==="dimension"){
-   const x=g.textMidpoint[0]*scale,y=g.textMidpoint[1]*scale,measurement=Number.isFinite(g.actualMeasurement)?Number(g.actualMeasurement.toFixed(3)).toString():"";
+   const normal=g.extrusion||[0,0,1],textPoint=transformOcsPoint([g.textMidpoint[0],g.textMidpoint[1],g.elevation||0],normal),x=textPoint[0]*scale,y=textPoint[1]*scale;
+   const measurement=Number.isFinite(g.actualMeasurement)?Number(g.actualMeasurement.toFixed(3)).toString():"";
    const rawText=String(g.userText||"").trim(),label=rawText&&rawText!=="<>"?rawText.replace(/<>/g,measurement):measurement;
+   const points=Object.fromEntries(["point10","point13","point14","point15","point16"].map(key=>{
+    if(!Array.isArray(g[key]))return [key,g[key]];
+    const value=key==="point16"?transformOcsPoint([g[key][0],g[key][1],g[key][2]??g.elevation??0],normal):g[key];
+    return [key,value.map(v=>v*scale)];
+   }));
    add(entity,g,{kind:"dimension",x,y,dimensionType:g.dimensionName,actualMeasurement:g.actualMeasurement*scale,userText:g.userText,textRotation:g.textRotation,flags1:g.flags1,flags2:g.flags2,
-    points:Object.fromEntries(["point10","point13","point14","point15","point16"].map(key=>[key,Array.isArray(g[key])?g[key].map(value=>value*scale):g[key]])),suppressMeasurementText:true,dimensionHandles:entity.dimensionHandles?{dimStyle:String(entity.dimensionHandles.dimStyle.value),anonymousBlock:String(entity.dimensionHandles.anonymousBlock.value)}:null});
+    points,suppressMeasurementText:true,ocsTransformed:!isWorldZNormal(normal),dimensionHandles:entity.dimensionHandles?{dimStyle:String(entity.dimensionHandles.dimStyle.value),anonymousBlock:String(entity.dimensionHandles.anonymousBlock.value)}:null});
    if(label)add(entity,g,{kind:"text",x,y,text:label,rotation:g.textRotation,height:null,dimensionText:true,dimensionType:g.dimensionName,actualMeasurement:g.actualMeasurement*scale});
    dimensionEntities++;
   }
