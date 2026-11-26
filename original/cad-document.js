@@ -36,16 +36,20 @@ function sourceSemantics(source, rawType, layerScaleDenominator = null) {
     source?.dimensionBoundary === true || source?.isDimension === true ||
     source?.dimensionEntity === true || source?.base?.dimensionGraphic === true ||
     source?.base?.dimensionLine === true || source?.base?.isDimension === true;
+  const blockFlag = source?.blockInstance === true ||
+    (Array.isArray(source?.blockPath) && source.blockPath.length > 0) ||
+    (Array.isArray(source?.base?.blockPath) && source.base.blockPath.length > 0) ||
+    source?.sourceInsertHandle != null || source?.sourceBlockHandle != null;
   const role = explicitRole != null ? String(explicitRole) :
     (kind === "dimension" || kind === "sunpou" || dimensionFlag ? "dimension" :
-      (kind === "block" || kind === "insert" ? "block-instance" : "unclassified"));
+      (kind === "block" || kind === "insert" || blockFlag ? "block-instance" : "unclassified"));
   const layer = first(source?.layer, source?.layerName, source?.base?.layerName, null);
   const match = String(layer ?? "").match(/^\s*([0-9a-f]+)-([0-9a-f]+)(?:\s|$)/i);
   const groupIndex = first(source?.groupIndex, source?.group, match ? parseInt(match[1], 16) : null);
   const layerIndex = first(source?.layerIndex, match ? parseInt(match[2], 16) : null);
   return {
     role,
-    explicit: explicitRole != null || dimensionFlag || kind === "dimension" || kind === "sunpou" || kind === "block" || kind === "insert",
+    explicit: explicitRole != null || dimensionFlag || blockFlag || kind === "dimension" || kind === "sunpou" || kind === "block" || kind === "insert",
     dimensionGraphic: role === "dimension",
     blockInstance: role === "block-instance",
     groupIndex: Number.isInteger(groupIndex) ? groupIndex : null,
@@ -181,6 +185,11 @@ export function normalizeCadEntity(entity, index, options = {}) {
       layer: layer == null ? null : String(layer),
       layerGroup: layerGroup == null ? null : String(layerGroup),
       blockPath,
+      blockTransform: clone(first(source.blockTransform, source.base?.blockTransform, null)),
+      sourceInsertHandle: first(source.sourceInsertHandle, source.base?.sourceInsertHandle, null) == null ? null : String(first(source.sourceInsertHandle, source.base?.sourceInsertHandle)),
+      sourceBlockHandle: first(source.sourceBlockHandle, source.base?.sourceBlockHandle, null) == null ? null : String(first(source.sourceBlockHandle, source.base?.sourceBlockHandle)),
+      sourceEntityHandle: first(source.sourceEntityHandle, source.base?.sourceEntityHandle, null) == null ? null : String(first(source.sourceEntityHandle, source.base?.sourceEntityHandle)),
+      blockInstanceIndex: Number.isInteger(source.blockInstanceIndex) ? source.blockInstanceIndex : null,
       sourceIndex: semantics.entityIndex,
       groupIndex: semantics.groupIndex,
       layerIndex: semantics.layerIndex,

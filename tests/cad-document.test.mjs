@@ -388,3 +388,29 @@ test("preserves variable width metadata on expanded DWG arc segments",()=>{
  assert.deepEqual(geometry.center,{x:50,y:50});
  assert.equal(geometry.radius,25);
 });
+
+
+test("inherits DWG block ancestry and insert handles as block-instance semantics",()=>{
+ const doc=createCadDocument({items:[
+  {kind:"line",pts:[0,0,100,0],blockPath:["TOILET","STALL"],blockTransform:[1,0,0,1,500,200],sourceInsertHandle:"A1",sourceBlockHandle:"B2",sourceEntityHandle:"C3",blockInstanceIndex:4}
+ ]},{sourceFormat:"DWG"});
+ const entity=doc.sheets[0].entities[0];
+ assert.equal(entity.semantic.role,"block-instance");
+ assert.equal(entity.semantic.blockInstance,true);
+ assert.deepEqual(entity.source.blockPath,["TOILET","STALL"]);
+ assert.deepEqual(entity.source.blockTransform,[1,0,0,1,500,200]);
+ assert.equal(entity.source.sourceInsertHandle,"A1");
+ assert.equal(entity.source.sourceBlockHandle,"B2");
+ assert.equal(entity.source.sourceEntityHandle,"C3");
+ assert.equal(entity.source.blockInstanceIndex,4);
+});
+
+test("explicit wall semantics remain boundary geometry even when nested in a DWG block",()=>{
+ const doc=createCadDocument({items:[
+  {kind:"line",pts:[0,0,100,0],semanticRole:"wall",blockPath:["WALL_ASSEMBLY"],sourceInsertHandle:"A1"}
+ ]},{sourceFormat:"DWG"});
+ const entity=doc.sheets[0].entities[0];
+ assert.equal(entity.semantic.role,"wall");
+ assert.equal(entity.semantic.blockInstance,false);
+ assert.deepEqual(entity.source.blockPath,["WALL_ASSEMBLY"]);
+});
