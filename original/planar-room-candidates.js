@@ -82,7 +82,7 @@ function doorwayBridges(items,allowed,hidden,anchors,stats){
   const ends=[{p:p[0],toward:p[1]},{p:p.at(-1),toward:p.at(-2)}];
   for(const e of ends){
    if((degree.get(coordinateKey(e.p.x,e.p.y))||0)!==1)continue;
-   if(isDimensionStroke(e.p,e.toward,anchors))continue;
+   if(isDimensionSegment(e.p.x,e.p.y,e.toward.x,e.toward.y,anchors))continue;
    const dx=e.toward.x-e.p.x,dy=e.toward.y-e.p.y,len=Math.hypot(dx,dy);if(len>1e-8)endpoints.push({x:e.p.x,y:e.p.y,ux:dx/len,uy:dy/len,source:index});
   }
  });
