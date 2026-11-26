@@ -459,3 +459,16 @@ test("recovers original CAD provenance retained under expanded parser base objec
   assert.deepEqual(entity.source.blockTransform,[1,0,0,1,20,30]);
   assert.equal(entity.semantic.role,"dimension");
 });
+
+
+test("attaches original CAD handle, source format and layer-group provenance to room items",()=>{
+ const input=[{kind:"line",layer:"WALL",pts:[0,0,100,0]}];
+ const normalized=[{source:{format:"JWW",type:"CDataSunpou",handle:"A0F1",layerGroup:"3",layerScaleDenominator:50},semantic:{role:"dimension",dimensionGraphic:true}}];
+ const out=attachCadEntityMetadata(input,normalized)[0];
+ assert.equal(out.sourceFormat,"JWW");
+ assert.equal(out.sourceType,"CDataSunpou");
+ assert.equal(out.sourceHandle,"A0F1");
+ assert.equal(out.sourceLayerGroup,"3");
+ assert.equal(out.semanticRole,"dimension");
+ assert.deepEqual(input[0].sourceHandle,undefined);
+});

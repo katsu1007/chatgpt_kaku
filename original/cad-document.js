@@ -231,6 +231,9 @@ export function attachCadEntityMetadata(items = [], normalizedEntities = []) {
     return {
       ...item,
       sourceType: item?.sourceType ?? source.type ?? null,
+      sourceFormat: item?.sourceFormat ?? source.format ?? null,
+      sourceHandle: item?.sourceHandle ?? source.handle ?? null,
+      sourceLayerGroup: item?.sourceLayerGroup ?? source.layerGroup ?? null,
       semanticRole: role,
       semantic: mergedSemantic,
       dimensionGraphic: item?.dimensionGraphic === true || semantic.dimensionGraphic === true,
