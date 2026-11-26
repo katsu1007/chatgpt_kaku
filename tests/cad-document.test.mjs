@@ -160,3 +160,17 @@ test("does not warn when source semantics are retained", () => {
   ]}, {sourceFormat:"JWW",sourceTypeCounts:{"count.CDataSunpou":1,"count.CDataBlock":1}});
   assert.deepEqual(doc.diagnostics.sourceWarnings,[]);
 });
+
+
+test("inherits semantic role, dimension flags and block ancestry from parser base metadata",()=>{
+  const doc=createCadDocument({items:[
+    {kind:"line",layer:"WALL",pts:[0,0,100,0],base:{semantic:{role:"dimension"},dimensionLine:true,blockPath:["SYMBOLS","DIM"]}},
+    {kind:"line",layer:"WALL",pts:[0,0,0,100],base:{blockName:"TOILET"}}
+  ]});
+  const [dimension,nested]=doc.sheets[0].entities;
+  assert.equal(dimension.semantic.role,"dimension");
+  assert.equal(dimension.semantic.dimensionGraphic,true);
+  assert.deepEqual(dimension.source.blockPath,["SYMBOLS","DIM"]);
+  assert.equal(nested.semantic.role,"unclassified");
+  assert.deepEqual(nested.source.blockPath,["TOILET"]);
+});
