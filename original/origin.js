@@ -1,5 +1,5 @@
 import { extractRoomHierarchy, suggestWallLayers } from "./room-engine.js?v=20261126-scalearea1";
-import { createCadDocument, attachCadEntityMetadata } from "./cad-document.js?v=20261126-model3";
+import { createCadDocument, attachCadEntityMetadata } from "./cad-document.js?v=20261126-model4";
 import { analyzePlanarRoomCandidates } from "./planar-room-candidates.js?v=20261126-face-scale1";
 import { inspectCadFileHeader } from "./cad-format-probe.js?v=20261125-dwg-probe1";
 import { parseR2004DwgHeader } from "./dwg-r2004-container.js?v=20261125-dwg-header2";

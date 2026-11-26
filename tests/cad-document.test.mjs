@@ -282,3 +282,32 @@ test("preserves explicit parser metadata when normalized metadata is absent or w
  assert.equal(out[0].layerScaleDenominator,25);
  assert.deepEqual(out[0].blockPath,["EXISTING"]);
 });
+
+
+test("known JWW dimension and block types override placeholder unclassified roles",()=>{
+ const doc=createCadDocument({items:[
+  {type:"sunpou",semanticRole:"unclassified"},
+  {type:"block",semantic:{role:"unknown"}}
+ ]});
+ assert.equal(doc.sheets[0].entities[0].semantic.role,"dimension");
+ assert.equal(doc.sheets[0].entities[0].semantic.dimensionGraphic,true);
+ assert.equal(doc.sheets[0].entities[1].semantic.role,"block-instance");
+ assert.equal(doc.sheets[0].entities[1].semantic.blockInstance,true);
+});
+
+test("normalized semantic metadata replaces placeholders but keeps explicit parser roles",()=>{
+ const items=[
+  {kind:"line",semanticRole:"unclassified",semantic:{role:"unknown",custom:"keep"}},
+  {kind:"line",semanticRole:"wall"}
+ ];
+ const normalized=[
+  {source:{},semantic:{role:"dimension",dimensionGraphic:true}},
+  {source:{},semantic:{role:"block-instance",blockInstance:true}}
+ ];
+ const out=attachCadEntityMetadata(items,normalized);
+ assert.equal(out[0].semanticRole,"dimension");
+ assert.equal(out[0].dimensionGraphic,true);
+ assert.equal(out[0].semantic.custom,"keep");
+ assert.equal(out[1].semanticRole,"wall");
+ assert.equal(out[1].blockInstance,true);
+});
