@@ -1229,7 +1229,13 @@ test("same-layer short furniture outline on wall layer is not promoted to a room
  const items=[
   line("壁",100,100,1900,100),line("壁",1900,100,1900,1900),
   line("壁",1900,1900,100,1900),line("壁",100,1900,100,100),
-  {kind:"polyline",layer:"壁",pts:[700,700,800,700,900,700,1000,700,1100,700,1200,700,1300,700,1300,800,1300,900,1300,1000,1300,1100,1300,1200,1300,1300,1200,1300,1100,1300,1000,1300,900,1300,800,1300,700,1200,1300,1100,1300,1000,1300,900,1300,800,1300,700,1200,700,1100,700,1000,700,900,700,800,700,700]}
+  // A closed furniture outline made of many short segments on the same wall layer.
+  {kind:"polyline",layer:"壁",closed:true,pts:[
+   ...Array.from({length:7},(_,i)=>[700+i*100,700]),
+   ...Array.from({length:7},(_,i)=>[1300,700+i*100]).slice(1),
+   ...Array.from({length:7},(_,i)=>[1300-i*100,1300]).slice(1),
+   ...Array.from({length:7},(_,i)=>[700,1300-i*100]).slice(1)
+  ].flat()}
  ];
  const result=extractRoomHierarchy({items,width:2000,height:2000,layers:[{name:"壁"}],selectedLayers:["壁"]});
  assert.equal(result.parents.length,1);
