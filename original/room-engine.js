@@ -597,9 +597,9 @@ function filterFurnitureIslands(regions,items,wallNames,hidden,cw,ch,wall,region
     const areaM2=region.area*cw*ch/1e6;
     if(areaM2<.05||areaM2>8)return true;
     if(regionHasRoomLabel(region,items,cw,ch)||regionHasDoorOrFixtureEvidence(region,items,wallNames,hidden,cw,ch))return true;
-    // A partition component shared by several adjacent rooms is stronger
-    // evidence than an isolated furniture loop.
-    if((sharedRegionCounts.get(region.id)||0)>=3)return true;
+    // Furniture evidence must be evaluated before shared-wall topology:
+    // a table/chair cluster can touch or share a raster wall component and
+    // otherwise be incorrectly promoted to a room by the shared-count shortcut.
     const minX=region.minx*cw,maxX=(region.maxx+1)*cw,minY=region.miny*ch,maxY=(region.maxy+1)*ch;
     const nearFurnitureSeed=areaM2<.3&&furnitureSeeds.some(other=>{
       if(other===region)return false;
@@ -609,6 +609,9 @@ function filterFurnitureIslands(regions,items,wallNames,hidden,cw,ch,wall,region
     });
     const furnitureHalo=furnitureSeeds.includes(region);
     if(furnitureHalo||nearFurnitureSeed){filteredKeys.push(key);return false;}
+    // A partition component shared by several adjacent regions is useful
+    // evidence only after furniture-cluster rejection has been applied.
+    if((sharedRegionCounts.get(region.id)||0)>=3)return true;
     const wallNetworkMeasure=measures.get(region.id)||0;
     if(largestMeasure>0&&wallNetworkMeasure>=largestMeasure*.6)return true;
     filteredKeys.push(key);return false;
