@@ -387,7 +387,7 @@ function chooseRegions(regions,N,maxRatio=.82,nx= Math.round(Math.sqrt(N)),ny=Ma
   return {inner,minCells,minSpanCells,kept};
 }
 function floorPolygonOf(item){
- const role=String(item?.semanticRole??item?.semantic?.role??item?.role??"").trim().toLowerCase().replace(/[\s_]+/g,"-");
+ const role=String(item?.semanticRole??item?.semantic?.role??item?.role??item?.sourceGeometry?.semanticRole??item?.sourceGeometry?.semantic?.role??"").trim().toLowerCase().replace(/[\s_]+/g,"-");
  const explicit=item?.floorFill===true||role==="floor"||role.startsWith("floor-")||role.startsWith("floor.");
  if(!explicit)return null;
  const kind=String(item?.kind??item?.type??"").toLowerCase();
@@ -444,7 +444,8 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
   let selected=requested
     ?(()=>{const exterior=[...new Set([...requested,...classified.all])].filter(name=>OUTER_WALL_NAME.test(String(name)));return new Set(exterior.length?exterior:requested);})()
     :new Set(classified.parent);
-  if(!allNames.size)throw new Error("壁レイヤーを自動判定できません。誤った区画を表示しないため自動色付けを停止しました。壁レイヤーを明示選択してください。");
+  const hasFloorFills=items.some(item=>floorPolygonOf(item));
+  if(!allNames.size&&!hasFloorFills)throw new Error("壁レイヤーを自動判定できません。誤った区画を表示しないため自動色付けを停止しました。壁レイヤーを明示選択してください。");
   let fallbackUsed=false;
   const supplemental=new Set([...allNames].filter(n=>!selected.has(n)));
   const aspect=width/height;
@@ -481,9 +482,27 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
     parents=chooseRegions(parentFlood.regions,N,.995,nx,ny,Math.min(cw,ch));
     children=chooseRegions(childFlood.regions,N,.995,nx,ny,Math.min(cw,ch));
   }
+  const floorMask=createFloorSpaceMask(items,childTrace.wall,nx,ny,cw,ch,hidden);
+  let floorFlood=null,floorRegions={inner:[],kept:[],minCells:0,minSpanCells:0},floorFillUsed=false;
+  if(floorMask.floorFillCount&&floorMask.floorMaskCells){
+    floorFlood=floodRegions(floorMask.wall,nx,ny);
+    floorRegions=chooseRegions(floorFlood.regions,N,.995,nx,ny,Math.min(cw,ch));
+    if(floorRegions.kept.length){
+      if(!parents.kept.length){
+        parents=floorRegions;parentFlood=floorFlood;
+        children={inner:[],kept:[],minCells:children.minCells,minSpanCells:children.minSpanCells};
+        floorFillUsed=true;
+      }else if(floorRegions.kept.length>children.kept.length){
+        const sameAsParents=floorRegions.kept.length===parents.kept.length&&floorRegions.kept.every(floorRegion=>
+          parents.kept.some(parent=>Math.abs(floorRegion.area-parent.area)<=Math.max(1,parent.area*.05)&&Math.hypot(floorRegion.cx-parent.cx,floorRegion.cy-parent.cy)<=2));
+        if(!sameAsParents){children=floorRegions;childFlood=floorFlood;floorFillUsed=true;}
+      }
+    }
+  }
   const parentRooms=parents.kept.map((r,i)=>({...r,name:"大部屋 "+(i+1),level:1,children:[]}));
   const parentByRegion=new Map(parentRooms.map(p=>[p.id,p]));
-  const scaleLayers=[...allNames].map(name=>({name,scale:(layers||[]).find(layer=>String(layer?.name??"")===String(name))?.scale}));
+  const scaleLayerNames=new Set([...allNames,...(floorFillUsed?floorMask.layers:[])]);
+  const scaleLayers=[...scaleLayerNames].map(name=>({name,scale:(layers||[]).find(layer=>String(layer?.name??"")===String(name))?.scale}));
   const knownScales=scaleLayers.map(entry=>entry.scale).filter(value=>Number.isFinite(value)&&value>0);
   const unknownScaleLayers=scaleLayers.filter(entry=>!(Number.isFinite(entry.scale)&&entry.scale>0)).map(entry=>entry.name);
   const uniqueScales=[...new Set(knownScales.map(value=>Number(value.toPrecision(10))))];
@@ -548,6 +567,6 @@ export function extractRoomHierarchy({items,width,height,layers,selectedLayers,h
     }),
     parents:parentRooms.map(p=>({...p,children:p.children.map(c=>c.name)})),
     grid:{ids,nx,ny,cw,ch},
-    diagnostics:{scaleAssessment,selectedLayers:selected.size,supplementalLayers:supplemental.size,autoMode:classified.mode+(fallbackUsed?" → 全図形レイヤー再判定":""),fallbackUsed,parentLayerNames:[...selected],wallLayerNames:[...allNames],layerInventory,parentRegions:parents.inner.length,childRegions:children.inner.length,parentsKept:parentRooms.length,childrenKept:childRooms.length,unassignedChildren,minParentCells:parents.minCells,minChildCells:children.minCells,minChildSpanCells:children.minSpanCells,minParentSpanCells:parents.minSpanCells,usedItems:childTrace.usedItems,usedSegments:childTrace.usedSegments,skippedHidden:childTrace.skippedHidden,skippedDimensionItems:childTrace.skippedDimensionItems,skippedDimensionSegments:childTrace.skippedDimensionSegments,skippedSemanticItems:childTrace.skippedSemanticItems,skippedNonWallFills:childTrace.skippedNonWallFills,rasterizedCells:childTrace.rasterizedCells,rasterization:"supercover",bridgedDoorGaps:childTrace.bridgedDoorGaps,snappedTJunctions:childTrace.snappedTJunctions,virtualBoothClosures:boothClosures.length,endpointCount:childTrace.endpointCount}
+    diagnostics:{scaleAssessment,floorFillCount:floorMask.floorFillCount,floorMaskCells:floorMask.floorMaskCells,floorRegions:floorRegions.inner.length,floorFillLayers:floorMask.layers,floorFillUsed,selectedLayers:selected.size,supplementalLayers:supplemental.size,autoMode:classified.mode+(fallbackUsed?" → 全図形レイヤー再判定":""),fallbackUsed,parentLayerNames:[...selected],wallLayerNames:[...allNames],layerInventory,parentRegions:parents.inner.length,childRegions:children.inner.length,parentsKept:parentRooms.length,childrenKept:childRooms.length,unassignedChildren,minParentCells:parents.minCells,minChildCells:children.minCells,minChildSpanCells:children.minSpanCells,minParentSpanCells:parents.minSpanCells,usedItems:childTrace.usedItems,usedSegments:childTrace.usedSegments,skippedHidden:childTrace.skippedHidden,skippedDimensionItems:childTrace.skippedDimensionItems,skippedDimensionSegments:childTrace.skippedDimensionSegments,skippedSemanticItems:childTrace.skippedSemanticItems,skippedNonWallFills:childTrace.skippedNonWallFills,rasterizedCells:childTrace.rasterizedCells,rasterization:"supercover",bridgedDoorGaps:childTrace.bridgedDoorGaps,snappedTJunctions:childTrace.snappedTJunctions,virtualBoothClosures:boothClosures.length,endpointCount:childTrace.endpointCount}
   };
 }
