@@ -1123,6 +1123,6 @@ test("furniture strokes on the same wall layer do not create extra rooms",()=>{
  addRect(5400,4100,5800,4500);
  addRect(5400,4700,5800,5100);
  const result=extractRoomHierarchy({items,width:11000,height:11000,layers:[{name:"壁"}],selectedLayers:["壁"]});
- assert.equal(result.rooms.length,1);
+ assert.equal(result.rooms.length,1,JSON.stringify({rooms:result.rooms.map(r=>({area:r.area,minx:r.minx,maxx:r.maxx,miny:r.miny,maxy:r.maxy})),diag:result.diagnostics}));
  assert.equal(result.diagnostics.filteredFurnitureIslands,1);
 });
