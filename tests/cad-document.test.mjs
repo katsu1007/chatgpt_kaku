@@ -525,3 +525,16 @@ test("reports block child layers that were lost before CAD normalization",()=>{
  assert.ok(doc.diagnostics.sourceWarnings.some(w=>w.includes("子図形本来のレイヤー情報を確認できません")));
  assert.equal(doc.diagnostics.blockChildLayerProvenance.missing,1);
 });
+
+
+test("counts block ancestry carried by INSERT handles even without a block path", () => {
+  const doc = createCadDocument({items:[
+    {kind:"line",layer:"外壁",pts:[0,0,100,0],sourceInsertHandle:"I-100",sourceBlockHandle:"B-200"},
+    {kind:"line",layer:"外壁",pts:[0,100,100,100],sourceInsertHandle:"I-101",sourceBlockHandle:"B-201",base:{kind:"line",layer:"間仕切壁",pts:[0,100,100,100]}}
+  ]},{sourceFormat:"JWW"});
+  assert.deepEqual(doc.sheets[0].entities.map(e=>e.source.blockPath),[[],[]]);
+  assert.equal(doc.sheets[0].entities[0].source.layerProvenance,"child-layer-unavailable");
+  assert.equal(doc.sheets[0].entities[1].source.layerProvenance,"base-layer-retained");
+  assert.deepEqual(doc.diagnostics.blockChildLayerProvenance,{retained:1,missing:1});
+  assert.ok(doc.diagnostics.sourceWarnings.some(w=>w.includes("子図形本来のレイヤー情報を確認できません")));
+});
