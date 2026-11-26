@@ -22,7 +22,9 @@ function isNonPlanGroupLayer(name){
 function isDimensionGraphicItem(it){
   const kind=String(it?.kind||it?.type||"").toLowerCase();
   const sourceKind=String(it?.sourceGeometry?.kind||it?.sourceGeometry?.type||"").toLowerCase();
-  return kind==="dimension"||sourceKind==="dimension"||String(it?.semanticRole??it?.semantic?.role??it?.role??"").toLowerCase()==="dimension"||it?.dimensionGraphic===true||it?.dimensionLine===true||it?.dimensionExtension===true||it?.dimensionArrow===true||it?.dimensionBoundary===true||it?.isDimension===true||it?.dimensionEntity===true;
+  const sourceType=String(it?.sourceType||it?.originalType||it?.sourceGeometry?.sourceType||it?.sourceGeometry?.type||"").toLowerCase();
+  const isRawJwwDimension=value=>value==="sunpou"||/(?:^|\\.)cdatasunpou$/i.test(value);
+  return kind==="dimension"||sourceKind==="dimension"||isRawJwwDimension(sourceType)||String(it?.semanticRole??it?.semantic?.role??it?.role??"").toLowerCase()==="dimension"||it?.dimensionGraphic===true||it?.dimensionLine===true||it?.dimensionExtension===true||it?.dimensionArrow===true||it?.dimensionBoundary===true||it?.isDimension===true||it?.dimensionEntity===true;
 }
 // Numeric dimension labels help identify dimension strokes even when they share a wall layer.
 export function suggestWallLayers(layers=[]){

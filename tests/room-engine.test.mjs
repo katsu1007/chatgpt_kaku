@@ -918,3 +918,15 @@ test("nearby parallel wall ends beyond the alignment tolerance are not bridged",
     layers:[{name:"外壁"},{name:"間仕切壁"}],selectedLayers:["外壁"]});
   assert.equal(result.diagnostics.bridgedDoorGaps,0);
 });
+
+
+test("raw JWW Sunpou source identity suppresses dimension strokes before normalized flags are attached",()=>{
+  const items=[
+    line("壁",100,100,900,100),line("壁",900,100,900,900),
+    line("壁",900,900,100,900),line("壁",100,900,100,100),
+    {...line("壁",100,300,900,300),sourceType:"sunpou"}
+  ];
+  const result=extractRoomHierarchy({items,width:1000,height:1000,layers:[{name:"壁"}],selectedLayers:["壁"]});
+  assert.equal(result.rooms.length,1);
+  assert.equal(result.diagnostics.skippedDimensionItems,1);
+});
