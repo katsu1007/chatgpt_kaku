@@ -110,3 +110,15 @@ test("rotates fallback dimension measurement text by its text rotation",()=>{
  const svg=renderNativeDwgSvg(prepared);
  assert.match(svg,/rotate\(-45\)/);
 });
+
+test("renders native angular and radial dimension geometry",()=>{
+ const prepared=prepareNativeDwgSheet({size:{w:200,h:120},items:[
+  {kind:"dimension",layer:"DIM",dimensionType:"angular-3pt",actualMeasurement:Math.PI/2,x:50,y:30,suppressMeasurementText:true,
+   points:{point15:[10,10],point13:[70,10],point14:[10,70],point10:[52,52]}},
+  {kind:"dimension",layer:"DIM",dimensionType:"radius",actualMeasurement:50,x:150,y:30,suppressMeasurementText:true,
+   points:{point10:[120,30],point15:[150,30]}}
+ ]},[{name:"DIM",color:"#222222"}]);
+ const svg=renderNativeDwgSvg(prepared);
+ assert.match(svg,/<polyline points=/);
+ assert.equal((svg.match(/<polygon points=/g)||[]).length,3);
+});
