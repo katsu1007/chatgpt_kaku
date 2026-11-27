@@ -1734,8 +1734,17 @@ function KAKU_setExtractionDiagnostics(enabled){
   if(enabled){
     RG.diag.unit=RG.unit;RG.diag.scale=RG.scale;
     RG.diag.layers=(RG.groups||[]).map(g=>({id:g.key,name:g.layer,segmentCount:g.n,totalLength:g.len,
-      enabled:!!g.on,semanticName:!/^LAYER\\s*\\d+$/i.test(String(g.layer||"")),candidateRole:"unknown",
+      enabled:!!g.on,semanticName:!/^LAYER\s*\d+$/i.test(String(g.layer||"")),candidateRole:"unknown",
       exclusionReason:g.on?null:"SKIP_LAYER"}));
+    RG.diag.lastCompute={activeLayerCount:(RG.groups||[]).filter(g=>g.on).length,
+      selectedSourceSegmentCount:Math.max(0,(RG.used||0)-(RG.vlines||0)),hatchExcluded:RG.nHatch||0,
+      doorExcluded:RG.nDoor||0,syntheticConnectorCount:RG.vlines||0,
+      requestedGapMetres:RG.gap,attemptedGapMetres:RG.gap,unit:RG.unit,scale:RG.scale};
+    RG.diag.faces=(RG.faces||[]).map(x=>({id:x.no,area:x.area,perimeter:x.peri||null,
+      bounds:x.bb?x.bb.slice():null,label:x.name||"",zone:x.zone==null?null:x.zone,provenanceComplete:false}));
+    RG.diag.faceCount=(RG.faces||[]).length;RG.diag.totalArea=RG.total||0;
+    RG.diag.booths={enabled:state.opts.useBooth!==false,matchedLayerCount:(RG.boothGroups||[]).length,
+      estimatedCount:RG.booths||0};
     RG.diag.warnings=["provenance-incomplete","entity-type-counts-unavailable","dimension-entity-count-unavailable"];
   }
   return true;
@@ -1798,7 +1807,7 @@ function rgCompute0(X){
    RG.vlines=vadd;
    if(RG.diagEnabled){RG.diag.lastCompute={activeLayerCount:on.size,selectedSourceSegmentCount:segs.length-vadd,
      hatchExcluded:RG.autoHatch?RG.hatch.size:0,doorExcluded:doors.size,syntheticConnectorCount:vadd,
-     requestedGapMetres:gap,attemptedGapMetres:GW,unit:RG.unit,scale:RG.scale};}
+     requestedGapMetres:gap,attemptedGapMetres:gap,unit:RG.unit,scale:RG.scale};}
   }
   if(!segs.length){RG.faces=[];RG.grid=null;RG.msg="使える線がありません。線の種類のチェックを確認してください。";return}
   let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;segs.forEach(s=>{x0=Math.min(x0,s[0],s[2]);x1=Math.max(x1,s[0],s[2]);y0=Math.min(y0,s[1],s[3]);y1=Math.max(y1,s[1],s[3])});
