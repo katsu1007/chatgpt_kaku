@@ -1720,7 +1720,38 @@ function rgInit(entry){
   RG={segs,arcs:entry.geo.arcs||[],texts:entry.texts,unit,scale,scaleGuess:scale,gap:1.8,zoom:1,autoHatch:true,autoDoor:true,
     groups:Object.values(g).sort((a,b)=>b.len-a.len).map(x=>({...x,on:!SKIP_LAYER.test(x.layer)})),faces:[],msg:""};
   RG.hatch=findHatch(segs);
+  RG.diagEnabled=false;
+  RG.diag={schemaVersion:"kaku-extraction-diagnostics-v1",enabled:false,unit,scale,
+    input:{segmentCount:segs.length,arcCount:(entry.geo.arcs||[]).length,textCount:(entry.texts||[]).length},
+    layers:[],lastCompute:null,faces:[],booths:null,warnings:[]};
   rgBoothSetup();
+}
+function KAKU_setExtractionDiagnostics(enabled){
+  if(!RG)return false;
+  RG.diagEnabled=!!enabled;
+  if(!RG.diag)RG.diag={schemaVersion:"kaku-extraction-diagnostics-v1"};
+  RG.diag.enabled=!!enabled;
+  if(enabled){
+    RG.diag.unit=RG.unit;RG.diag.scale=RG.scale;
+    RG.diag.layers=(RG.groups||[]).map(g=>({id:g.key,name:g.layer,segmentCount:g.n,totalLength:g.len,
+      enabled:!!g.on,semanticName:!/^LAYER\s*\d+$/i.test(String(g.layer||"")),candidateRole:"unknown",
+      exclusionReason:g.on?null:"SKIP_LAYER"}));
+    RG.diag.lastCompute={activeLayerCount:(RG.groups||[]).filter(g=>g.on).length,
+      selectedSourceSegmentCount:Math.max(0,(RG.used||0)-(RG.vlines||0)),hatchExcluded:RG.nHatch||0,
+      doorExcluded:RG.nDoor||0,syntheticConnectorCount:RG.vlines||0,
+      requestedGapMetres:RG.gap,attemptedGapMetres:RG.gap,unit:RG.unit,scale:RG.scale};
+    RG.diag.faces=(RG.faces||[]).map(x=>({id:x.no,area:x.area,perimeter:x.peri||null,
+      bounds:x.bb?x.bb.slice():null,label:x.name||"",zone:x.zone==null?null:x.zone,provenanceComplete:false}));
+    RG.diag.faceCount=(RG.faces||[]).length;RG.diag.totalArea=RG.total||0;
+    RG.diag.booths={enabled:state.opts.useBooth!==false,matchedLayerCount:(RG.boothGroups||[]).length,
+      estimatedCount:RG.booths||0};
+    RG.diag.warnings=["provenance-incomplete","entity-type-counts-unavailable","dimension-entity-count-unavailable"];
+  }
+  return true;
+}
+function KAKU_getExtractionDiagnostics(){
+  if(!RG||!RG.diagEnabled||!RG.diag)return null;
+  return JSON.parse(JSON.stringify(RG.diag));
 }
 /* トイレブース・パーティションのレイヤー：部屋の壁には使わず、ブースの数だけ数える */
 const BOOTH_RE=/ブース|パーティション|ﾌﾞｰｽ|ﾊﾟｰﾃｨｼｮﾝ|PARTITION|BOOTH/i;
@@ -1773,7 +1804,11 @@ function rgCompute0(X){
         if(!okEnd(p,ux,uy)||!okEnd(q2,-ux,-uy))return;
         const k=i+"-"+j;if(done.has(k))return;done.add(k);segs.push([p.x,p.y,q2.x,q2.y,1]);vadd++})});
    }
-   RG.vlines=vadd}
+   RG.vlines=vadd;
+   if(RG.diagEnabled){RG.diag.lastCompute={activeLayerCount:on.size,selectedSourceSegmentCount:segs.length-vadd,
+     hatchExcluded:RG.autoHatch?RG.hatch.size:0,doorExcluded:doors.size,syntheticConnectorCount:vadd,
+     requestedGapMetres:gap,attemptedGapMetres:gap,unit:RG.unit,scale:RG.scale};}
+  }
   if(!segs.length){RG.faces=[];RG.grid=null;RG.msg="使える線がありません。線の種類のチェックを確認してください。";return}
   let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;segs.forEach(s=>{x0=Math.min(x0,s[0],s[2]);x1=Math.max(x1,s[0],s[2]);y0=Math.min(y0,s[1],s[3]);y1=Math.max(y1,s[1],s[3])});
   const area0=(x1-x0)*(y1-y0);
@@ -1970,6 +2005,11 @@ function rgCompute0(X){
       if(edge>=3&&inside>=2){faces.splice(k,1)}}
     faces.forEach((x,i)=>x.no=i+1)}
   RG.faces=faces;RG.total=faces.reduce((s,x)=>s+x.area,0);RG.ext=[x0,y0,x1,y1];
+  if(RG.diagEnabled){RG.diag.faces=faces.map(x=>({id:x.no,area:x.area,perimeter:x.peri||null,
+    bounds:x.bb?x.bb.slice():null,label:x.name||"",zone:x.zone==null?null:x.zone,
+    provenanceComplete:false}));RG.diag.faceCount=faces.length;RG.diag.totalArea=RG.total;
+    RG.diag.booths={enabled:state.opts.useBooth!==false,matchedLayerCount:(RG.boothGroups||[]).length,
+      estimatedCount:RG.booths||0};}
   RG.msg=faces.length?`${faces.length}個の区画を見つけました。工事する所を図でタップして選んでください。`:"区画が見つかりませんでした。縮尺・単位や、出入口をふさぐ幅を変えてみてください。";
 }
 function rgRender(){
